@@ -15,10 +15,19 @@ export default function AdminRequests() {
 
   useEffect(() => {
     fetchRequests();
+
+    // Supabase Realtime Live Subscription (Syncs with Customer & Pillar Portal)
+    const channel = adminService.subscribeToLiveRequests((payload) => {
+      console.log("Realtime order event received:", payload);
+      fetchRequests();
+    });
+
+    return () => {
+      channel?.unsubscribe();
+    };
   }, [filterStatus]);
 
   const fetchRequests = async () => {
-    setLoading(true);
     const data = await adminService.getServiceRequests(filterStatus);
     setRequests(data);
     setLoading(false);

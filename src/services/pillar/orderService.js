@@ -215,5 +215,21 @@ export const pillarOrderService = {
       console.error("Request extra charge error:", error);
       return { data: null, error };
     }
+  },
+
+  // Realtime Live Subscription for incoming Customer bookings and job status updates
+  subscribeToPillarOrders(pillarId, callback) {
+    const channel = supabase
+      .channel(`pillar-orders-${pillarId || 'all'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        (payload) => {
+          if (callback) callback(payload);
+        }
+      )
+      .subscribe();
+
+    return channel;
   }
 };

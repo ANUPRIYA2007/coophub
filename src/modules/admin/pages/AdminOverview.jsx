@@ -21,6 +21,15 @@ export default function AdminOverview() {
 
   useEffect(() => {
     fetchStats();
+
+    // Supabase Realtime Live Subscription (Syncs dashboard stats with live transactions)
+    const channel = adminService.subscribeToLiveRequests(() => {
+      fetchStats();
+    });
+
+    return () => {
+      channel?.unsubscribe();
+    };
   }, []);
 
   const fetchStats = async () => {

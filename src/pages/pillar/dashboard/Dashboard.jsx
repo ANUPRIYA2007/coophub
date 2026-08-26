@@ -93,6 +93,15 @@ export default function Dashboard() {
     }
 
     loadData();
+
+    // Supabase Realtime Live Subscription (Syncs incoming bookings from Customer Portal)
+    const channel = pillarOrderService.subscribeToPillarOrders(user?.id, () => {
+      loadData();
+    });
+
+    return () => {
+      channel?.unsubscribe();
+    };
   }, [user]);
 
   const handleToggleAvailability = async () => {

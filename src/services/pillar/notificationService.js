@@ -36,5 +36,20 @@ export const pillarNotificationService = {
     } catch (error) {
       return { success: false, error };
     }
+  },
+
+  subscribeToBroadcasts(callback) {
+    const channel = supabase
+      .channel('pillar-broadcast-notifications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'broadcast_messages' },
+        (payload) => {
+          if (callback) callback(payload);
+        }
+      )
+      .subscribe();
+
+    return channel;
   }
 };

@@ -322,5 +322,60 @@ export const adminService = {
       console.error("Error saving admin settings:", error);
       return { success: false, error: error.message };
     }
+  },
+
+  // ==========================================
+  // 8. SUPABASE REALTIME SUBSCRIPTIONS (LIVE 3-PORTAL SYNC)
+  // ==========================================
+  subscribeToLiveRequests(callback) {
+    const channel = supabase
+      .channel('admin-live-requests')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_requests' },
+        (payload) => {
+          if (callback) callback(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        (payload) => {
+          if (callback) callback(payload);
+        }
+      )
+      .subscribe();
+
+    return channel;
+  },
+
+  subscribeToLivePillars(callback) {
+    const channel = supabase
+      .channel('admin-live-pillars')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pillar_profiles' },
+        (payload) => {
+          if (callback) callback(payload);
+        }
+      )
+      .subscribe();
+
+    return channel;
+  },
+
+  subscribeToLiveTickets(callback) {
+    const channel = supabase
+      .channel('admin-live-tickets')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'support_tickets' },
+        (payload) => {
+          if (callback) callback(payload);
+        }
+      )
+      .subscribe();
+
+    return channel;
   }
 };
