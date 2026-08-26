@@ -26,7 +26,8 @@ import {
   Mic,
   MicOff,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Shield
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
@@ -403,12 +404,14 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { name: "Services", path: "/admin/services", icon: Wrench },
     { name: "Service Requests", path: "/admin/requests", icon: ClipboardList },
     { name: "Live Tracking", path: "/admin/tracking", icon: Clock },
+    { name: "Financials & Payouts", path: "/admin/finance", icon: Wallet },
     { name: "Customer Feedback", path: "/admin/feedback", icon: Star },
     { name: "Broadcast Messages", path: "/admin/messages", icon: MessageSquare },
   ];
 
   const bottomNavItems = [
     { name: "Support", path: "/admin/support", icon: HelpCircle },
+    { name: "Welfare & PF", path: "/admin/welfare", icon: Shield },
     { name: "Settings", path: "/admin/settings", icon: Settings },
   ];
 

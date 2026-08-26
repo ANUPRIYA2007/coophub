@@ -24,11 +24,11 @@ export default function AdminSupport() {
 
   const handleResolveTicket = async (ticketId, resolutionStatus = "resolved") => {
     setActionLoading(true);
-    const res = await adminService.updateSupportTicket(ticketId, {
-      status: resolutionStatus,
-      admin_response: adminReply || "Issue reviewed and resolved by Cooperative Admin.",
-      resolved_at: new Date().toISOString()
-    });
+    const res = await adminService.updateTicketStatus(
+      ticketId, 
+      resolutionStatus, 
+      adminReply || "Issue reviewed and resolved by Cooperative Admin."
+    );
 
     if (res.success) {
       setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: resolutionStatus, admin_response: adminReply } : t));

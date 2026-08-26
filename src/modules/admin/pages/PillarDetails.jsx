@@ -7,17 +7,34 @@ export default function PillarDetails() {
   const { pillarId } = useParams();
   const navigate = useNavigate();
   const [pillar, setPillar] = useState(null);
+  const [kycDocs, setKycDocs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     const fetchPillar = async () => {
       setLoading(true);
       const data = await adminService.getPillarById(pillarId);
+      const docs = await adminService.getPillarKycDocuments(pillarId);
       setPillar(data);
+      setKycDocs(docs);
       setLoading(false);
     };
     if (pillarId) fetchPillar();
   }, [pillarId]);
+
+  const handleUpdateStatus = async (status) => {
+    if (window.confirm(`Are you sure you want to mark this Pillar as ${status}?`)) {
+      setUpdating(true);
+      const res = await adminService.updatePillarStatus(pillarId, status);
+      if (res.success) {
+        setPillar(prev => ({ ...prev, status }));
+      } else {
+        alert("Failed to update status: " + res.error);
+      }
+      setUpdating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -83,7 +100,14 @@ export default function PillarDetails() {
         <div style={{ display: "flex", gap: "var(--space-3)" }}>
           <button className="btn btn-outline" onClick={() => alert("Edit functionality to be implemented")}>Edit Pillar</button>
           {pillar.status !== 'verified' && (
-            <button className="btn btn-primary" onClick={() => alert("Verification logic to be implemented")}>Verify Pillar</button>
+            <button className="btn btn-primary" onClick={() => handleUpdateStatus('verified')} disabled={updating}>
+              {updating ? "Updating..." : "Verify Pillar"}
+            </button>
+          )}
+          {pillar.status === 'verified' && (
+            <button className="btn btn-outline" style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }} onClick={() => handleUpdateStatus('rejected')} disabled={updating}>
+              Reject
+            </button>
           )}
         </div>
       </div>
@@ -113,7 +137,24 @@ export default function PillarDetails() {
             <InfoRow icon={<User size={16} />} label="Preferred Language" value={pillar.preferred_language || "N/A"} />
           </div>
         </div>
+      </div>
 
+      {/* KYC Documents */}
+      <div style={{ background: "var(--color-surface)", padding: "var(--space-5)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-sm)", marginTop: "var(--space-4)" }}>
+        <h3 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "var(--space-4)" }}>KYC Documents</h3>
+        {kycDocs.length === 0 ? (
+          <div style={{ color: "var(--color-text-secondary)" }}>No documents uploaded yet.</div>
+        ) : (
+          <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
+            {kycDocs.map(doc => (
+              <div key={doc.id} style={{ padding: "12px", border: "1px solid var(--color-border)", borderRadius: "8px", background: "var(--color-background)", minWidth: "200px" }}>
+                <div style={{ fontWeight: "600", textTransform: "capitalize", marginBottom: "4px" }}>{doc.document_type.replace('_', ' ')}</div>
+                <div style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)", marginBottom: "8px" }}>Status: {doc.verification_status}</div>
+                <a href={doc.document_url} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ padding: "4px 8px", fontSize: "0.8rem", display: "inline-block" }}>View Document</a>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
