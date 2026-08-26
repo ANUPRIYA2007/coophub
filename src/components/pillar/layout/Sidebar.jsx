@@ -28,7 +28,7 @@ import {
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
   const { t, language } = useTranslation();
-  const { profile, logout, user, session } = useAuth();
+  const { profile, logout, user, session, isAvailable, updateAvailability } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -46,21 +46,9 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const userName = profile?.full_name?.split(" ")[0] || "Senthil";
 
-  // Pillar Online / Offline Status Toggle
-  const [isOnline, setIsOnline] = useState(() => profile?.is_available !== false);
-
-  useEffect(() => {
-    if (profile?.is_available !== undefined) {
-      setIsOnline(profile.is_available);
-    }
-  }, [profile]);
-
   const handleToggleOnline = async () => {
-    const next = !isOnline;
-    setIsOnline(next);
-    if (user?.id) {
-      await pillarProfileService.updateAvailability(user.id, next);
-    }
+    const next = !isAvailable;
+    await updateAvailability(next);
 
     if (next) {
       setCurrentMood("excited");
@@ -490,9 +478,9 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                   gap: "6px",
                   padding: "3px 8px",
                   borderRadius: "12px",
-                  border: isOnline ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)",
-                  background: isOnline ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
-                  color: isOnline ? "#34D399" : "#F87171",
+                  border: isAvailable ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)",
+                  background: isAvailable ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                  color: isAvailable ? "#34D399" : "#F87171",
                   fontSize: "11px",
                   fontWeight: "700",
                   cursor: "pointer",
@@ -500,8 +488,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                 }}
                 title="Click to toggle Online / Offline status"
               >
-                <span className={`status-dot ${isOnline ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-                <span>{isOnline ? t("dashboard.available") : t("dashboard.offline")}</span>
+                <span className={`status-dot ${isAvailable ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
+                <span>{isAvailable ? "Available (Online)" : "Offline (Paused)"}</span>
               </button>
             </div>
           </div>

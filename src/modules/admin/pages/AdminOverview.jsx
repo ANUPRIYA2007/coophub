@@ -105,28 +105,36 @@ export default function AdminOverview() {
           </h1>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <button
+          {/* Status Badge — reflects sidebar toggle (single source of truth) */}
+          <div
             onClick={() => {
               const next = !isAdminOnline;
               setIsAdminOnline(next);
               localStorage.setItem("coophub_admin_online", next ? "true" : "false");
               window.dispatchEvent(new Event("coophub_admin_status_change"));
             }}
-            className="btn btn-outline"
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: "6px",
-              borderColor: isAdminOnline ? "var(--color-success)" : "#EF4444",
-              color: isAdminOnline ? "var(--color-success)" : "#EF4444",
-              background: isAdminOnline ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)"
+              gap: "7px",
+              padding: "5px 12px",
+              borderRadius: "20px",
+              border: isAdminOnline ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)",
+              background: isAdminOnline ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+              color: isAdminOnline ? "#10B981" : "#EF4444",
+              fontSize: "12px",
+              fontWeight: "700",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              userSelect: "none",
             }}
+            title="Click to toggle Admin Online / Offline status"
           >
             <span className={`status-dot ${isAdminOnline ? "available" : "offline"}`} style={{ width: "8px", height: "8px" }}></span>
-            {isAdminOnline ? "Operations Online" : "Operations Paused"}
-          </button>
+            {isAdminOnline ? "● Operations Online" : "○ Operations Paused"}
+          </div>
 
-          <button 
+          <button
             onClick={fetchStats}
             className="btn btn-outline"
             style={{ display: "flex", alignItems: "center", gap: "6px" }}

@@ -24,10 +24,9 @@ import {
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { user, profile } = useAuth();
+  const { user, profile, isAvailable, updateAvailability } = useAuth();
   const navigate = useNavigate();
 
-  const [isAvailable, setIsAvailable] = useState(true);
   const [loadingToggle, setLoadingToggle] = useState(false);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
 
@@ -44,12 +43,6 @@ export default function Dashboard() {
     pending: 0,
     paid: 0,
   });
-
-  useEffect(() => {
-    if (profile?.is_available !== undefined) {
-      setIsAvailable(profile.is_available);
-    }
-  }, [profile]);
 
   useEffect(() => {
     async function loadData() {
@@ -105,12 +98,8 @@ export default function Dashboard() {
   }, [user]);
 
   const handleToggleAvailability = async () => {
-    const nextState = !isAvailable;
-    setIsAvailable(nextState);
     setLoadingToggle(true);
-    if (user?.id) {
-      await pillarProfileService.updateAvailability(user.id, nextState);
-    }
+    await updateAvailability(!isAvailable);
     setLoadingToggle(false);
   };
 
