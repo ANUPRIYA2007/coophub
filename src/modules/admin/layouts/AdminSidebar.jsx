@@ -12,6 +12,7 @@ import {
   Settings,
   HelpCircle,
   MessageSquare,
+  Bell,
   LogOut,
   X,
   Volume2,
