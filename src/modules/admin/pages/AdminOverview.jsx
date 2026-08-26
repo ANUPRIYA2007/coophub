@@ -6,6 +6,7 @@ import {
   BarChart3, RefreshCw
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import gsap from "gsap";
 
 export default function AdminOverview() {
   const [stats, setStats] = useState({
@@ -27,6 +28,20 @@ export default function AdminOverview() {
     const data = await adminService.getDashboardStats();
     setStats(data);
     setLoading(false);
+
+    // GSAP Stagger Entrance
+    setTimeout(() => {
+      gsap.fromTo(
+        ".admin-kpi-card",
+        { opacity: 0, y: 22, scale: 0.96 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.08, ease: "power2.out" }
+      );
+      gsap.fromTo(
+        ".admin-bar-col",
+        { scaleY: 0, transformOrigin: "bottom" },
+        { scaleY: 1, duration: 0.65, stagger: 0.08, ease: "back.out(1.4)" }
+      );
+    }, 50);
   };
 
   const monthlyData = [
@@ -149,15 +164,18 @@ export default function AdminOverview() {
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-secondary)", fontWeight: "700", marginBottom: "6px" }}>
                     ₹{(d.revenue / 1000).toFixed(0)}k
                   </span>
-                  <div style={{
-                    width: "100%",
-                    maxWidth: "42px",
-                    height: `${heightPercent}%`,
-                    borderRadius: "6px 6px 2px 2px",
-                    background: "linear-gradient(180deg, var(--color-secondary) 0%, var(--color-primary) 100%)",
-                    boxShadow: "0 4px 12px rgba(245, 124, 32, 0.25)",
-                    transition: "height 0.4s ease"
-                  }} />
+                  <div 
+                    className="admin-bar-col"
+                    style={{
+                      width: "100%",
+                      maxWidth: "42px",
+                      height: `${heightPercent}%`,
+                      borderRadius: "6px 6px 2px 2px",
+                      background: "linear-gradient(180deg, var(--color-secondary) 0%, var(--color-primary) 100%)",
+                      boxShadow: "0 4px 12px rgba(245, 124, 32, 0.25)",
+                      transition: "height 0.4s ease"
+                    }} 
+                  />
                   <span style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--color-text)", marginTop: "8px" }}>
                     {d.month}
                   </span>
@@ -267,16 +285,19 @@ export default function AdminOverview() {
 
 function MetricCard({ icon, title, value, sub, color }) {
   return (
-    <div style={{ 
-      background: "var(--color-surface)", 
-      padding: "var(--space-4)", 
-      borderRadius: "var(--radius-lg)",
-      border: "1px solid var(--color-border)",
-      display: "flex",
-      alignItems: "center",
-      gap: "var(--space-4)",
-      boxShadow: "var(--shadow-sm)"
-    }}>
+    <div 
+      className="admin-kpi-card"
+      style={{ 
+        background: "var(--color-surface)", 
+        padding: "var(--space-4)", 
+        borderRadius: "var(--radius-lg)",
+        border: "1px solid var(--color-border)",
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-4)",
+        boxShadow: "var(--shadow-sm)"
+      }}
+    >
       <div style={{ 
         width: "46px", 
         height: "46px", 

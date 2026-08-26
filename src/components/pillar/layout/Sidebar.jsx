@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
+import gsap from "gsap";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -43,6 +44,15 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   const heroInputRef = useRef(null);
 
   const userName = profile?.full_name?.split(" ")[0] || "Senthil";
+
+  // GSAP Smooth Navigation Button Entrance
+  useEffect(() => {
+    gsap.fromTo(
+      ".pillar-nav-item",
+      { opacity: 0, x: -18, scale: 0.96 },
+      { opacity: 1, x: 0, scale: 1, duration: 0.45, stagger: 0.04, ease: "power2.out" }
+    );
+  }, []);
 
   // Friendly greeting emojis and moods per route
   const routePersonality = {
@@ -446,7 +456,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
-                <li key={item.path}>
+                <li key={item.path} className="pillar-nav-item">
                   <Link 
                     to={item.path}
                     onClick={() => { if (window.innerWidth <= 1024) toggleSidebar(); }}
@@ -460,7 +470,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                       fontSize: "14px"
                     }}
                   >
-                    <item.icon size={19} color={isActive ? "var(--color-secondary)" : "inherit"} />
+                    <item.icon size={19} color={isActive ? "var(--color-secondary)" : "rgba(255,255,255,0.85)"} />
                     {item.name}
                   </Link>
                 </li>
@@ -476,7 +486,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             {bottomNavItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
-                <li key={item.path}>
+                <li key={item.path} className="pillar-nav-item">
                   <Link 
                     to={item.path}
                     onClick={() => { if (window.innerWidth <= 1024) toggleSidebar(); }}
@@ -490,7 +500,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                       fontWeight: isActive ? "700" : "400"
                     }}
                   >
-                    <item.icon size={17} color={isActive ? "var(--color-secondary)" : "inherit"} />
+                    <item.icon size={17} color={isActive ? "var(--color-secondary)" : "rgba(255,255,255,0.85)"} />
                     {item.name}
                   </Link>
                 </li>
