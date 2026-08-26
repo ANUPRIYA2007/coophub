@@ -30,6 +30,8 @@ import AdminTracking from './modules/admin/pages/AdminTracking';
 import AdminMessages from './modules/admin/pages/AdminMessages';
 import AdminSupport from './modules/admin/pages/AdminSupport';
 import AdminSettings from './modules/admin/pages/AdminSettings';
+import AdminServices from './modules/admin/pages/AdminServices';
+import AdminFeedback from './modules/admin/pages/AdminFeedback';
 
 // Direct Access Route Component (Allows direct exploration of Pillar Dashboard without login barrier)
 const ProtectedRoute = ({ children }) => {
@@ -93,8 +95,10 @@ function App() {
                   <Route path="/" element={<AdminOverview />} />
                   <Route path="/pillars" element={<PillarsList />} />
                   <Route path="/pillars/:pillarId" element={<PillarDetails />} />
+                  <Route path="/services" element={<AdminServices />} />
                   <Route path="/requests" element={<AdminRequests />} />
                   <Route path="/tracking" element={<AdminTracking />} />
+                  <Route path="/feedback" element={<AdminFeedback />} />
                   <Route path="/messages" element={<AdminMessages />} />
                   <Route path="/support" element={<AdminSupport />} />
                   <Route path="/settings" element={<AdminSettings />} />

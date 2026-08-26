@@ -9,6 +9,9 @@ import {
   Wallet,
   Clock,
   User,
+  Users,
+  Wrench,
+  Star,
   Settings,
   HelpCircle,
   MessageSquare,
@@ -47,13 +50,15 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   // Friendly greeting emojis and moods per route
   const routePersonality = {
-    "/admin": { emoji: "👋", mood: "happy", greeting: `Welcome back, Admin! System looks stable.` },
-    "/admin/pillars": { emoji: "👥", mood: "helpful", greeting: `Let's review the Pillar network.` },
-    "/admin/requests": { emoji: "📦", mood: "excited", greeting: `Active service requests overview.` },
-    "/admin/tracking": { emoji: "📍", mood: "happy", greeting: `Live tracking enabled.` },
-    "/admin/messages": { emoji: "💬", mood: "helpful", greeting: `System messages and broadcast.` },
-    "/admin/support": { emoji: "🆘", mood: "helpful", greeting: `Support tickets needing attention.` },
-    "/admin/settings": { emoji: "⚙️", mood: "helpful", greeting: `Admin configuration settings.` },
+    "/admin": { emoji: "👋", mood: "happy", greeting: `Welcome back, Admin! System analytics and performance look strong.` },
+    "/admin/pillars": { emoji: "👥", mood: "helpful", greeting: `Let's review the registered Pillar workforce.` },
+    "/admin/services": { emoji: "🔧", mood: "excited", greeting: `Manage cooperative service catalog and pricing.` },
+    "/admin/requests": { emoji: "📦", mood: "excited", greeting: `Active customer service requests overview.` },
+    "/admin/tracking": { emoji: "📍", mood: "happy", greeting: `Live geospatial radar & telemetry active.` },
+    "/admin/feedback": { emoji: "⭐", mood: "happy", greeting: `Customer reviews and satisfaction ratings.` },
+    "/admin/messages": { emoji: "💬", mood: "helpful", greeting: `Cooperative announcements and broadcast center.` },
+    "/admin/support": { emoji: "🆘", mood: "helpful", greeting: `Support dispute tickets needing review.` },
+    "/admin/settings": { emoji: "⚙️", mood: "helpful", greeting: `Admin platform configuration settings.` },
   };
 
   // Get personality for current route
@@ -346,10 +351,12 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const navItems = [
     { name: "Overview", path: "/admin", icon: LayoutDashboard },
-    { name: "Pillars", path: "/admin/pillars", icon: User },
+    { name: "Pillars", path: "/admin/pillars", icon: Users },
+    { name: "Services", path: "/admin/services", icon: Wrench },
     { name: "Service Requests", path: "/admin/requests", icon: ClipboardList },
-    { name: "Tracking", path: "/admin/tracking", icon: Clock },
-    { name: "Messages", path: "/admin/messages", icon: MessageSquare },
+    { name: "Live Tracking", path: "/admin/tracking", icon: Clock },
+    { name: "Customer Feedback", path: "/admin/feedback", icon: Star },
+    { name: "Broadcast Messages", path: "/admin/messages", icon: MessageSquare },
   ];
 
   const bottomNavItems = [
@@ -458,7 +465,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                       fontSize: "14px"
                     }}
                   >
-                    <item.icon size={19} color={isActive ? "var(--color-secondary)" : "inherit"} />
+                    <item.icon size={19} color={isActive ? "var(--color-secondary)" : "rgba(255,255,255,0.85)"} />
                     {item.name}
                   </Link>
                 </li>
@@ -488,7 +495,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                       fontWeight: isActive ? "700" : "400"
                     }}
                   >
-                    <item.icon size={17} color={isActive ? "var(--color-secondary)" : "inherit"} />
+                    <item.icon size={17} color={isActive ? "var(--color-secondary)" : "rgba(255,255,255,0.85)"} />
                     {item.name}
                   </Link>
                 </li>
