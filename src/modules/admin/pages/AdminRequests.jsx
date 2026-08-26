@@ -187,7 +187,18 @@ export default function AdminRequests() {
                         {req.order_code || req.id.substring(0, 8).toUpperCase()}
                       </td>
                       <td style={{ padding: "12px 16px", fontWeight: "600" }}>
-                        {req.service_name || req.category || "General Service"}
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {req.service_name || req.category || "General Service"}
+                          {req.is_emergency && (
+                            <span style={{ 
+                              background: "var(--color-error)", color: "white", 
+                              fontSize: "0.65rem", padding: "2px 6px", borderRadius: "10px", 
+                              fontWeight: "bold", textTransform: "uppercase" 
+                            }}>
+                              Emergency
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         <div style={{ fontWeight: "600" }}>{req.customer_name || "Guest Customer"}</div>
@@ -297,6 +308,32 @@ export default function AdminRequests() {
               <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
                 <MapPin size={16} color="var(--color-secondary)" />
                 <span>{selectedRequest.customer_address || selectedRequest.location_name || "Chennai, Tamil Nadu"}</span>
+              </div>
+            </div>
+
+            {/* Assignment & Reassignment */}
+            <div style={{ marginBottom: "var(--space-4)", background: "var(--color-surface-hover)", padding: "var(--space-3)", borderRadius: "var(--radius-md)" }}>
+              <label style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "8px" }}>
+                Assigned Pillar:
+              </label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Enter Pillar UUID..." 
+                  style={{ flex: 1 }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleStatusChange(selectedRequest.id, 'assigned');
+                      // In a real app we'd update pillar_id in DB here.
+                      alert("Assignment updated (Requires Pillar ID logic implementation).");
+                    }
+                  }}
+                />
+                <button className="btn btn-primary" onClick={() => alert("Assigned")}>Assign</button>
+              </div>
+              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                Current: {selectedRequest.pillar ? `${selectedRequest.pillar.full_name} (${selectedRequest.pillar.pillar_code})` : "None"}
               </div>
             </div>
 

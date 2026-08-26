@@ -1,53 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Star, ThumbsUp, MessageSquare, Search, Filter, CheckCircle, User, Calendar } from "lucide-react";
+import { adminService } from "../services/adminService";
 
 export default function AdminFeedback() {
-  const [reviews, setReviews] = useState([
-    {
-      id: "rev-1",
-      customer_name: "Meenakshi Sundaram",
-      service_name: "Fan Motor Rewinding & Wiring",
-      pillar_name: "Senthil Kumar (PIL-CHE-042)",
-      rating: 5,
-      comment: "Arrived right on time in Guindy! Verified everything using arrival OTP and fixed the fan wiring without any extra mess. Very polite technician.",
-      date: "Today, 2:15 PM",
-      sentiment: "positive",
-      tags: ["Punctual", "Expert", "Fair Price"]
-    },
-    {
-      id: "rev-2",
-      customer_name: "Karthik Rajan",
-      service_name: "Bathroom Pipe Leakage Repair",
-      pillar_name: "Murugan V (PIL-CHE-019)",
-      rating: 5,
-      comment: "Very fast service in Velachery. Explained the issue clearly and charged strictly as per the cooperative rate card.",
-      date: "Yesterday",
-      sentiment: "positive",
-      tags: ["Transparent", "Polite"]
-    },
-    {
-      id: "rev-3",
-      customer_name: "Anandh Balaji",
-      service_name: "AC Gas Top-up & Coil Service",
-      pillar_name: "Praveen K (PIL-CHE-031)",
-      rating: 4,
-      comment: "Cooling is back to 100%. Had to wait 15 mins for technician arrival due to rain, but overall quality of work was excellent.",
-      date: "2 days ago",
-      sentiment: "positive",
-      tags: ["Quality Work"]
-    },
-    {
-      id: "rev-4",
-      customer_name: "Deepa Ramakrishnan",
-      service_name: "Switchboard Replacement",
-      pillar_name: "Senthil Kumar (PIL-CHE-042)",
-      rating: 5,
-      comment: "Clean installation and very trustworthy cooperative service! Will book again.",
-      date: "3 days ago",
-      sentiment: "positive",
-      tags: ["Clean Work", "Trustworthy"]
-    }
-  ]);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      setLoading(true);
+      const data = await adminService.getBookingReviews();
+      setReviews(data);
+      setLoading(false);
+    };
+    fetchReviews();
+  }, []);
 
   const [ratingFilter, setRatingFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,7 +22,12 @@ export default function AdminFeedback() {
   const filtered = reviews.filter(r => {
     const matchR = ratingFilter === "all" || r.rating === Number(ratingFilter);
     const q = searchQuery.toLowerCase();
-    const matchQ = r.customer_name.toLowerCase().includes(q) || r.service_name.toLowerCase().includes(q) || r.comment.toLowerCase().includes(q) || r.pillar_name.toLowerCase().includes(q);
+    const customerName = (r.customer_name || "").toLowerCase();
+    const serviceName = (r.booking?.service_name || "").toLowerCase();
+    const comment = (r.review_text || "").toLowerCase();
+    const pillarName = (r.pillar?.full_name || "").toLowerCase();
+    
+    const matchQ = customerName.includes(q) || serviceName.includes(q) || comment.includes(q) || pillarName.includes(q);
     return matchR && matchQ;
   });
 
@@ -190,7 +162,7 @@ export default function AdminFeedback() {
                     </span>
                   </div>
                   <div style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)", marginTop: "2px" }}>
-                    Service: <strong>{rev.service_name}</strong> • Pillar: <strong>{rev.pillar_name}</strong>
+                    Service: <strong>{rev.booking?.service_name || "Service"}</strong> • Pillar: <strong>{rev.pillar?.full_name || "Unknown"}</strong>
                   </div>
                 </div>
 
@@ -200,16 +172,16 @@ export default function AdminFeedback() {
                       <Star key={i} size={15} fill="#F59E0B" />
                     ))}
                   </div>
-                  <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>{rev.date}</span>
+                  <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>{new Date(rev.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
 
               <p style={{ margin: "8px 0 10px 0", fontSize: "0.9rem", color: "var(--color-text)", lineHeight: "1.5" }}>
-                "{rev.comment}"
+                "{rev.review_text}"
               </p>
 
               <div style={{ display: "flex", gap: "6px" }}>
-                {rev.tags.map((tag) => (
+                {rev.tags?.map((tag) => (
                   <span 
                     key={tag}
                     style={{

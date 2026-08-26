@@ -32,6 +32,8 @@ import AdminSupport from './modules/admin/pages/AdminSupport';
 import AdminSettings from './modules/admin/pages/AdminSettings';
 import AdminServices from './modules/admin/pages/AdminServices';
 import AdminFeedback from './modules/admin/pages/AdminFeedback';
+import AdminFinance from './modules/admin/pages/AdminFinance';
+import AdminWelfare from './modules/admin/pages/AdminWelfare';
 
 // Direct Access Route Component (Allows direct exploration of Pillar Dashboard without login barrier)
 const ProtectedRoute = ({ children }) => {
@@ -98,6 +100,8 @@ function App() {
                   <Route path="/services" element={<AdminServices />} />
                   <Route path="/requests" element={<AdminRequests />} />
                   <Route path="/tracking" element={<AdminTracking />} />
+                  <Route path="/finance" element={<AdminFinance />} />
+                  <Route path="/welfare" element={<AdminWelfare />} />
                   <Route path="/feedback" element={<AdminFeedback />} />
                   <Route path="/messages" element={<AdminMessages />} />
                   <Route path="/support" element={<AdminSupport />} />

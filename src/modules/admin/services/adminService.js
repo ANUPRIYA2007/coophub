@@ -1,152 +1,24 @@
 import { supabase } from "../../../lib/supabase";
 
-const isDemoMode = () => {
-  return localStorage.getItem("coophub_demo_admin") === "true" || localStorage.getItem("coophub_demo_user") === "true";
-};
+const isAdminDemo = () => localStorage.getItem("coophub_demo_admin") === "true";
 
-// 🧪 DEMO DATASETS (Only served when in Demo Mode)
-const DEMO_STATS = {
-  totalPillars: 126,
-  activePillars: 84,
-  pendingPillars: 12,
-  activeRequests: 18,
-  totalRevenue: 238500,
-  openTickets: 3
-};
-
+// ==========================================
+// ADMIN DEMO DATA
+// ==========================================
 const DEMO_PILLARS = [
-  {
-    id: "p-1",
-    pillar_code: "PIL-CHE-042",
-    full_name: "Senthil Kumar",
-    mobile: "+91 98401 23456",
-    email: "senthil@coophub.in",
-    main_services: ["Electrician", "AC Repair"],
-    service_area: ["Guindy", "Velachery", "Adyar"],
-    status: "verified",
-    is_available: true,
-    experience_years: "6",
-    created_at: new Date(Date.now() - 30 * 86400000).toISOString()
-  },
-  {
-    id: "p-2",
-    pillar_code: "PIL-CHE-019",
-    full_name: "Ramesh Kannan",
-    mobile: "+91 98840 54321",
-    email: "ramesh.k@coophub.in",
-    main_services: ["Plumbing & Motors"],
-    service_area: ["T. Nagar", "Kodambakkam", "Nungambakkam"],
-    status: "verified",
-    is_available: true,
-    experience_years: "8",
-    created_at: new Date(Date.now() - 45 * 86400000).toISOString()
-  },
-  {
-    id: "p-3",
-    pillar_code: "PIL-CHE-088",
-    full_name: "Kavitha Sundar",
-    mobile: "+91 97910 88776",
-    email: "kavitha.s@coophub.in",
-    main_services: ["Appliance & AC Repair"],
-    service_area: ["Anna Nagar", "Kilpauk", "Shenoy Nagar"],
-    status: "verified",
-    is_available: false,
-    experience_years: "4",
-    created_at: new Date(Date.now() - 60 * 86400000).toISOString()
-  },
-  {
-    id: "p-4",
-    pillar_code: "PIL-CHE-104",
-    full_name: "Murugan V.",
-    mobile: "+91 91760 99887",
-    email: "murugan.v@coophub.in",
-    main_services: ["Deep Home Cleaning"],
-    service_area: ["Tambaram", "Chromepet", "Pallavaram"],
-    status: "pending_review",
-    is_available: false,
-    experience_years: "3",
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-  {
-    id: "p-5",
-    pillar_code: "PIL-CHE-112",
-    full_name: "Anand Raj",
-    mobile: "+91 94440 33221",
-    email: "anand.raj@coophub.in",
-    main_services: ["Electrician"],
-    service_area: ["Mylapore", "Mandaveli", "Alwarpet"],
-    status: "verified",
-    is_available: true,
-    experience_years: "5",
-    created_at: new Date(Date.now() - 15 * 86400000).toISOString()
-  }
+  { id: "p-1", full_name: "Senthil Kumar", pillar_code: "PIL-CHE-042", mobile: "+91 98401 23456", email: "senthil@coophub.in", status: "verified", is_available: true, service_area: "Guindy, Adyar, Chennai", main_services: ["Electrician"], experience_years: 5, rating: 4.8, total_jobs: 127, created_at: new Date(Date.now() - 90 * 86400000).toISOString() },
+  { id: "p-2", full_name: "Murugan Velan", pillar_code: "PIL-CHE-019", mobile: "+91 94440 98765", email: "murugan@coophub.in", status: "verified", is_available: true, service_area: "T Nagar, Kodambakkam", main_services: ["Plumber"], experience_years: 8, rating: 4.6, total_jobs: 95, created_at: new Date(Date.now() - 60 * 86400000).toISOString() },
+  { id: "p-3", full_name: "Praveen Kumaran", pillar_code: "PIL-CHE-031", mobile: "+91 98840 11223", email: "praveen@coophub.in", status: "verified", is_available: false, service_area: "Velachery, Pallikaranai", main_services: ["AC Technician"], experience_years: 4, rating: 4.9, total_jobs: 82, created_at: new Date(Date.now() - 45 * 86400000).toISOString() },
+  { id: "p-4", full_name: "Ramesh Pandi", pillar_code: "PIL-CHE-055", mobile: "+91 97910 44556", email: "ramesh@coophub.in", status: "pending_review", is_available: false, service_area: "Saidapet, Ashok Nagar", main_services: ["Carpenter"], experience_years: 6, rating: 0, total_jobs: 0, created_at: new Date(Date.now() - 5 * 86400000).toISOString() },
+  { id: "p-5", full_name: "Lakshmi Priya", pillar_code: "PIL-CHE-068", mobile: "+91 91760 33221", email: "lakshmi@coophub.in", status: "verified", is_available: true, service_area: "Adyar, Besant Nagar", main_services: ["Home Cleaning"], experience_years: 3, rating: 4.7, total_jobs: 64, created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
 ];
 
 const DEMO_REQUESTS = [
-  {
-    id: "req-1",
-    order_code: "ORD-9842",
-    customer_name: "Meenakshi Sundaram",
-    customer_phone: "+91 98401 23456",
-    customer_address: "Flat 4B, Shanthi Apts, Guindy, Chennai",
-    service_name: "Ceiling Fan & Switchboard Wiring",
-    category: "Electrician",
-    amount: 450,
-    final_amount: 450,
-    status: "in_progress",
-    payment_status: "paid",
-    location_name: "Guindy Hub",
-    pillar: { full_name: "Senthil Kumar", pillar_code: "PIL-CHE-042", mobile: "+91 98401 23456" },
-    scheduled_at: new Date().toISOString()
-  },
-  {
-    id: "req-2",
-    order_code: "ORD-9843",
-    customer_name: "Karthik Rajan",
-    customer_phone: "+91 94440 98765",
-    customer_address: "Plot 12, 2nd Main Road, Velachery, Chennai",
-    service_name: "Main Power MCB Tripping Inspection",
-    category: "Electrician",
-    amount: 650,
-    final_amount: 650,
-    status: "pending",
-    payment_status: "pending",
-    location_name: "Velachery Hub",
-    pillar: null,
-    scheduled_at: new Date().toISOString()
-  },
-  {
-    id: "req-3",
-    order_code: "ORD-9839",
-    customer_name: "Suresh Balaji",
-    customer_phone: "+91 98841 77665",
-    customer_address: "88, Usman Road, T. Nagar, Chennai",
-    service_name: "Bathroom Pipe Leak & Tap Fitting",
-    category: "Plumbing",
-    amount: 550,
-    final_amount: 550,
-    status: "assigned",
-    payment_status: "paid",
-    location_name: "T. Nagar Hub",
-    pillar: { full_name: "Ramesh Kannan", pillar_code: "PIL-CHE-019", mobile: "+91 98840 54321" },
-    scheduled_at: new Date().toISOString()
-  },
-  {
-    id: "req-4",
-    order_code: "ORD-9801",
-    customer_name: "Deepak S.",
-    customer_phone: "+91 98840 11223",
-    customer_address: "18, Gandhi Nagar 1st Main Rd, Adyar, Chennai",
-    service_name: "AC Power Point & 16A Socket",
-    category: "Electrician",
-    amount: 850,
-    final_amount: 850,
-    status: "completed",
-    payment_status: "paid",
-    location_name: "Adyar Hub",
-    pillar: { full_name: "Senthil Kumar", pillar_code: "PIL-CHE-042", mobile: "+91 98401 23456" },
-    scheduled_at: new Date(Date.now() - 86400000).toISOString()
-  }
+  { id: "r-1", booking_code: "BKG-9842", service_name: "Ceiling Fan & Switchboard Wiring", customer_name: "Meenakshi S.", customer_mobile: "+91 98401 23456", service_address: "Flat 4B, Shanthi Apts, Guindy", status: "in_progress", amount: 450, is_emergency: false, category: "Electrician", created_at: new Date().toISOString(), pillar: { id: "p-1", full_name: "Senthil Kumar", pillar_code: "PIL-CHE-042" } },
+  { id: "r-2", booking_code: "BKG-9843", service_name: "Main Power MCB Tripping", customer_name: "Karthik R.", customer_mobile: "+91 94440 98765", service_address: "Plot 12, Velachery", status: "pending", amount: 650, is_emergency: true, category: "Electrician", created_at: new Date(Date.now() - 3600000).toISOString(), pillar: null },
+  { id: "r-3", booking_code: "BKG-9801", service_name: "AC Deep Gas Top-up", customer_name: "Deepak S.", customer_mobile: "+91 98840 11223", service_address: "18, Gandhi Nagar, Adyar", status: "completed", amount: 1200, final_amount: 1200, is_emergency: false, category: "AC Repair", created_at: new Date(Date.now() - 86400000).toISOString(), pillar: { id: "p-3", full_name: "Praveen Kumaran", pillar_code: "PIL-CHE-031" } },
+  { id: "r-4", booking_code: "BKG-9788", service_name: "Kitchen Sink Drain Unclog", customer_name: "Lakshmi M.", customer_mobile: "+91 97910 44556", service_address: "24, Anna Salai, Saidapet", status: "completed", amount: 300, final_amount: 300, is_emergency: false, category: "Plumbing", created_at: new Date(Date.now() - 172800000).toISOString(), pillar: { id: "p-2", full_name: "Murugan Velan", pillar_code: "PIL-CHE-019" } },
+  { id: "r-5", booking_code: "BKG-9775", service_name: "Deep Home Cleaning - 2BHK", customer_name: "Radhika R.", customer_mobile: "+91 91760 33221", service_address: "8, Besant Avenue Rd, Adyar", status: "completed", amount: 1800, final_amount: 1800, is_emergency: false, category: "Home Cleaning", created_at: new Date(Date.now() - 259200000).toISOString(), pillar: { id: "p-5", full_name: "Lakshmi Priya", pillar_code: "PIL-CHE-068" } },
 ];
 
 export const adminService = {
@@ -154,6 +26,11 @@ export const adminService = {
   // 1. DASHBOARD STATS
   // ==========================================
   async getDashboardStats() {
+    // 🧪 DEMO MODE
+    if (isAdminDemo()) {
+      return { totalPillars: 126, activePillars: 89, pendingPillars: 12, activeRequests: 34, totalRevenue: 238500, openTickets: 7 };
+    }
+
     // 🔒 REAL MODE: Query live Supabase data with 0 mock numbers
     try {
       const { data: pillars, error: pillarsError } = await supabase
@@ -168,7 +45,7 @@ export const adminService = {
       let totalRevenue = 0;
       try {
         const { data: requests } = await supabase
-          .from('service_requests')
+          .from('bookings')
           .select('id, status, amount, final_amount');
         if (requests) {
           activeRequests = requests.filter(r => r.status === 'in_progress' || r.status === 'assigned' || r.status === 'pending').length;
@@ -191,10 +68,7 @@ export const adminService = {
         console.log("Tickets count error:", e);
       }
 
-      // If in demo mode and database is fresh/empty, return demo stats
-      if (isDemoMode() && totalPillars === 0 && activeRequests === 0) {
-        return DEMO_STATS;
-      }
+
 
       return {
         totalPillars,
@@ -206,15 +80,153 @@ export const adminService = {
       };
     } catch (error) {
       console.error("Error fetching admin stats:", error);
-      if (isDemoMode()) return DEMO_STATS;
       return { totalPillars: 0, activePillars: 0, pendingPillars: 0, activeRequests: 0, totalRevenue: 0, openTickets: 0 };
+    }
+  },
+
+  async getOverviewAnalytics() {
+    // 🧪 DEMO MODE
+    if (isAdminDemo()) {
+      return {
+        monthlyData: [
+          { month: "Apr", bookings: 120, revenue: 48000 },
+          { month: "May", bookings: 180, revenue: 72000 },
+          { month: "Jun", bookings: 240, revenue: 96000 },
+          { month: "Jul", bookings: 310, revenue: 135000 },
+          { month: "Aug", bookings: 420, revenue: 184000 },
+          { month: "Sep", bookings: 530, revenue: 238500 },
+        ],
+        categoryDistribution: [
+          { name: "Electrician Services", count: 48, percentage: 38, color: "var(--color-primary)" },
+          { name: "Plumbing & Motors", count: 35, percentage: 28, color: "var(--color-secondary)" },
+          { name: "Appliance & AC Repair", count: 28, percentage: 22, color: "#10B981" },
+          { name: "Deep Home Cleaning", count: 15, percentage: 12, color: "#8B5CF6" },
+        ],
+        recentTransactions: [
+          { id: "TX-9081", customer: "Meenakshi S.", service: "Fan Wiring & Switchboard", pillar: "Senthil Kumar (PIL-042)", amount: "₹450", status: "Completed", time: "10 mins ago" },
+          { id: "TX-9080", customer: "Karthik R.", service: "Main Pipe Leak Repair", pillar: "Murugan V (PIL-019)", amount: "₹350", status: "Completed", time: "42 mins ago" },
+          { id: "TX-9079", customer: "Deepak S.", service: "AC Deep Gas Top-up", pillar: "Praveen K (PIL-031)", amount: "₹1,200", status: "In Progress", time: "1h ago" },
+          { id: "TX-9078", customer: "Lakshmi M.", service: "Kitchen Sink Drain Unclog", pillar: "Ramesh P (PIL-055)", amount: "₹300", status: "Completed", time: "2h ago" },
+        ]
+      };
+    }
+
+    try {
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select(`
+          id, status, final_amount, amount, created_at, category, service_name, customer_name,
+          pillar:pillar_profiles(full_name, pillar_code)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!bookings) return { monthlyData: [], categoryDistribution: [], recentTransactions: [] };
+
+      // 1. Monthly Data
+      const monthMap = {};
+      bookings.forEach(b => {
+        if (b.status === 'completed') {
+          const date = new Date(b.created_at);
+          const monthStr = date.toLocaleString('default', { month: 'short' });
+          if (!monthMap[monthStr]) monthMap[monthStr] = { bookings: 0, revenue: 0 };
+          monthMap[monthStr].bookings += 1;
+          monthMap[monthStr].revenue += Number(b.final_amount || b.amount || 0);
+        }
+      });
+      const monthlyData = Object.keys(monthMap).map(m => ({
+        month: m,
+        bookings: monthMap[m].bookings,
+        revenue: monthMap[m].revenue
+      })).reverse(); // Very simple sorting, assumes descending fetch
+
+      // 2. Category Distribution
+      const catMap = {};
+      bookings.forEach(b => {
+        const cat = b.category || "General";
+        if (!catMap[cat]) catMap[cat] = 0;
+        catMap[cat] += 1;
+      });
+      const totalB = bookings.length || 1;
+      const colors = ["var(--color-primary)", "var(--color-secondary)", "#10B981", "#8B5CF6", "#F59E0B"];
+      const categoryDistribution = Object.keys(catMap).map((cat, idx) => ({
+        name: cat,
+        count: catMap[cat],
+        percentage: Math.round((catMap[cat] / totalB) * 100),
+        color: colors[idx % colors.length]
+      })).sort((a,b) => b.count - a.count);
+
+      // 3. Recent Transactions
+      const recentTransactions = bookings.slice(0, 10).map(b => ({
+        id: b.id.substring(0,8).toUpperCase(),
+        customer: b.customer_name || "Guest",
+        service: b.service_name || b.category,
+        pillar: b.pillar ? `${b.pillar.full_name} (${b.pillar.pillar_code})` : "Unassigned",
+        amount: `₹${b.final_amount || b.amount || 0}`,
+        status: b.status,
+        time: new Date(b.created_at).toLocaleDateString()
+      }));
+
+      return { monthlyData, categoryDistribution, recentTransactions };
+    } catch (err) {
+      console.error(err);
+      return { monthlyData: [], categoryDistribution: [], recentTransactions: [] };
     }
   },
 
   // ==========================================
   // 2. PILLAR MANAGEMENT
   // ==========================================
+  async createPillar(pillarData, email, password) {
+    try {
+      // 1. Create Auth User
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+      });
+      if (authError) throw authError;
+
+      const newUserId = authData.user.id;
+
+      // 2. Create Pillar Profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('pillar_profiles')
+        .insert([{
+          id: newUserId,
+          ...pillarData,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (profileError) throw profileError;
+      return { success: true, data: profileData };
+    } catch (error) {
+      console.error("Error creating pillar:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updatePillar(pillarId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('pillar_profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', pillarId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error updating pillar:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
   async getAllPillars() {
+    if (isAdminDemo()) return DEMO_PILLARS;
+
     try {
       const { data, error } = await supabase
         .from('pillar_profiles')
@@ -222,13 +234,9 @@ export const adminService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if ((!data || data.length === 0) && isDemoMode()) {
-        return DEMO_PILLARS;
-      }
       return data || [];
     } catch (error) {
       console.error("Error fetching all pillars:", error);
-      if (isDemoMode()) return DEMO_PILLARS;
       return [];
     }
   },
@@ -245,10 +253,22 @@ export const adminService = {
       return data;
     } catch (error) {
       console.error(`Error fetching pillar ${pillarId}:`, error);
-      if (isDemoMode()) {
-        return DEMO_PILLARS.find(p => p.id === pillarId || p.pillar_code === pillarId) || DEMO_PILLARS[0];
-      }
       return null;
+    }
+  },
+
+  async getPillarKycDocuments(pillarId) {
+    try {
+      const { data, error } = await supabase
+        .from('kyc_documents')
+        .select('*')
+        .eq('pillar_id', pillarId);
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error(`Error fetching KYC for ${pillarId}:`, error);
+      return [];
     }
   },
 
@@ -278,12 +298,6 @@ export const adminService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if ((!data || data.length === 0) && isDemoMode()) {
-        return DEMO_PILLARS.filter(p => 
-          p.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          p.pillar_code.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
       return data || [];
     } catch (error) {
       console.error("Error searching pillars:", error);
@@ -295,9 +309,15 @@ export const adminService = {
   // 3. SERVICE REQUESTS MANAGEMENT
   // ==========================================
   async getServiceRequests(statusFilter = 'all') {
+    if (isAdminDemo()) {
+      let result = DEMO_REQUESTS;
+      if (statusFilter && statusFilter !== 'all') result = result.filter(r => r.status === statusFilter);
+      return result;
+    }
+
     try {
       let query = supabase
-        .from('service_requests')
+        .from('bookings')
         .select(`
           *,
           pillar:pillar_profiles(id, full_name, pillar_code, mobile)
@@ -311,16 +331,9 @@ export const adminService = {
       const { data, error } = await query;
       if (error) throw error;
 
-      if ((!data || data.length === 0) && isDemoMode()) {
-        if (statusFilter && statusFilter !== 'all') {
-          return DEMO_REQUESTS.filter(r => r.status === statusFilter);
-        }
-        return DEMO_REQUESTS;
-      }
       return data || [];
     } catch (error) {
       console.error("Error fetching service requests:", error);
-      if (isDemoMode()) return DEMO_REQUESTS;
       return [];
     }
   },
@@ -328,7 +341,7 @@ export const adminService = {
   async updateServiceRequest(requestId, updates) {
     try {
       const { data, error } = await supabase
-        .from('service_requests')
+        .from('bookings')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', requestId)
         .select()
@@ -343,7 +356,89 @@ export const adminService = {
   },
 
   // ==========================================
-  // 4. LIVE TRACKING & TELEMETRY
+  // 4. FINANCIALS & PAYOUTS
+  // ==========================================
+  async getPayoutRequests(statusFilter = 'all') {
+    if (isAdminDemo()) {
+      return [
+        { id: "PO-101", pillar_id: "p-1", amount: 4500, status: "pending", payment_mode: "bank_transfer", requested_at: new Date(Date.now() - 86400000).toISOString(), pillar: { full_name: "Senthil Kumar", pillar_code: "PIL-CHE-042", bank_name: "SBI", bank_account_number: "308945781234", bank_ifsc: "SBIN0000842" } },
+        { id: "PO-100", pillar_id: "p-2", amount: 3200, status: "completed", payment_mode: "upi", requested_at: new Date(Date.now() - 172800000).toISOString(), processed_at: new Date(Date.now() - 86400000).toISOString(), pillar: { full_name: "Murugan Velan", pillar_code: "PIL-CHE-019", bank_upi_id: "9444098765@upi" } },
+        { id: "PO-099", pillar_id: "p-3", amount: 5800, status: "processing", payment_mode: "bank_transfer", requested_at: new Date(Date.now() - 259200000).toISOString(), pillar: { full_name: "Praveen Kumaran", pillar_code: "PIL-CHE-031", bank_name: "HDFC", bank_account_number: "501203456789", bank_ifsc: "HDFC0001234" } },
+      ];
+    }
+
+    try {
+      let query = supabase
+        .from('payout_requests')
+        .select(`
+          *,
+          pillar:pillar_profiles(id, full_name, pillar_code, mobile, bank_account_holder, bank_name, bank_account_number, bank_ifsc, bank_upi_id)
+        `)
+        .order('requested_at', { ascending: false });
+
+      if (statusFilter && statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching payout requests:", error);
+      return [];
+    }
+  },
+
+  async updatePayoutStatus(requestId, status) {
+    try {
+      const { data, error } = await supabase
+        .from('payout_requests')
+        .update({ status, processed_at: status === 'completed' ? new Date().toISOString() : null })
+        .eq('id', requestId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error updating payout status:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // ==========================================
+  // 5. REVIEWS & FEEDBACK
+  // ==========================================
+  async getBookingReviews() {
+    if (isAdminDemo()) {
+      return [
+        { id: "rv-1", rating: 5, review_text: "Excellent work! Fixed the wiring perfectly and cleaned up afterwards.", created_at: new Date().toISOString(), pillar: { full_name: "Senthil Kumar", pillar_code: "PIL-CHE-042" }, booking: { service_name: "Ceiling Fan Wiring" } },
+        { id: "rv-2", rating: 4, review_text: "Good service, arrived on time. Minor delay in finding the leak.", created_at: new Date(Date.now() - 86400000).toISOString(), pillar: { full_name: "Murugan Velan", pillar_code: "PIL-CHE-019" }, booking: { service_name: "Pipe Leak Repair" } },
+        { id: "rv-3", rating: 5, review_text: "AC is cooling like brand new! Very professional technician.", created_at: new Date(Date.now() - 172800000).toISOString(), pillar: { full_name: "Praveen Kumaran", pillar_code: "PIL-CHE-031" }, booking: { service_name: "AC Gas Top-up" } },
+        { id: "rv-4", rating: 5, review_text: "Spotless cleaning! Will book again next month.", created_at: new Date(Date.now() - 259200000).toISOString(), pillar: { full_name: "Lakshmi Priya", pillar_code: "PIL-CHE-068" }, booking: { service_name: "Deep Home Cleaning" } },
+      ];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('booking_reviews')
+        .select(`
+          *,
+          pillar:pillar_profiles(id, full_name, pillar_code),
+          booking:bookings(service_name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      return [];
+    }
+  },
+
+  // ==========================================
+  // 6. LIVE TRACKING & TELEMETRY
   // ==========================================
   async getPillarsLiveTracking() {
     try {
@@ -353,14 +448,6 @@ export const adminService = {
         .order('is_available', { ascending: false });
 
       if (error) throw error;
-      if ((!data || data.length === 0) && isDemoMode()) {
-        return DEMO_PILLARS.map((p, idx) => ({
-          ...p,
-          current_lat: 13.0067 + (idx * 0.015),
-          current_lng: 80.2025 + (idx * 0.012),
-          last_active_at: new Date().toISOString()
-        }));
-      }
       return data || [];
     } catch (error) {
       console.error("Error fetching live tracking data:", error);
@@ -413,6 +500,16 @@ export const adminService = {
   // 6. SUPPORT TICKETS
   // ==========================================
   async getSupportTickets(statusFilter = 'all') {
+    if (isAdminDemo()) {
+      const demoTickets = [
+        { id: "TKT-301", subject: "Payment not received for booking BKG-9801", category: "payment", priority: "high", status: "open", pillar_id: "p-3", pillar_name: "Praveen Kumaran", created_at: new Date(Date.now() - 3600000).toISOString() },
+        { id: "TKT-300", subject: "Customer reported wrong address", category: "service", priority: "medium", status: "in_progress", pillar_id: "p-1", pillar_name: "Senthil Kumar", created_at: new Date(Date.now() - 86400000).toISOString(), admin_response: "Re-routing the Pillar to the correct address." },
+        { id: "TKT-299", subject: "App crash on orders page", category: "technical", priority: "low", status: "resolved", pillar_id: "p-2", pillar_name: "Murugan Velan", created_at: new Date(Date.now() - 259200000).toISOString(), admin_response: "Issue resolved in latest build." },
+      ];
+      if (statusFilter && statusFilter !== 'all') return demoTickets.filter(t => t.status === statusFilter);
+      return demoTickets;
+    }
+
     try {
       let query = supabase
         .from('support_tickets')
