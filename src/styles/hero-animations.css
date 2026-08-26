@@ -1,0 +1,195 @@
+/* ============================================================
+   COOP HUB HERO AI — EXPRESSIVE MASCOT KEYFRAME ANIMATIONS
+   GPU-accelerated, lightweight, non-distracting transforms
+   ============================================================ */
+
+/* 1. IDLE: Gentle breathing and floating motion */
+@keyframes hero-idle-float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.5deg);
+  }
+}
+
+/* 2. GREETING: Friendly welcoming tilt */
+@keyframes hero-greeting-wave {
+  0% {
+    transform: scale(1) translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.04) translateY(-10px) rotate(-4deg);
+  }
+  50% {
+    transform: scale(1.04) translateY(-10px) rotate(3deg);
+  }
+  75% {
+    transform: scale(1.02) translateY(-5px) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) translateY(0px) rotate(0deg);
+  }
+}
+
+/* 3. LISTENING: Attentive forward lean with subtle pulse */
+@keyframes hero-listening-lean {
+  0%, 100% {
+    transform: scale(1.02) translateY(-4px) rotate(-1.5deg);
+    filter: drop-shadow(0 0 16px rgba(59, 130, 246, 0.45));
+  }
+  50% {
+    transform: scale(1.03) translateY(-6px) rotate(-1.5deg);
+    filter: drop-shadow(0 0 24px rgba(59, 130, 246, 0.65));
+  }
+}
+
+/* 4. THINKING: Concentrating tilt with glowing antenna pulse */
+@keyframes hero-thinking-tilt {
+  0%, 100% {
+    transform: rotate(3deg) translateY(-4px);
+    filter: drop-shadow(0 0 12px rgba(245, 124, 32, 0.35));
+  }
+  50% {
+    transform: rotate(4.5deg) translateY(-8px);
+    filter: drop-shadow(0 0 20px rgba(245, 124, 32, 0.6));
+  }
+}
+
+/* 5. SPEAKING: Rhythmic conversational pulse */
+@keyframes hero-speaking-rhythm {
+  0%, 100% {
+    transform: scale(1) translateY(0px);
+  }
+  25% {
+    transform: scale(1.02) translateY(-4px);
+  }
+  50% {
+    transform: scale(0.99) translateY(0px);
+  }
+  75% {
+    transform: scale(1.025) translateY(-5px);
+  }
+}
+
+/* 6. SUCCESS: Energetic celebration bounce */
+@keyframes hero-success-bounce {
+  0% {
+    transform: scale(1) translateY(0);
+  }
+  30% {
+    transform: scale(1.1) translateY(-18px);
+    filter: drop-shadow(0 0 22px rgba(16, 185, 129, 0.6));
+  }
+  50% {
+    transform: scale(0.98) translateY(2px);
+  }
+  70% {
+    transform: scale(1.04) translateY(-6px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 7. ERROR / OOPS: Subtle concern shake */
+@keyframes hero-error-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-8px) rotate(-2deg);
+    filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.5));
+  }
+  40% {
+    transform: translateX(8px) rotate(2deg);
+  }
+  60% {
+    transform: translateX(-5px) rotate(-1deg);
+  }
+  80% {
+    transform: translateX(5px) rotate(1deg);
+  }
+}
+
+/* 8. EYE BLINK OVERLAY: Natural eye blink simulation */
+@keyframes hero-eye-blink {
+  0%, 45%, 55%, 100% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  48%, 52% {
+    opacity: 0.95;
+    transform: scaleY(1);
+  }
+}
+
+/* Base Mascot Animation Classes */
+.hero-mascot-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+  will-change: transform, filter;
+}
+
+.hero-state-idle {
+  animation: hero-idle-float 4.5s ease-in-out infinite;
+}
+
+.hero-state-greeting {
+  animation: hero-greeting-wave 1.2s ease-in-out 1;
+}
+
+.hero-state-listening {
+  animation: hero-listening-lean 2s ease-in-out infinite;
+}
+
+.hero-state-thinking {
+  animation: hero-thinking-tilt 2.2s ease-in-out infinite;
+}
+
+.hero-state-speaking {
+  animation: hero-speaking-rhythm 1.6s ease-in-out infinite;
+}
+
+.hero-state-success {
+  animation: hero-success-bounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+}
+
+.hero-state-error {
+  animation: hero-error-shake 0.55s ease-in-out 1;
+}
+
+/* Realistic Eye Blink Overlay for Flattened Mascot Asset */
+.hero-blink-overlay {
+  position: absolute;
+  top: 31%;
+  left: 36%;
+  width: 28%;
+  height: 9%;
+  background: #111D35;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 3;
+  transform-origin: center;
+  animation: hero-eye-blink 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .hero-mascot-container,
+  .hero-state-idle,
+  .hero-state-greeting,
+  .hero-state-listening,
+  .hero-state-thinking,
+  .hero-state-speaking,
+  .hero-state-success,
+  .hero-state-error,
+  .hero-blink-overlay {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

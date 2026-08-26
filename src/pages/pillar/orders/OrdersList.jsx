@@ -1,0 +1,287 @@
+import React, { useState, useEffect } from "react";
+import { useTranslation } from "../../../i18n/useTranslation";
+import { useAuth } from "../../../context/AuthContext";
+import { pillarOrderService } from "../../../services/pillar/orderService";
+import ArrivalOTPModal from "../../../components/pillar/orders/ArrivalOTPModal";
+import ExtraChargeModal from "../../../components/pillar/orders/ExtraChargeModal";
+import {
+  Clock,
+  MapPin,
+  Calendar,
+  Phone,
+  MessageSquare,
+  Check,
+  X,
+  Navigation,
+  DollarSign,
+  ClipboardList,
+  User,
+  Loader2,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+export default function OrdersList() {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState("pending");
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedBookingForOtp, setSelectedBookingForOtp] = useState(null);
+  const [selectedBookingForExtra, setSelectedBookingForExtra] = useState(null);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    const { data } = await pillarOrderService.getOrders(user?.id);
+    setOrders(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, [user]);
+
+  const handleStatusChange = async (bookingId, newStatus) => {
+    await pillarOrderService.updateOrderStatus(bookingId, newStatus);
+    fetchOrders();
+  };
+
+  const filteredOrders = orders.filter((o) => {
+    if (activeTab === "inProgress") {
+      return ["onTheWay", "arrived", "inProgress"].includes(o.status);
+    }
+    return o.status === activeTab;
+  });
+
+  const tabs = [
+    { id: "pending", label: t("orders.pending"), count: orders.filter((o) => o.status === "pending").length },
+    { id: "accepted", label: t("orders.accepted"), count: orders.filter((o) => o.status === "accepted").length },
+    { id: "inProgress", label: t("orders.inProgress"), count: orders.filter((o) => ["onTheWay", "arrived", "inProgress"].includes(o.status)).length },
+    { id: "completed", label: t("orders.completed"), count: orders.filter((o) => o.status === "completed").length },
+  ];
+
+  return (
+    <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">{t("orders.title")}</h1>
+          <p className="page-subtitle">Manage customer bookings, dispatch transit, and record completion</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="filter-bar">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`filter-btn ${activeTab === tab.id ? "active" : ""}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+            <span
+              style={{
+                background: activeTab === tab.id ? "white" : "var(--color-surface-hover)",
+                color: activeTab === tab.id ? "var(--color-primary)" : "inherit",
+                padding: "2px 7px",
+                borderRadius: "12px",
+                fontSize: "11px",
+                marginLeft: "8px",
+                fontWeight: "700",
+              }}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="loading-container">
+          <Loader2 size={36} className="spinner" />
+          <p>Loading real-time bookings from Supabase...</p>
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <ClipboardList size={36} />
+            </div>
+            <h3 className="empty-state-title">No {t(`orders.${activeTab}`).toLowerCase()} orders</h3>
+            <p className="empty-state-text">
+              {activeTab === "pending"
+                ? "New incoming customer bookings in your service area will appear here automatically."
+                : `You currently have no ${activeTab} jobs.`}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-2">
+          {filteredOrders.map((order) => (
+            <div key={order.id} className="card" style={{ display: "flex", flexDirection: "column" }}>
+              <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}>
+                    <span style={{ fontSize: "var(--font-size-sm)", fontWeight: "bold", color: "var(--color-primary)" }}>
+                      {order.booking_code || order.id.slice(0, 8)}
+                    </span>
+                    <span
+                      className={`badge ${
+                        order.status === "pending"
+                          ? "badge-warning"
+                          : order.status === "completed"
+                          ? "badge-success"
+                          : "badge-info"
+                      }`}
+                    >
+                      {t(`orders.${order.status}`)}
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "600" }}>{order.service_name}</h3>
+                  {order.sub_service_name && (
+                    <p style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>
+                      {order.sub_service_name}
+                    </p>
+                  )}
+                </div>
+                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: "bold", color: "var(--color-secondary)" }}>
+                  ₹{order.total_amount || order.base_amount || "0"}
+                </div>
+              </div>
+
+              <div className="card-body" style={{ flex: 1, padding: "var(--space-4) var(--space-6)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
+                    <User size={16} color="var(--color-text-muted)" />
+                    <span style={{ fontWeight: "500" }}>{order.customer_name}</span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
+                    <MapPin size={16} color="var(--color-text-muted)" />
+                    <span>{order.service_address}</span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
+                    <Calendar size={16} color="var(--color-text-muted)" />
+                    <span>{order.scheduled_date || "Today"}</span>
+                    {order.scheduled_time && (
+                      <>
+                        <span style={{ margin: "0 8px", color: "var(--color-border)" }}>|</span>
+                        <Clock size={16} color="var(--color-text-muted)" />
+                        <span>{order.scheduled_time}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div
+                style={{
+                  padding: "var(--space-4) var(--space-6)",
+                  borderTop: "1px solid var(--color-border-light)",
+                  background: "var(--color-surface-hover)",
+                  borderBottomLeftRadius: "var(--radius-xl)",
+                  borderBottomRightRadius: "var(--radius-xl)",
+                  display: "flex",
+                  gap: "var(--space-3)",
+                }}
+              >
+                {order.status === "pending" && (
+                  <>
+                    <button
+                      className="btn btn-outline"
+                      style={{ flex: 1, color: "var(--color-error)", borderColor: "var(--color-error)" }}
+                      onClick={() => handleStatusChange(order.id, "rejected")}
+                    >
+                      <X size={16} /> {t("orders.reject")}
+                    </button>
+                    <button
+                      className="btn btn-success"
+                      style={{ flex: 1 }}
+                      onClick={() => handleStatusChange(order.id, "accepted")}
+                    >
+                      <Check size={16} /> {t("orders.accept")}
+                    </button>
+                  </>
+                )}
+
+                {order.status === "accepted" && (
+                  <>
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: 1 }}
+                      onClick={() => handleStatusChange(order.id, "onTheWay")}
+                    >
+                      <Navigation size={16} /> {t("orders.startTravel")}
+                    </button>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => navigate("/dashboard/chat")}
+                    >
+                      <MessageSquare size={16} />
+                    </button>
+                  </>
+                )}
+
+                {order.status === "onTheWay" && (
+                  <button
+                    className="btn btn-warning"
+                    style={{ width: "100%" }}
+                    onClick={() => setSelectedBookingForOtp(order.id)}
+                  >
+                    <MapPin size={16} /> {t("orders.markArrived")} (Enter OTP)
+                  </button>
+                )}
+
+                {(order.status === "arrived" || order.status === "inProgress") && (
+                  <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
+                    <button
+                      className="btn btn-outline"
+                      style={{ flex: 1 }}
+                      onClick={() => setSelectedBookingForExtra(order.id)}
+                    >
+                      <DollarSign size={16} /> + Extra Charge
+                    </button>
+                    <button
+                      className="btn btn-success"
+                      style={{ flex: 1 }}
+                      onClick={() => handleStatusChange(order.id, "completed")}
+                    >
+                      <Check size={16} /> {t("orders.completeService")}
+                    </button>
+                  </div>
+                )}
+
+                {order.status === "completed" && (
+                  <button className="btn btn-outline" style={{ width: "100%" }} disabled>
+                    Job Completed
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Arrival OTP Modal */}
+      {selectedBookingForOtp && (
+        <ArrivalOTPModal
+          bookingId={selectedBookingForOtp}
+          onClose={() => setSelectedBookingForOtp(null)}
+          onSuccess={fetchOrders}
+        />
+      )}
+
+      {/* Extra Charge Modal */}
+      {selectedBookingForExtra && (
+        <ExtraChargeModal
+          bookingId={selectedBookingForExtra}
+          onClose={() => setSelectedBookingForExtra(null)}
+          onSuccess={fetchOrders}
+        />
+      )}
+    </div>
+  );
+}
