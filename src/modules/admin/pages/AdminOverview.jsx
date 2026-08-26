@@ -29,8 +29,14 @@ export default function AdminOverview() {
       fetchStats();
     });
 
+    const handleStatusSync = () => {
+      setIsAdminOnline(localStorage.getItem("coophub_admin_online") !== "false");
+    };
+    window.addEventListener("coophub_admin_status_change", handleStatusSync);
+
     return () => {
       channel?.unsubscribe();
+      window.removeEventListener("coophub_admin_status_change", handleStatusSync);
     };
   }, []);
 
@@ -104,6 +110,7 @@ export default function AdminOverview() {
               const next = !isAdminOnline;
               setIsAdminOnline(next);
               localStorage.setItem("coophub_admin_online", next ? "true" : "false");
+              window.dispatchEvent(new Event("coophub_admin_status_change"));
             }}
             className="btn btn-outline"
             style={{

@@ -52,10 +52,19 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   // Admin Online / Offline Status Toggle
   const [isOnline, setIsOnline] = useState(() => localStorage.getItem("coophub_admin_online") !== "false");
 
+  useEffect(() => {
+    const handleStatusSync = () => {
+      setIsOnline(localStorage.getItem("coophub_admin_online") !== "false");
+    };
+    window.addEventListener("coophub_admin_status_change", handleStatusSync);
+    return () => window.removeEventListener("coophub_admin_status_change", handleStatusSync);
+  }, []);
+
   const handleToggleOnline = () => {
     const next = !isOnline;
     setIsOnline(next);
     localStorage.setItem("coophub_admin_online", next ? "true" : "false");
+    window.dispatchEvent(new Event("coophub_admin_status_change"));
 
     if (next) {
       setCurrentMood("excited");
