@@ -49,6 +49,35 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const userName = profile?.full_name?.split(" ")[0] || "Senthil";
 
+  // Admin Online / Offline Status Toggle
+  const [isOnline, setIsOnline] = useState(() => localStorage.getItem("coophub_admin_online") !== "false");
+
+  const handleToggleOnline = () => {
+    const next = !isOnline;
+    setIsOnline(next);
+    localStorage.setItem("coophub_admin_online", next ? "true" : "false");
+
+    if (next) {
+      setCurrentMood("excited");
+      setHeroMessages([{
+        id: `status-${Date.now()}`,
+        sender: "hero",
+        text: "🟢 Admin Operations are LIVE! Telemetry radar and automated dispatch are active.",
+        emoji: "⚡",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+    } else {
+      setCurrentMood("thinking");
+      setHeroMessages([{
+        id: `status-${Date.now()}`,
+        sender: "hero",
+        text: "🔴 Admin Operations set to OFFLINE. Automated alerts and supervision are paused.",
+        emoji: "⏸️",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+    }
+  };
+
   // GSAP Smooth Navigation Button Entrance
   useEffect(() => {
     gsap.fromTo(
@@ -448,9 +477,28 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             <div style={{ fontSize: "11px", color: "var(--color-secondary)", fontWeight: "600", letterSpacing: "0.5px", marginTop: "1px" }}>
               ID: ADMIN-001
             </div>
-            <div style={{ fontSize: "var(--font-size-xs)", opacity: 0.8, display: "flex", alignItems: "center", gap: "5px", marginTop: "3px" }}>
-              <span className={`status-dot ${profile?.is_available !== false ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-              <span>{profile?.is_available !== false ? t("dashboard.available") : t("dashboard.offline")}</span>
+            <div style={{ marginTop: "4px" }}>
+              <button
+                onClick={handleToggleOnline}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "3px 8px",
+                  borderRadius: "12px",
+                  border: isOnline ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)",
+                  background: isOnline ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                  color: isOnline ? "#34D399" : "#F87171",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+                title="Click to toggle Admin Online / Offline status"
+              >
+                <span className={`status-dot ${isOnline ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
+                <span>{isOnline ? "Available (Online)" : "Offline (Paused)"}</span>
+              </button>
             </div>
           </div>
         </div>

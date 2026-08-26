@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
+import { pillarProfileService } from "../../../services/pillar/profileService";
 import gsap from "gsap";
 import {
   LayoutDashboard,
@@ -44,6 +45,43 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   const heroInputRef = useRef(null);
 
   const userName = profile?.full_name?.split(" ")[0] || "Senthil";
+
+  // Pillar Online / Offline Status Toggle
+  const [isOnline, setIsOnline] = useState(() => profile?.is_available !== false);
+
+  useEffect(() => {
+    if (profile?.is_available !== undefined) {
+      setIsOnline(profile.is_available);
+    }
+  }, [profile]);
+
+  const handleToggleOnline = async () => {
+    const next = !isOnline;
+    setIsOnline(next);
+    if (user?.id) {
+      await pillarProfileService.updateAvailability(user.id, next);
+    }
+
+    if (next) {
+      setCurrentMood("excited");
+      setHeroMessages([{
+        id: `status-${Date.now()}`,
+        sender: "hero",
+        text: `🟢 You are now ONLINE! Ready to receive customer requests in ${profile?.service_area || 'Chennai'}.`,
+        emoji: "🚀",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+    } else {
+      setCurrentMood("thinking");
+      setHeroMessages([{
+        id: `status-${Date.now()}`,
+        sender: "hero",
+        text: "🔴 You are now OFFLINE. Take a good break, incoming requests are paused.",
+        emoji: "☕",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+    }
+  };
 
   // GSAP Smooth Navigation Button Entrance
   useEffect(() => {
@@ -443,9 +481,28 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             <div style={{ fontSize: "11px", color: "var(--color-secondary)", fontWeight: "600", letterSpacing: "0.5px", marginTop: "1px" }}>
               ID: {profile?.pillar_code || "PIL-CHE-042"}
             </div>
-            <div style={{ fontSize: "var(--font-size-xs)", opacity: 0.8, display: "flex", alignItems: "center", gap: "5px", marginTop: "3px" }}>
-              <span className={`status-dot ${profile?.is_available !== false ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-              <span>{profile?.is_available !== false ? t("dashboard.available") : t("dashboard.offline")}</span>
+            <div style={{ marginTop: "4px" }}>
+              <button
+                onClick={handleToggleOnline}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "3px 8px",
+                  borderRadius: "12px",
+                  border: isOnline ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)",
+                  background: isOnline ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                  color: isOnline ? "#34D399" : "#F87171",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+                title="Click to toggle Online / Offline status"
+              >
+                <span className={`status-dot ${isOnline ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
+                <span>{isOnline ? t("dashboard.available") : t("dashboard.offline")}</span>
+              </button>
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ import gsap from "gsap";
 
 export default function AdminOverview() {
   const isDemo = localStorage.getItem("coophub_demo_admin") === "true" || localStorage.getItem("coophub_demo_user") === "true";
+  const [isAdminOnline, setIsAdminOnline] = useState(() => localStorage.getItem("coophub_admin_online") !== "false");
   const [stats, setStats] = useState({
     totalPillars: 0,
     activePillars: 0,
@@ -97,14 +98,36 @@ export default function AdminOverview() {
             Executive Operations Dashboard
           </h1>
         </div>
-        <button 
-          onClick={fetchStats}
-          className="btn btn-outline"
-          style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          disabled={loading}
-        >
-          <RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh Telemetry
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            onClick={() => {
+              const next = !isAdminOnline;
+              setIsAdminOnline(next);
+              localStorage.setItem("coophub_admin_online", next ? "true" : "false");
+            }}
+            className="btn btn-outline"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              borderColor: isAdminOnline ? "var(--color-success)" : "#EF4444",
+              color: isAdminOnline ? "var(--color-success)" : "#EF4444",
+              background: isAdminOnline ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)"
+            }}
+          >
+            <span className={`status-dot ${isAdminOnline ? "available" : "offline"}`} style={{ width: "8px", height: "8px" }}></span>
+            {isAdminOnline ? "Operations Online" : "Operations Paused"}
+          </button>
+
+          <button 
+            onClick={fetchStats}
+            className="btn btn-outline"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            disabled={loading}
+          >
+            <RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh Telemetry
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
