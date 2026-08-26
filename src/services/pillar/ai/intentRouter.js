@@ -12,6 +12,8 @@ import {
   navigationAgent,
 } from "./authenticatedAgents";
 
+import { adminAgent } from "./adminAgent";
+
 // ============================================================
 // INTENT ROUTER — 100% LIVE AI (Zero Hardcoded Responses)
 // Every route → Live NVIDIA / Gemini API via server proxy
@@ -23,7 +25,14 @@ export const intentRouter = {
     const q = message.toLowerCase().trim();
 
     // ============================================================
-    // 1. PUBLIC AI MODE (Before Authentication)
+    // 1. ADMIN AI MODE (Cooperative Operations Intelligence)
+    // ============================================================
+    if (route.startsWith("/admin")) {
+      return await adminAgent.handle(message, { language, route });
+    }
+
+    // ============================================================
+    // 2. PUBLIC AI MODE (Before Authentication)
     // ============================================================
     if (!isAuthenticated) {
       // Block private data requests before login
@@ -60,20 +69,6 @@ export const intentRouter = {
       }
 
       return await publicInfoAgent.handle(q, language);
-    }
-
-    // ============================================================
-    // 2. ADMIN AI MODE 
-    // ============================================================
-    if (route.startsWith("/admin")) {
-      // Create an Admin-specific context payload
-      const adminPrompt = `You are CoopBot, acting as an Admin Assistant. The user is a Cooperative Admin on the route ${route}. Answer professionally. User's query: ${q}`;
-      try {
-        const responseText = await callPillarAiApi(adminPrompt, { language, isAdmin: true });
-        return { reply: responseText, route: route, intent: "admin_assist" };
-      } catch (e) {
-        return { reply: "I'm having trouble accessing the admin data right now.", route: route, intent: "error" };
-      }
     }
 
     // ============================================================

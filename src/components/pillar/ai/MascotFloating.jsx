@@ -28,11 +28,20 @@ export default function MascotFloating() {
     };
   }, []);
 
+  const isAdminRoute = location.pathname.startsWith("/admin");
+
   // Initial greeting
   useEffect(() => {
-    let initialGreeting = language === "ta"
-      ? "வணக்கம் பில்லர்! உங்கள் ஆர்டர்கள், வருமானம் அல்லது வாடிக்கையாளர் அரட்டை பற்றி என்னிடம் எப்போது வேண்டுமானாலும் கேட்கலாம்."
-      : "Welcome! I am CoopBot, your 24/7 AI Assistant. Ask about your bookings, earnings, arrival OTPs, or customer chats.";
+    let initialGreeting = "";
+    if (isAdminRoute) {
+      initialGreeting = language === "ta"
+        ? "வணக்கம் நிர்வாகி! நான் CoopBot, உங்கள் செயல்பாட்டு AI உதவியாளர். பில்லர்கள், சேவை கோரிக்கைகள், அல்லது வருவாய் பற்றி என்னிடம் கேட்கலாம்."
+        : "Welcome Administrator! I am CoopBot, your 24/7 AI Operations Assistant. Ask about workforce telemetry, service requests, pillar verification, or revenue analytics.";
+    } else {
+      initialGreeting = language === "ta"
+        ? "வணக்கம் பில்லர்! உங்கள் ஆர்டர்கள், வருமானம் அல்லது வாடிக்கையாளர் அரட்டை பற்றி என்னிடம் எப்போது வேண்டுமானாலும் கேட்கலாம்."
+        : "Welcome! I am CoopBot, your 24/7 AI Assistant. Ask about your bookings, earnings, arrival OTPs, or customer chats.";
+    }
 
     setMessages([
       {
@@ -42,7 +51,7 @@ export default function MascotFloating() {
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
-  }, [language]);
+  }, [language, isAdminRoute]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -296,7 +305,7 @@ export default function MascotFloating() {
                 <h4 style={{ fontWeight: "800", fontSize: "16px", margin: 0, letterSpacing: "0.3px", color: "white" }}>CoopBot AI</h4>
                 <span style={{ fontSize: "11px", opacity: 0.9, display: "flex", alignItems: "center", gap: "5px" }}>
                   <span className="status-dot available" style={{ width: "6px", height: "6px" }}></span>
-                  Authenticated Pillar Assistant
+                  {isAdminRoute ? "Cooperative Admin Intelligence" : "Authenticated Pillar Assistant"}
                 </span>
               </div>
             </div>
@@ -305,7 +314,7 @@ export default function MascotFloating() {
             </button>
           </div>
 
-          {/* Quick Action Chips */}
+          {/* Quick Action Chips (Dynamic for Admin vs Pillar) */}
           <div
             style={{
               padding: "8px 12px",
@@ -316,28 +325,64 @@ export default function MascotFloating() {
               overflowX: "auto",
               whiteSpace: "nowrap",
             }}
+            className="hide-scrollbar"
           >
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
-              onClick={() => setInput("Show my current orders")}
-            >
-              📦 My Orders
-            </button>
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
-              onClick={() => setInput("Check my earnings summary")}
-            >
-              💰 Earnings
-            </button>
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
-              onClick={() => setInput("How do I verify customer arrival OTP?")}
-            >
-              📍 Arrival OTP
-            </button>
+            {isAdminRoute ? (
+              <>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Show all registered pillars summary")}
+                >
+                  👥 All Pillars
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("What are the active service requests?")}
+                >
+                  📦 Active Requests
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Show live technician tracking status")}
+                >
+                  📍 Live Tracking
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("What is our total revenue and commission?")}
+                >
+                  💰 Total GMV
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Show my current orders")}
+                >
+                  📦 My Orders
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Check my earnings summary")}
+                >
+                  💰 Earnings
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("How do I verify customer arrival OTP?")}
+                >
+                  📍 Arrival OTP
+                </button>
+              </>
+            )}
           </div>
 
           {/* Messages Feed */}
