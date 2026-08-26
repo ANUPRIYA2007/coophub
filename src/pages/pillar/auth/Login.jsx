@@ -96,14 +96,31 @@ export default function Login() {
 
     setLoading(true);
 
-    // 🧪 DEMO MOCK BYPASS: Allow seamless login for demo purposes without triggering Supabase errors
+    // 🧪 PILLAR DEMO BYPASS: Logs into Pillar Dashboard with rich demo data
     if (formData.pillarId === "PIL-CHE-042" && formData.password === "password123") {
+      localStorage.setItem("coophub_demo_user", "true");
+      localStorage.removeItem("coophub_demo_admin");
       setTimeout(() => {
         setLoading(false);
         navigate("/dashboard");
       }, 800);
       return;
     }
+
+    // 🧪 ADMIN DEMO BYPASS: Logs into Admin Dashboard with rich demo data
+    if (formData.pillarId === "ADMIN-DEMO" && formData.password === "admin123") {
+      localStorage.setItem("coophub_demo_admin", "true");
+      localStorage.removeItem("coophub_demo_user");
+      setTimeout(() => {
+        setLoading(false);
+        navigate("/admin");
+      }, 800);
+      return;
+    }
+
+    // 🔒 REAL USER LOGIN — Clear all demo flags
+    localStorage.removeItem("coophub_demo_user");
+    localStorage.removeItem("coophub_demo_admin");
 
     // Assuming the login service can take the pillarId as 'email' or handles it internally
     const { user, error: loginError } = await login({

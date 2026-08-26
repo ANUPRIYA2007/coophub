@@ -2,9 +2,9 @@ import { supabase } from "../../lib/supabase";
 
 export const pillarEarningsService = {
   async getEarningsSummary(pillarId) {
-    const isDemo = localStorage.getItem("coophub_demo_user") === "true" || pillarId === "00000000-0000-0000-0000-000000000000";
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
 
-    // 🧪 DEMO MODE ONLY
+    // 🧪 DEMO MODE: Rich mock data for SIH presentation
     if (isDemo) {
       return {
         summary: {
@@ -58,6 +58,28 @@ export const pillarEarningsService = {
         transactions: [],
         error,
       };
+    }
+  },
+
+  // Request a payout from available balance
+  async requestPayout(pillarId, amount) {
+    try {
+      const { data, error } = await supabase
+        .from('payout_requests')
+        .insert([{
+          pillar_id: pillarId,
+          amount: amount,
+          status: 'pending',
+          payment_mode: 'bank_transfer'
+        }])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error("Payout request error:", error);
+      return { data: null, error };
     }
   }
 };

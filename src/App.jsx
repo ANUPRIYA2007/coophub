@@ -15,6 +15,8 @@ import NotificationsPage from './pages/pillar/notifications/NotificationsPage';
 import ProfilePage from './pages/pillar/profile/ProfilePage';
 import SettingsPage from './pages/pillar/settings/SettingsPage';
 import SupportPage from './pages/pillar/support/SupportPage';
+import WelfarePage from './pages/pillar/support/WelfarePage';
+import InsurancePage from './pages/pillar/support/InsurancePage';
 
 // Layout & Global Hero AI Mascot
 import PillarLayout from './components/pillar/layout/PillarLayout';
@@ -78,6 +80,8 @@ function App() {
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/support" element={<SupportPage />} />
+                  <Route path="/welfare" element={<WelfarePage />} />
+                  <Route path="/insurance" element={<InsurancePage />} />
                   <Route path="*" element={<Dashboard />} />
                 </Routes>
               </PillarLayout>

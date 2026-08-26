@@ -1,12 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarProfileService } from "../../../services/pillar/profileService";
-import { User, ShieldCheck, Mail, Phone, MapPin, Briefcase, Award, Save, Building2, CreditCard, CheckCircle2, Lock } from "lucide-react";
+import { User, ShieldCheck, Mail, Phone, MapPin, Briefcase, Award, Save, Building2, CreditCard, CheckCircle2, Lock, FileText, UploadCloud, Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
+
+  // Handle arrays correctly
+  const mainSvc = Array.isArray(profile?.main_services) ? profile.main_services.join(", ") : (profile?.main_services || "Electrician & AC Specialist");
+  const subSvc = Array.isArray(profile?.sub_services) ? profile.sub_services.join(", ") : (profile?.sub_services || "Wiring, DB Box Installation, Inverter Setup, Fan Repair");
 
   // Personal profile state
   const [formData, setFormData] = useState({
@@ -15,9 +19,37 @@ export default function ProfilePage() {
     mobile: profile?.mobile || "+91 98401 23456",
     serviceArea: profile?.service_area || "Guindy, Adyar, Velachery, Chennai",
     experience: profile?.experience_years || "5+ Years",
-    mainService: "Electrician & AC Specialist",
-    subServices: "Wiring, DB Box Installation, Inverter Setup, Fan Repair",
+    mainService: mainSvc,
+    subServices: subSvc,
   });
+
+  // KYC State
+  const [kycDocs, setKycDocs] = useState([]);
+  const [uploadingKyc, setUploadingKyc] = useState(false);
+  const fileInputRef = useRef(null);
+  const [selectedDocType, setSelectedDocType] = useState("aadhaar");
+
+  useEffect(() => {
+    if (user) {
+      pillarProfileService.getKycDocuments(user.id).then(({ data }) => setKycDocs(data));
+    }
+  }, [user]);
+
+  const handleKycUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    
+    setUploadingKyc(true);
+    // Simulate slight delay for realism since we are mocking the actual storage upload
+    setTimeout(async () => {
+      const { data } = await pillarProfileService.uploadKycDocument(user.id, selectedDocType, file);
+      if (data) {
+        setKycDocs(prev => [data, ...prev]);
+      }
+      setUploadingKyc(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }, 1500);
+  };
 
   // Bank account details state
   const [bankData, setBankData] = useState({
@@ -43,7 +75,7 @@ export default function ProfilePage() {
     setTimeout(() => setProfileSaved(false), 3000);
   };
 
-  const handleSaveBankDetails = (e) => {
+  const handleSaveBankDetails = async (e) => {
     e.preventDefault();
     setBankError("");
 
@@ -55,6 +87,16 @@ export default function ProfilePage() {
     if (bankData.accountNumber !== bankData.confirmAccountNumber) {
       setBankError("Account numbers do not match. Please verify.");
       return;
+    }
+
+    if (user) {
+      await pillarProfileService.updateProfile(user.id, {
+        bank_account_holder: bankData.accountHolderName,
+        bank_name: bankData.bankName,
+        bank_account_number: bankData.accountNumber,
+        bank_ifsc: bankData.ifscCode,
+        bank_upi_id: bankData.upiId
+      });
     }
 
     setBankSaved(true);
@@ -183,6 +225,73 @@ export default function ProfilePage() {
                   <Save size={16} /> Save Profile
                 </button>
               </form>
+            </div>
+          </div>
+
+          {/* Section 1.5: Worker Certification / KYC */}
+          <div className="card">
+            <div className="card-header" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <FileText size={20} color="var(--color-secondary)" />
+              <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "700", margin: 0 }}>Worker Certification & KYC</h3>
+            </div>
+            <div className="card-body">
+              <p style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)", marginBottom: "var(--space-4)" }}>
+                Upload official documents to maintain your "Verified Pillar" badge.
+              </p>
+              
+              <div style={{ display: "flex", gap: "var(--space-4)", marginBottom: "var(--space-6)" }}>
+                <select 
+                  className="form-input" 
+                  value={selectedDocType} 
+                  onChange={(e) => setSelectedDocType(e.target.value)}
+                  style={{ width: "200px" }}
+                >
+                  <option value="aadhaar">Aadhaar Card</option>
+                  <option value="pan">PAN Card</option>
+                  <option value="skill_certificate">Skill Certificate</option>
+                  <option value="police_clearance">Police Clearance</option>
+                </select>
+                
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  style={{ display: "none" }} 
+                  onChange={handleKycUpload}
+                  accept=".jpg,.jpeg,.png,.pdf" 
+                />
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingKyc}
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  {uploadingKyc ? <Loader2 size={16} className="spinner" /> : <UploadCloud size={16} />} 
+                  {uploadingKyc ? "Uploading..." : "Upload Document"}
+                </button>
+              </div>
+
+              {kycDocs.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--color-text-muted)" }}>UPLOADED DOCUMENTS</div>
+                  {kycDocs.map((doc) => (
+                    <div key={doc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "var(--space-3)", border: "1px solid var(--color-border-light)", borderRadius: "var(--radius-md)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <FileText size={18} color="var(--color-text-muted)" />
+                        <span style={{ fontSize: "var(--font-size-sm)", fontWeight: "500", textTransform: "capitalize" }}>
+                          {doc.document_type.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <span className={`badge ${doc.verification_status === 'verified' ? 'badge-success' : doc.verification_status === 'rejected' ? 'badge-error' : 'badge-warning'}`}>
+                        {doc.verification_status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: "var(--space-4)", textAlign: "center", border: "1px dashed var(--color-border-light)", borderRadius: "var(--radius-md)", color: "var(--color-text-muted)" }}>
+                  No KYC documents uploaded yet.
+                </div>
+              )}
             </div>
           </div>
 
