@@ -63,7 +63,21 @@ export const intentRouter = {
     }
 
     // ============================================================
-    // 2. AUTHENTICATED AI MODE — Every Sub-Agent calls Live AI API
+    // 2. ADMIN AI MODE 
+    // ============================================================
+    if (route.startsWith("/admin")) {
+      // Create an Admin-specific context payload
+      const adminPrompt = `You are CoopBot, acting as an Admin Assistant. The user is a Cooperative Admin on the route ${route}. Answer professionally. User's query: ${q}`;
+      try {
+        const responseText = await callPillarAiApi(adminPrompt, { language, isAdmin: true });
+        return { reply: responseText, route: route, intent: "admin_assist" };
+      } catch (e) {
+        return { reply: "I'm having trouble accessing the admin data right now.", route: route, intent: "error" };
+      }
+    }
+
+    // ============================================================
+    // 3. AUTHENTICATED PILLAR AI MODE — Every Sub-Agent calls Live AI API
     // ============================================================
     const ctx = { session, language };
 
