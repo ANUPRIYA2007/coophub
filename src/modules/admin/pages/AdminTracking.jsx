@@ -1,0 +1,248 @@
+import React, { useState, useEffect } from "react";
+import { adminService } from "../services/adminService";
+import { MapPin, Navigation, Radio, Battery, Signal, RefreshCw, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+
+export default function AdminTracking() {
+  const [pillars, setPillars] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPillar, setSelectedPillar] = useState(null);
+  const [filterActiveOnly, setFilterActiveOnly] = useState(false);
+
+  useEffect(() => {
+    fetchTrackingData();
+    const interval = setInterval(fetchTrackingData, 15000); // Auto refresh every 15s
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchTrackingData = async () => {
+    setLoading(true);
+    const data = await adminService.getPillarsLiveTracking();
+    setPillars(data);
+    setLoading(false);
+  };
+
+  const displayedPillars = filterActiveOnly ? pillars.filter(p => p.is_available) : pillars;
+
+  return (
+    <div className="fade-in">
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-5)" }}>
+        <div>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: "800", color: "var(--color-text)", marginBottom: "var(--space-2)" }}>
+            Live Pillar & Field Telemetry
+          </h1>
+          <p style={{ color: "var(--color-text-secondary)" }}>
+            Real-time geospatial monitor and duty telemetry for all cooperative technicians.
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+          <button 
+            onClick={() => setFilterActiveOnly(!filterActiveOnly)}
+            className={`btn ${filterActiveOnly ? 'btn-primary' : 'btn-outline'}`}
+            style={{ fontSize: "0.85rem" }}
+          >
+            <Radio size={14} style={{ marginRight: "6px" }} /> {filterActiveOnly ? "Showing Available Only" : "Show All Pillars"}
+          </button>
+          <button 
+            onClick={fetchTrackingData} 
+            className="btn btn-outline" 
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            disabled={loading}
+          >
+            <RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Grid Layout: Map Simulation + Live Telemetry Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
+        
+        {/* Visual Map Radar Simulation */}
+        <div style={{ 
+          background: "var(--color-surface)", 
+          borderRadius: "var(--radius-lg)", 
+          border: "1px solid var(--color-border)",
+          padding: "var(--space-4)",
+          boxShadow: "var(--shadow-sm)",
+          display: "flex",
+          flexDirection: "column"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
+            <h3 style={{ fontSize: "1.05rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Navigation size={18} color="var(--color-primary)" /> Chennai Metropolitan Hub
+            </h3>
+            <span style={{ 
+              fontSize: "0.75rem", 
+              background: "rgba(16, 185, 129, 0.15)", 
+              color: "#10B981", 
+              fontWeight: "700", 
+              padding: "2px 8px", 
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px"
+            }}>
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite" }}></span>
+              GPS Live
+            </span>
+          </div>
+
+          {/* Interactive Radar Visual */}
+          <div style={{ 
+            height: "360px", 
+            borderRadius: "var(--radius-md)", 
+            background: "radial-gradient(circle at center, rgba(14, 34, 61, 0.9) 0%, rgba(7, 18, 33, 0.98) 100%)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            position: "relative",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}>
+            {/* Concentric Radar Rings */}
+            <div style={{ position: "absolute", width: "100px", height: "100px", borderRadius: "50%", border: "1px dashed rgba(245, 124, 32, 0.4)" }} />
+            <div style={{ position: "absolute", width: "220px", height: "220px", borderRadius: "50%", border: "1px solid rgba(255, 255, 255, 0.1)" }} />
+            <div style={{ position: "absolute", width: "320px", height: "320px", borderRadius: "50%", border: "1px solid rgba(255, 255, 255, 0.05)" }} />
+
+            {/* Radar Center Hub */}
+            <div style={{ 
+              width: "14px", height: "14px", borderRadius: "50%", background: "var(--color-secondary)", 
+              boxShadow: "0 0 16px var(--color-secondary)", zIndex: 2 
+            }} title="Cooperative HQ - Guindy Hub" />
+            <span style={{ position: "absolute", top: "54%", fontSize: "10px", color: "rgba(255,255,255,0.6)", fontWeight: "600" }}>
+              HQ Center (Guindy)
+            </span>
+
+            {/* Pillar Geolocation Pins Simulation */}
+            {displayedPillars.map((p, index) => {
+              const angles = [30, 85, 140, 210, 270, 320];
+              const radii = [60, 110, 80, 130, 95, 120];
+              const angle = (angles[index % angles.length] * Math.PI) / 180;
+              const radius = radii[index % radii.length];
+              const x = Math.cos(angle) * radius;
+              const y = Math.sin(angle) * radius;
+
+              const isSelected = selectedPillar?.id === p.id;
+
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => setSelectedPillar(p)}
+                  style={{
+                    position: "absolute",
+                    transform: `translate(${x}px, ${y}px)`,
+                    cursor: "pointer",
+                    zIndex: isSelected ? 10 : 3,
+                    transition: "transform 0.3s ease"
+                  }}
+                  title={`${p.full_name} (${p.pillar_code || 'Pillar'})`}
+                >
+                  <div style={{
+                    width: isSelected ? "24px" : "16px",
+                    height: isSelected ? "24px" : "16px",
+                    borderRadius: "50%",
+                    background: p.is_available ? "#10B981" : "#F59E0B",
+                    border: "2px solid white",
+                    boxShadow: isSelected ? "0 0 12px #3B82F6" : "0 2px 6px rgba(0,0,0,0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "8px",
+                    color: "white",
+                    fontWeight: "bold"
+                  }}>
+                    {p.full_name?.charAt(0) || "P"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10B981" }}></span> Available ({pillars.filter(p => p.is_available).length})
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#F59E0B" }}></span> Busy / On Job ({pillars.filter(p => !p.is_available).length})
+            </span>
+          </div>
+        </div>
+
+        {/* Pillar Telemetry Stream List */}
+        <div style={{ 
+          background: "var(--color-surface)", 
+          borderRadius: "var(--radius-lg)", 
+          border: "1px solid var(--color-border)",
+          padding: "var(--space-4)",
+          boxShadow: "var(--shadow-sm)",
+          display: "flex",
+          flexDirection: "column"
+        }}>
+          <h3 style={{ fontSize: "1.05rem", fontWeight: "700", marginBottom: "var(--space-3)", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Radio size={18} color="var(--color-secondary)" /> Live Pillar Telemetry Feed
+          </h3>
+
+          <div style={{ flex: 1, overflowY: "auto", maxHeight: "400px", display: "flex", flexDirection: "column", gap: "10px" }} className="hide-scrollbar">
+            {loading && pillars.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "var(--space-5)" }}><div className="spinner"></div></div>
+            ) : displayedPillars.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "var(--space-5)", color: "var(--color-text-secondary)" }}>
+                No active pillars currently in telemetry stream.
+              </div>
+            ) : (
+              displayedPillars.map((p) => {
+                const isSelected = selectedPillar?.id === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setSelectedPillar(p)}
+                    style={{
+                      padding: "12px",
+                      borderRadius: "var(--radius-md)",
+                      border: isSelected ? "2px solid var(--color-primary)" : "1px solid var(--color-border)",
+                      background: isSelected ? "var(--color-surface-hover)" : "transparent",
+                      cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+                      <div>
+                        <span style={{ fontWeight: "700", fontSize: "0.95rem", color: "var(--color-text)" }}>
+                          {p.full_name || "Coop Pillar"}
+                        </span>
+                        <div style={{ fontSize: "0.75rem", color: "var(--color-secondary)", fontWeight: "700" }}>
+                          {p.pillar_code || "PIL-ID"} • {p.main_services?.[0] || "Technician"}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: "0.7rem",
+                        fontWeight: "700",
+                        padding: "2px 8px",
+                        borderRadius: "10px",
+                        background: p.is_available ? "var(--color-success-light)" : "var(--color-warning-light)",
+                        color: p.is_available ? "var(--color-success)" : "var(--color-warning)"
+                      }}>
+                        {p.is_available ? "Available" : "Busy"}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8rem", color: "var(--color-text-secondary)", marginTop: "8px" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <MapPin size={13} color="var(--color-primary)" /> {p.service_area?.[0] || "Chennai Central"}
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}><Signal size={12} color="#10B981" /> 4G</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}><Battery size={12} color="#10B981" /> 92%</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

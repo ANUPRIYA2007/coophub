@@ -53,7 +53,6 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     "/admin/tracking": { emoji: "📍", mood: "happy", greeting: `Live tracking enabled.` },
     "/admin/messages": { emoji: "💬", mood: "helpful", greeting: `System messages and broadcast.` },
     "/admin/support": { emoji: "🆘", mood: "helpful", greeting: `Support tickets needing attention.` },
-    "/admin/notifications": { emoji: "🔔", mood: "excited", greeting: `Let me check system alerts...` },
     "/admin/settings": { emoji: "⚙️", mood: "helpful", greeting: `Admin configuration settings.` },
   };
 
@@ -354,7 +353,6 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   ];
 
   const bottomNavItems = [
-    { name: "Notifications", path: "/admin/notifications", icon: Bell },
     { name: "Support", path: "/admin/support", icon: HelpCircle },
     { name: "Settings", path: "/admin/settings", icon: Settings },
   ];

@@ -25,6 +25,11 @@ import AdminLayout from './modules/admin/layouts/AdminLayout';
 import AdminOverview from './modules/admin/pages/AdminOverview';
 import PillarsList from './modules/admin/pages/PillarsList';
 import PillarDetails from './modules/admin/pages/PillarDetails';
+import AdminRequests from './modules/admin/pages/AdminRequests';
+import AdminTracking from './modules/admin/pages/AdminTracking';
+import AdminMessages from './modules/admin/pages/AdminMessages';
+import AdminSupport from './modules/admin/pages/AdminSupport';
+import AdminSettings from './modules/admin/pages/AdminSettings';
 
 // Direct Access Route Component (Allows direct exploration of Pillar Dashboard without login barrier)
 const ProtectedRoute = ({ children }) => {
@@ -78,7 +83,7 @@ function App() {
           }
         />
 
-        {/* Cooperative Admin Dashboard Routes */}
+        {/* Cooperative Admin Dashboard Routes (Fully Functional) */}
         <Route
           path="/admin/*"
           element={
@@ -88,13 +93,11 @@ function App() {
                   <Route path="/" element={<AdminOverview />} />
                   <Route path="/pillars" element={<PillarsList />} />
                   <Route path="/pillars/:pillarId" element={<PillarDetails />} />
-                  {/* Placeholder routes for future admin features */}
-                  <Route path="/requests" element={<div className="fade-in" style={{padding: '20px'}}><h2>Service Requests (Coming Soon)</h2></div>} />
-                  <Route path="/tracking" element={<div className="fade-in" style={{padding: '20px'}}><h2>Tracking (Coming Soon)</h2></div>} />
-                  <Route path="/messages" element={<div className="fade-in" style={{padding: '20px'}}><h2>Messages (Coming Soon)</h2></div>} />
-                  <Route path="/notifications" element={<div className="fade-in" style={{padding: '20px'}}><h2>Notifications (Coming Soon)</h2></div>} />
-                  <Route path="/support" element={<div className="fade-in" style={{padding: '20px'}}><h2>Support (Coming Soon)</h2></div>} />
-                  <Route path="/settings" element={<div className="fade-in" style={{padding: '20px'}}><h2>Settings (Coming Soon)</h2></div>} />
+                  <Route path="/requests" element={<AdminRequests />} />
+                  <Route path="/tracking" element={<AdminTracking />} />
+                  <Route path="/messages" element={<AdminMessages />} />
+                  <Route path="/support" element={<AdminSupport />} />
+                  <Route path="/settings" element={<AdminSettings />} />
                   <Route path="*" element={<Navigate to="/admin" replace />} />
                 </Routes>
               </AdminLayout>
