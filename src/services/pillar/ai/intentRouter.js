@@ -12,6 +12,8 @@ import {
   navigationAgent,
 } from "./authenticatedAgents";
 
+import { adminAgent } from "./adminAgent";
+
 // ============================================================
 // INTENT ROUTER — 100% LIVE AI (Zero Hardcoded Responses)
 // Every route → Live NVIDIA / Gemini API via server proxy
@@ -23,7 +25,14 @@ export const intentRouter = {
     const q = message.toLowerCase().trim();
 
     // ============================================================
-    // 1. PUBLIC AI MODE (Before Authentication)
+    // 1. ADMIN AI MODE (Cooperative Operations Intelligence)
+    // ============================================================
+    if (route.startsWith("/admin")) {
+      return await adminAgent.handle(message, { language, route });
+    }
+
+    // ============================================================
+    // 2. PUBLIC AI MODE (Before Authentication)
     // ============================================================
     if (!isAuthenticated) {
       // Block private data requests before login
@@ -63,7 +72,7 @@ export const intentRouter = {
     }
 
     // ============================================================
-    // 2. AUTHENTICATED AI MODE — Every Sub-Agent calls Live AI API
+    // 3. AUTHENTICATED PILLAR AI MODE — Every Sub-Agent calls Live AI API
     // ============================================================
     const ctx = { session, language };
 

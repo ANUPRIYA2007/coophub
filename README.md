@@ -1,61 +1,73 @@
-# COOP HUB - Pillar Dashboard
+# 🏛️ COOP HUB — Unified Multi-Portal Platform
+### Pillar Technician Portal & Cooperative Admin Intelligence Dashboard
 
-## Deployment Summary
+This repository contains the completely configured React 19 (Vite) application for the **COOP HUB Pillar Portal** and the **Cooperative Admin Operations Console**. It features GSAP dynamic animations, multi-language localization (English, Tamil, Hindi, Kannada, Telugu), 24/7 AI Operations Intelligence (NVIDIA / Gemini powered), and **Supabase Realtime Live Synchronization** across Customer, Pillar, and Admin interfaces.
 
-This repository contains the completely configured React (Vite) application for the COOP HUB Pillar Portal. It includes dynamic UI/UX, localized routing, live NVIDIA/Gemini API integrations (via Node.js proxy), and Supabase authentication layouts.
+---
 
-### 🚀 Local Development Setup
+## 🧭 Multi-Portal Sitemap
 
-To run this project locally, you will need two terminals running simultaneously to support both the Vite Frontend and the Node/Express proxy server for the AI.
+### 1. 👥 Pillar Technician Portal
+- `/` — Modern Customer/Pillar Landing Page with Interactive 3D Hero Mascot Agent
+- `/login` — Secure OTP & Password Pillar Authentication with Demo Access bypass
+- `/register` — 4-Step KYC Onboarding flow for new cooperative members
+- `/dashboard` — Live Technician Control Center (Active Orders, Today's Earnings, Availability Toggle)
+- `/dashboard/orders` — Orders pipeline with arrival OTP validation and extra charges modal
+- `/dashboard/earnings` — Financial wallet with payout requests and transaction history
+- `/dashboard/history` — Completed service archives and customer star ratings
+- `/dashboard/chat` — Real-time customer messaging interface
+- `/dashboard/profile` — Verified KYC credentials, trade licenses, and service radius
+- `/dashboard/support` — Pillar helpdesk dispute ticket management
 
-**Step 1: Install Dependencies**
+### 2. 🏛️ Cooperative Admin Dashboard
+- `/admin` — Executive Operations Dashboard with live GMV, trade breakdown, and telemetry radar
+- `/admin/pillars` — Workforce directory with technician verification approvals
+- `/admin/pillars/:id` — Detailed technician dossier and KYC credentials
+- `/admin/services` — Rate tariff manager and catalog master
+- `/admin/requests` — Live service request dispatch tower
+- `/admin/tracking` — Geospatial radar monitoring live field technician telemetry
+- `/admin/feedback` — Customer CSAT review feed and 5-star sentiment analytics
+- `/admin/messages` — Targeted broadcast composer and announcement center
+- `/admin/support` — Multi-portal support desk resolution queue
+- `/admin/settings` — Cooperative commission rates, emergency numbers, and payout cycles
+
+---
+
+## ⚡ 3-Portal Realtime Architecture
+
+```mermaid
+graph TD
+    A[Customer Portal / Bookings] <-->|Supabase Realtime & DB Triggers| B[(Supabase PostgreSQL)]
+    B <-->|Live Postgres Changes & Telemetry| C[Pillar Portal /dashboard]
+    B <-->|Live Dispatch & GMV Sync| D[Admin Dashboard /admin]
+```
+
+---
+
+## 🚀 Local Development Setup
+
 ```bash
+# Step 1: Install Dependencies (including GSAP & Lucide)
 npm install
-```
 
-**Step 2: Start the AI Proxy Server**
-*Note: This server securely manages the API keys so they are not exposed to the browser.*
-```bash
+# Step 2: Start the AI Proxy Server (Port 3000)
 node server/index.js
-```
-*(Runs on port 3000 by default)*
 
-**Step 3: Start the Frontend React App**
-Open a new terminal window:
-```bash
+# Step 3: Start the Vite Development Server (Port 5173 / 5174)
 npm run dev
 ```
-*(Runs on port 5173 by default)*
 
 ---
 
-### 📦 Production Build & Deployment
-
-To deploy the application to production environments like Vercel, Netlify, or an Nginx VPS:
-
-**1. Build the Frontend:**
-```bash
-npm run build
-```
-This will compile the optimized application into the `/dist` folder. 
-
-**2. Preview the Build:**
-```bash
-npm run preview
-```
-
-**3. Deployment Environment Variables:**
-Ensure that your hosting provider has the following environment variables securely set:
-- `VITE_SUPABASE_URL`: Your Supabase Project URL
-- `VITE_SUPABASE_ANON_KEY`: Your Supabase API Key
-- `VITE_API_URL`: The production URL of where your Node/Express AI proxy is hosted (e.g., `https://api.coophub.in/ai`).
-
-**4. Hosting the AI Server:**
-Because the Hero AI depends on a proxy backend to hide the LLM tokens, the `server/index.js` file MUST be hosted independently (for example, on Render, Heroku, or AWS EC2).
+## 🗄️ Database Migrations
+Execute the SQL migration files in your Supabase SQL Editor in order:
+1. `supabase/migrations/01_pillar_portal_schema.sql` — Core Pillar tables
+2. `supabase/migrations/02_admin_portal_schema.sql` — Admin portal schema and services
+3. `supabase/migrations/03_unified_coophub_realtime_schema.sql` — Realtime publication & bidirectional synchronization triggers
 
 ---
 
-### 🔑 Authentication Testing & Demo
-A specific `Demo Access` bypass has been built into the `Login.jsx` interface.
-- Clicking **"Auto-fill Demo Pillar"** bypasses the live Supabase OTP network requests, enabling immediate access to the `/dashboard` for presentation purposes.
-- Live OTP via SMS requires configuring Twilio/Messagebird within the Supabase Dashboard.
+## 🧪 Demo Credentials
+- **Pillar Demo Login**: ID: `PIL-CHE-042` | Password: `password123`
+- **Admin Direct Route**: Access `/admin` directly in the browser
+- **Real User Logins**: Authenticate with real Supabase credentials to view pure live database records with zero mocks.

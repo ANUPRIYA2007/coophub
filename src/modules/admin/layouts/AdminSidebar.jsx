@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
-import { pillarProfileService } from "../../../services/pillar/profileService";
 import gsap from "gsap";
 import {
   LayoutDashboard,
@@ -11,9 +10,13 @@ import {
   Wallet,
   Clock,
   User,
+  Users,
+  Wrench,
+  Star,
   Settings,
   HelpCircle,
   MessageSquare,
+  Bell,
   LogOut,
   X,
   Volume2,
@@ -46,29 +49,30 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const userName = profile?.full_name?.split(" ")[0] || "Senthil";
 
-  // Pillar Online / Offline Status Toggle
-  const [isOnline, setIsOnline] = useState(() => profile?.is_available !== false);
+  // Admin Online / Offline Status Toggle
+  const [isOnline, setIsOnline] = useState(() => localStorage.getItem("coophub_admin_online") !== "false");
 
   useEffect(() => {
-    if (profile?.is_available !== undefined) {
-      setIsOnline(profile.is_available);
-    }
-  }, [profile]);
+    const handleStatusSync = () => {
+      setIsOnline(localStorage.getItem("coophub_admin_online") !== "false");
+    };
+    window.addEventListener("coophub_admin_status_change", handleStatusSync);
+    return () => window.removeEventListener("coophub_admin_status_change", handleStatusSync);
+  }, []);
 
-  const handleToggleOnline = async () => {
+  const handleToggleOnline = () => {
     const next = !isOnline;
     setIsOnline(next);
-    if (user?.id) {
-      await pillarProfileService.updateAvailability(user.id, next);
-    }
+    localStorage.setItem("coophub_admin_online", next ? "true" : "false");
+    window.dispatchEvent(new Event("coophub_admin_status_change"));
 
     if (next) {
       setCurrentMood("excited");
       setHeroMessages([{
         id: `status-${Date.now()}`,
         sender: "hero",
-        text: `🟢 You are now ONLINE! Ready to receive customer requests in ${profile?.service_area || 'Chennai'}.`,
-        emoji: "🚀",
+        text: "🟢 Admin Operations are LIVE! Telemetry radar and automated dispatch are active.",
+        emoji: "⚡",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }]);
     } else {
@@ -76,8 +80,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
       setHeroMessages([{
         id: `status-${Date.now()}`,
         sender: "hero",
-        text: "🔴 You are now OFFLINE. Take a good break, incoming requests are paused.",
-        emoji: "☕",
+        text: "🔴 Admin Operations set to OFFLINE. Automated alerts and supervision are paused.",
+        emoji: "⏸️",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }]);
     }
@@ -86,7 +90,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   // GSAP Smooth Navigation Button Entrance
   useEffect(() => {
     gsap.fromTo(
-      ".pillar-nav-item",
+      ".admin-nav-item",
       { opacity: 0, x: -18, scale: 0.96 },
       { opacity: 1, x: 0, scale: 1, duration: 0.45, stagger: 0.04, ease: "power2.out" }
     );
@@ -94,25 +98,25 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   // Friendly greeting emojis and moods per route
   const routePersonality = {
-    "/dashboard": { emoji: "👋", mood: "happy", greeting: `Hey ${userName}! Ready for new bookings today?` },
-    "/dashboard/orders": { emoji: "📦", mood: "helpful", greeting: `Let me check your orders, ${userName}...` },
-    "/dashboard/earnings": { emoji: "💰", mood: "excited", greeting: `Let's see your earnings summary!` },
-    "/dashboard/history": { emoji: "📋", mood: "happy", greeting: `Checking your service history...` },
-    "/dashboard/chat": { emoji: "💬", mood: "helpful", greeting: `Need to reach a customer? I'll help!` },
-    "/dashboard/profile": { emoji: "🛡️", mood: "happy", greeting: `Your profile looks great, ${userName}!` },
-    "/dashboard/settings": { emoji: "⚙️", mood: "helpful", greeting: `What would you like to customize?` },
-    "/dashboard/support": { emoji: "🆘", mood: "helpful", greeting: `I'm here to help with any issues!` },
-    "/dashboard/notifications": { emoji: "🔔", mood: "excited", greeting: `Let me check your notifications...` },
+    "/admin": { emoji: "👋", mood: "happy", greeting: `Welcome back, Admin! System analytics and performance look strong.` },
+    "/admin/pillars": { emoji: "👥", mood: "helpful", greeting: `Let's review the registered Pillar workforce.` },
+    "/admin/services": { emoji: "🔧", mood: "excited", greeting: `Manage cooperative service catalog and pricing.` },
+    "/admin/requests": { emoji: "📦", mood: "excited", greeting: `Active customer service requests overview.` },
+    "/admin/tracking": { emoji: "📍", mood: "happy", greeting: `Live geospatial radar & telemetry active.` },
+    "/admin/feedback": { emoji: "⭐", mood: "happy", greeting: `Customer reviews and satisfaction ratings.` },
+    "/admin/messages": { emoji: "💬", mood: "helpful", greeting: `Cooperative announcements and broadcast center.` },
+    "/admin/support": { emoji: "🆘", mood: "helpful", greeting: `Support dispute tickets needing review.` },
+    "/admin/settings": { emoji: "⚙️", mood: "helpful", greeting: `Admin platform configuration settings.` },
   };
 
   // Get personality for current route
   const getRoutePersonality = (path) => {
     for (const [route, p] of Object.entries(routePersonality)) {
-      if (path === route || (route !== "/dashboard" && path.includes(route.split("/dashboard/")[1]))) {
+      if (path === route || (route !== "/admin" && path.includes(route))) {
         return p;
       }
     }
-    return routePersonality["/dashboard"];
+    return routePersonality["/admin"];
   };
 
   // Live AI navigation tracking — queries real AI on every route change
@@ -137,8 +141,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     setHeroMessages([thinkingMsg]);
 
     // Build contextual query for the live AI
-    const section = path.replace("/dashboard/", "").replace("/dashboard", "home") || "home";
-    const aiQuery = `The technician ${userName} just navigated to the ${section} section. Give a friendly, concise 1-2 sentence guide for this page. Be warm and use their name.`;
+    const section = path.replace("/admin/", "").replace("/admin", "overview") || "overview";
+    const aiQuery = `The Cooperative Admin just navigated to the ${section} section. Give a friendly, concise 1-2 sentence guide for this page. Be professional and supportive.`;
 
     aiService.chatWithMascot({
       message: aiQuery,
@@ -394,17 +398,18 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   };
 
   const navItems = [
-    { name: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard },
-    { name: t("nav.orders"), path: "/dashboard/orders", icon: ClipboardList },
-    { name: t("nav.earnings"), path: "/dashboard/earnings", icon: Wallet },
-    { name: t("nav.history"), path: "/dashboard/history", icon: Clock },
-    { name: t("nav.chat"), path: "/dashboard/chat", icon: MessageSquare },
+    { name: "Overview", path: "/admin", icon: LayoutDashboard },
+    { name: "Pillars", path: "/admin/pillars", icon: Users },
+    { name: "Services", path: "/admin/services", icon: Wrench },
+    { name: "Service Requests", path: "/admin/requests", icon: ClipboardList },
+    { name: "Live Tracking", path: "/admin/tracking", icon: Clock },
+    { name: "Customer Feedback", path: "/admin/feedback", icon: Star },
+    { name: "Broadcast Messages", path: "/admin/messages", icon: MessageSquare },
   ];
 
   const bottomNavItems = [
-    { name: t("nav.profile"), path: "/dashboard/profile", icon: User },
-    { name: t("nav.settings"), path: "/dashboard/settings", icon: Settings },
-    { name: t("nav.support"), path: "/dashboard/support", icon: HelpCircle },
+    { name: "Support", path: "/admin/support", icon: HelpCircle },
+    { name: "Settings", path: "/admin/settings", icon: Settings },
   ];
 
   const handleLogout = async () => {
@@ -457,7 +462,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <img src="/assets/images/coophub-logo.jpg" alt="Logo" style={{ height: "32px", borderRadius: "4px" }} />
-            <span style={{ fontWeight: "bold", fontSize: "1.1rem" }}>Pillar Portal</span>
+            <span style={{ fontWeight: "bold", fontSize: "1.1rem" }}>Admin Portal</span>
           </div>
           <button className="btn-icon hide-on-desktop" onClick={toggleSidebar} style={{ color: "white" }}>
             <X size={24} />
@@ -476,10 +481,10 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           </div>
           <div style={{ overflow: "hidden" }}>
             <div style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "14.5px" }}>
-              {profile?.full_name || "Senthil Kumar"}
+              Cooperative Admin
             </div>
             <div style={{ fontSize: "11px", color: "var(--color-secondary)", fontWeight: "600", letterSpacing: "0.5px", marginTop: "1px" }}>
-              ID: {profile?.pillar_code || "PIL-CHE-042"}
+              ID: ADMIN-001
             </div>
             <div style={{ marginTop: "4px" }}>
               <button
@@ -498,10 +503,10 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                   cursor: "pointer",
                   transition: "all 0.2s ease"
                 }}
-                title="Click to toggle Online / Offline status"
+                title="Click to toggle Admin Online / Offline status"
               >
                 <span className={`status-dot ${isOnline ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-                <span>{isOnline ? t("dashboard.available") : t("dashboard.offline")}</span>
+                <span>{isOnline ? "Available (Online)" : "Offline (Paused)"}</span>
               </button>
             </div>
           </div>
@@ -513,7 +518,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
-                <li key={item.path} className="pillar-nav-item">
+                <li key={item.path} className="admin-nav-item">
                   <Link 
                     to={item.path}
                     onClick={() => { if (window.innerWidth <= 1024) toggleSidebar(); }}
@@ -543,7 +548,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             {bottomNavItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
-                <li key={item.path} className="pillar-nav-item">
+                <li key={item.path} className="admin-nav-item">
                   <Link 
                     to={item.path}
                     onClick={() => { if (window.innerWidth <= 1024) toggleSidebar(); }}
@@ -667,9 +672,9 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                 borderTop: "1px solid rgba(255,255,255,0.06)",
               }} className="hide-scrollbar">
                 {[
-                  { label: "📦 Orders", query: "Show my current orders" },
-                  { label: "💰 Earnings", query: "What are my total earnings?" },
-                  { label: "🆘 Help", query: "I need support help" },
+                  { label: "👥 Pillars", query: "Show me all pillars" },
+                  { label: "📦 Requests", query: "What are the active service requests?" },
+                  { label: "🆘 Help", query: "I need system help" },
                 ].map((chip) => (
                   <button
                     key={chip.label}

@@ -20,8 +20,26 @@ import SupportPage from './pages/pillar/support/SupportPage';
 import PillarLayout from './components/pillar/layout/PillarLayout';
 import MascotFloating from './components/pillar/ai/MascotFloating';
 
+// Admin Module
+import AdminLayout from './modules/admin/layouts/AdminLayout';
+import AdminOverview from './modules/admin/pages/AdminOverview';
+import PillarsList from './modules/admin/pages/PillarsList';
+import PillarDetails from './modules/admin/pages/PillarDetails';
+import AdminRequests from './modules/admin/pages/AdminRequests';
+import AdminTracking from './modules/admin/pages/AdminTracking';
+import AdminMessages from './modules/admin/pages/AdminMessages';
+import AdminSupport from './modules/admin/pages/AdminSupport';
+import AdminSettings from './modules/admin/pages/AdminSettings';
+import AdminServices from './modules/admin/pages/AdminServices';
+import AdminFeedback from './modules/admin/pages/AdminFeedback';
+
 // Direct Access Route Component (Allows direct exploration of Pillar Dashboard without login barrier)
 const ProtectedRoute = ({ children }) => {
+  return children;
+};
+
+// Admin Protected Route
+const AdminProtectedRoute = ({ children }) => {
   return children;
 };
 
@@ -64,6 +82,30 @@ function App() {
                 </Routes>
               </PillarLayout>
             </ProtectedRoute>
+          }
+        />
+
+        {/* Cooperative Admin Dashboard Routes (Fully Functional) */}
+        <Route
+          path="/admin/*"
+          element={
+            <AdminProtectedRoute>
+              <AdminLayout>
+                <Routes>
+                  <Route path="/" element={<AdminOverview />} />
+                  <Route path="/pillars" element={<PillarsList />} />
+                  <Route path="/pillars/:pillarId" element={<PillarDetails />} />
+                  <Route path="/services" element={<AdminServices />} />
+                  <Route path="/requests" element={<AdminRequests />} />
+                  <Route path="/tracking" element={<AdminTracking />} />
+                  <Route path="/feedback" element={<AdminFeedback />} />
+                  <Route path="/messages" element={<AdminMessages />} />
+                  <Route path="/support" element={<AdminSupport />} />
+                  <Route path="/settings" element={<AdminSettings />} />
+                  <Route path="*" element={<Navigate to="/admin" replace />} />
+                </Routes>
+              </AdminLayout>
+            </AdminProtectedRoute>
           }
         />
 

@@ -5,6 +5,7 @@ import { pillarProfileService } from "../../../services/pillar/profileService";
 import { pillarOrderService } from "../../../services/pillar/orderService";
 import { pillarEarningsService } from "../../../services/pillar/earningsService";
 import { Link, useNavigate } from "react-router-dom";
+import gsap from "gsap";
 import {
   ClipboardList,
   Wallet,
@@ -80,9 +81,27 @@ export default function Dashboard() {
       }
 
       setLoadingMetrics(false);
+
+      // GSAP Stagger Entrance for Dashboard elements
+      setTimeout(() => {
+        gsap.fromTo(
+          ".gsap-fade-card",
+          { opacity: 0, y: 22, scale: 0.98 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.07, ease: "power2.out" }
+        );
+      }, 50);
     }
 
     loadData();
+
+    // Supabase Realtime Live Subscription (Syncs incoming bookings from Customer Portal)
+    const channel = pillarOrderService.subscribeToPillarOrders(user?.id, () => {
+      loadData();
+    });
+
+    return () => {
+      channel?.unsubscribe();
+    };
   }, [user]);
 
   const handleToggleAvailability = async () => {
@@ -99,7 +118,7 @@ export default function Dashboard() {
     <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
       {/* Top Banner: Greeting & Live Availability Toggle */}
       <div
-        className="card"
+        className="card gsap-fade-card"
         style={{
           background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
           color: "white",
@@ -159,7 +178,7 @@ export default function Dashboard() {
 
       {/* Metrics Row */}
       <div className="grid grid-4" style={{ marginBottom: "var(--space-6)" }}>
-        <div className="card" onClick={() => navigate("/dashboard/orders")} style={{ cursor: "pointer" }}>
+        <div className="card gsap-fade-card" onClick={() => navigate("/dashboard/orders")} style={{ cursor: "pointer" }}>
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", fontWeight: "500" }}>
@@ -178,7 +197,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="card" onClick={() => navigate("/dashboard/earnings")} style={{ cursor: "pointer" }}>
+        <div className="card gsap-fade-card" onClick={() => navigate("/dashboard/earnings")} style={{ cursor: "pointer" }}>
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", fontWeight: "500" }}>
@@ -197,7 +216,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="card" onClick={() => navigate("/dashboard/history")} style={{ cursor: "pointer" }}>
+        <div className="card gsap-fade-card" onClick={() => navigate("/dashboard/history")} style={{ cursor: "pointer" }}>
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", fontWeight: "500" }}>
@@ -216,7 +235,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="card" onClick={() => navigate("/dashboard/earnings")} style={{ cursor: "pointer" }}>
+        <div className="card gsap-fade-card" onClick={() => navigate("/dashboard/earnings")} style={{ cursor: "pointer" }}>
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", fontWeight: "500" }}>
