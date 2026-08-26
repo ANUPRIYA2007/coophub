@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import gsap from "gsap";
 
 export default function AdminOverview() {
+  const isDemo = localStorage.getItem("coophub_demo_admin") === "true" || localStorage.getItem("coophub_demo_user") === "true";
   const [stats, setStats] = useState({
     totalPillars: 0,
     activePillars: 0,
@@ -116,21 +117,21 @@ export default function AdminOverview() {
         <MetricCard 
           icon={<DollarSign size={22} />} 
           title="Monthly GMV (Revenue)" 
-          value={stats.totalRevenue > 0 ? `₹${stats.totalRevenue.toLocaleString()}` : "₹2,38,500"} 
+          value={stats.totalRevenue > 0 ? `₹${stats.totalRevenue.toLocaleString()}` : (isDemo ? "₹2,38,500" : "₹0")} 
           sub="+18.4% vs last month"
           color="var(--color-primary)" 
         />
         <MetricCard 
           icon={<Users size={22} />} 
           title="Total Registered Pillars" 
-          value={stats.totalPillars > 0 ? stats.totalPillars : "126"} 
-          sub={`${stats.activePillars > 0 ? stats.activePillars : "84"} Active On Duty`}
+          value={stats.totalPillars > 0 ? stats.totalPillars : (isDemo ? "126" : "0")} 
+          sub={`${stats.activePillars > 0 ? stats.activePillars : (isDemo ? "84" : "0")} Active On Duty`}
           color="var(--color-secondary)" 
         />
         <MetricCard 
           icon={<Activity size={22} />} 
           title="Active Service Bookings" 
-          value={stats.activeRequests > 0 ? stats.activeRequests : "18"} 
+          value={stats.activeRequests > 0 ? stats.activeRequests : (isDemo ? "18" : "0")} 
           sub="94.8% Dispatch SLA"
           color="#10B981" 
         />
