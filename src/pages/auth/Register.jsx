@@ -5,11 +5,13 @@ import { useLanguage } from '../../context/LanguageContext';
 import authService from '../../services/auth/authService';
 import PasswordInput from '../../components/ui/PasswordInput';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Register() {
     const { t } = useTranslation();
     const { language, setLanguage, languages } = useLanguage();
     const navigate = useNavigate();
+    const { loginCustomerDemo } = useAuth();
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -104,6 +106,23 @@ export default function Register() {
                             </svg>
                             <span>{error}</span>
                         </div>
+                        {error && (error.toLowerCase().includes('confirmation email') || error.toLowerCase().includes('rate limit') || error.toLowerCase().includes('smtp')) && (
+                            <div className="mt-3 pt-3 border-t border-danger-200/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                                <span className="text-xs text-danger-500 font-normal leading-normal">
+                                    Supabase SMTP confirmation email is not configured in this project. You can bypass this check and enter the portal directly.
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        loginCustomerDemo();
+                                        navigate('/home');
+                                    }}
+                                    className="px-3.5 py-2 bg-danger-600 hover:bg-danger-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95"
+                                >
+                                    ⚡ Enter Demo Mode
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
