@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare } from 'lucide-react';
 
-export default function GlobalHeroAgent() {
+export default function GlobalHeroAgent({ inline = false }) {
     const { t, language } = useTranslation();
     const location = useLocation();
     const params = useParams();
@@ -213,8 +213,66 @@ export default function GlobalHeroAgent() {
     const publicRoutes = ['/', '/login', '/register', '/verify-otp', '/forgot-password', '/reset-password'];
     const hasSidebar = !publicRoutes.includes(location.pathname);
 
+    if (inline) {
+        return (
+            <div 
+                onClick={handleOpenChat}
+                className="mx-3 my-3 bg-navy-800/65 border border-navy-700/50 rounded-2xl p-3 relative cursor-pointer hover:bg-navy-800 transition-all select-none group"
+                title="Click to talk with CoopBot"
+            >
+                <div className="flex items-center space-x-3">
+                    {/* Compact Avatar */}
+                    <div className="relative shrink-0">
+                        <div className={`absolute -inset-1 rounded-full blur-sm transition-all duration-500 opacity-60 group-hover:opacity-100 ${
+                            animState === 'error' ? 'bg-red-500' :
+                            animState === 'success' ? 'bg-green-500' :
+                            animState === 'speaking' ? 'bg-orange-500 animate-pulse' :
+                            'bg-orange-400'
+                        }`} />
+                        <div className={`relative w-12 h-12 rounded-full bg-white dark:bg-slate-900 border border-orange-400 p-0.5 flex items-center justify-center ${getAnimationClass()}`}>
+                            <img
+                                src="/assets/images/mascot-hero.png"
+                                alt="CoopBot"
+                                className="w-full h-full object-contain rounded-full"
+                                onError={(e) => {
+                                    e.target.src = '/src/assets/branding/mascot-ai.png';
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Speech Text */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider flex items-center gap-0.5">
+                                <Sparkles size={10} /> CoopBot
+                            </span>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    speakGreeting();
+                                }}
+                                className={`p-0.5 rounded transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-navy-400 hover:text-orange-400'}`}
+                                title={isSpeaking ? "Mute speech" : "Read aloud"}
+                            >
+                                {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-navy-200 font-medium leading-normal line-clamp-2 mt-0.5">
+                            "{heroGreeting || 'I am right here to help.'}"
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!inline && hasSidebar) {
+        return null;
+    }
+
     return (
-        <div className={`fixed bottom-6 ${hasSidebar ? 'lg:left-72 left-6' : 'left-6'} z-40 flex items-end space-x-3 pointer-events-none select-none transition-all duration-300`}>
+        <div className="fixed bottom-6 left-6 z-40 flex items-end space-x-3 pointer-events-none select-none transition-all duration-300">
             
             {/* Mascot Avatar Trigger */}
             <div 

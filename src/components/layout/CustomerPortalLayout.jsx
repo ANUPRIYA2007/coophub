@@ -7,6 +7,7 @@ import LanguageSelector from '../ui/LanguageSelector';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 import { supabase } from '../../lib/supabase';
 import { Sun, Moon } from 'lucide-react';
+import GlobalHeroAgent from '../ai/GlobalHeroAgent';
 
 export default function CustomerPortalLayout() {
     const { profile, signOut } = useAuth();
@@ -102,6 +103,8 @@ export default function CustomerPortalLayout() {
                         </NavLink>
                     ))}
                 </nav>
+
+                <GlobalHeroAgent inline={true} />
 
                 {/* Logout */}
                 <div className="px-3 py-4 border-t border-navy-800">
