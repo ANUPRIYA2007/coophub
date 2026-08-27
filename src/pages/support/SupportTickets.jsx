@@ -13,7 +13,38 @@ export default function SupportTickets() {
 
     useEffect(() => {
         const fetchTickets = async () => {
-            if (!profile?.user_id) return;
+            const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
+
+            if (isDemo) {
+                const userCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_tickets') || '[]');
+                const defaultDemo = [
+                    {
+                        id: 'TKT-1042',
+                        subject: 'Invoice & Extra Charge Breakdown Question',
+                        category: 'Billing',
+                        description: 'Needed clarification on the copper wire component cost for switchboard replacement.',
+                        status: 'resolved',
+                        created_at: new Date(Date.now() - 172800000).toISOString()
+                    },
+                    {
+                        id: 'TKT-1038',
+                        subject: 'AC Technician Timing Coordination',
+                        category: 'Service',
+                        description: 'Requested morning 10 AM slot for doorstep AC repair.',
+                        status: 'closed',
+                        created_at: new Date(Date.now() - 432000000).toISOString()
+                    }
+                ];
+                setTickets([...userCreated, ...defaultDemo]);
+                setLoading(false);
+                return;
+            }
+
+            if (!profile?.user_id) {
+                setLoading(false);
+                return;
+            }
+
             try {
                 const { data, error } = await supabase
                     .from('support_tickets')

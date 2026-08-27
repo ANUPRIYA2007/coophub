@@ -5,6 +5,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useServices } from '../../hooks/useServices';
 import { useLanguage } from '../../context/LanguageContext';
 import { supabase } from '../../lib/supabase';
+import { serviceRequestService } from '../../services/customer/serviceRequestService';
 import LanguageSelector from '../../components/ui/LanguageSelector';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 

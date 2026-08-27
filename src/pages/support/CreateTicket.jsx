@@ -25,7 +25,25 @@ export default function CreateTicket() {
         }
 
         setSubmitting(true);
+        const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
+
         try {
+            if (isDemo) {
+                const newTicket = {
+                    id: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
+                    subject: subject.trim(),
+                    category: category,
+                    description: description.trim(),
+                    status: 'open',
+                    created_at: new Date().toISOString()
+                };
+                const existing = JSON.parse(localStorage.getItem('coophub_demo_customer_tickets') || '[]');
+                existing.unshift(newTicket);
+                localStorage.setItem('coophub_demo_customer_tickets', JSON.stringify(existing));
+                navigate('/support/tickets');
+                return;
+            }
+
             const { error: insertErr } = await supabase.from('support_tickets').insert({
                 customer_id: profile.user_id,
                 subject: subject.trim(),
@@ -34,7 +52,7 @@ export default function CreateTicket() {
             });
 
             if (insertErr) throw insertErr;
-            navigate('/support/tickets'); // Navigate explicitly immediately after bound write
+            navigate('/support/tickets');
         } catch (err) {
             setError(err.message || 'Failed to create support ticket.');
         } finally {
