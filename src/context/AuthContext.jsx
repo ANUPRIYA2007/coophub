@@ -160,6 +160,24 @@ export function AuthProvider({ children }) {
     return await pillarAuthService.login(credentials);
   };
 
+  const loginCustomerDemo = () => {
+    localStorage.setItem("coophub_demo_customer", "true");
+    localStorage.removeItem("coophub_demo_user");
+    localStorage.removeItem("coophub_demo_admin");
+    const customerDemoSession = {
+      user: { id: '11111111-1111-1111-1111-111111111111', email: 'customer@coophub.in' },
+      access_token: 'dummy'
+    };
+    setSession(customerDemoSession);
+    setUser(customerDemoSession.user);
+    setProfile({
+      user_id: customerDemoSession.user.id,
+      full_name: 'Anupriya Murugan',
+      role: 'customer',
+      email: 'customer@coophub.in'
+    });
+  };
+
   const register = async (data) => {
     return await pillarAuthService.register(data);
   };
@@ -185,6 +203,7 @@ export function AuthProvider({ children }) {
         setIsAvailable,
         updateAvailability,
         login,
+        loginCustomerDemo,
         register,
         logout,
         signOut: logout, // compatibility alias for customer portal

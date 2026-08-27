@@ -9,7 +9,7 @@ import LanguageSelector from '../../components/ui/LanguageSelector';
 import { Mail, Lock, KeyRound, ArrowLeft, Shield, Wrench, ShoppingBag } from 'lucide-react';
 
 export default function Login() {
-    const { session } = useAuth();
+    const { session, loginCustomerDemo } = useAuth();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
@@ -33,6 +33,10 @@ export default function Login() {
         setEmail('customer@coophub.in');
         setPassword('password123');
         setError(null);
+        if (loginCustomerDemo) {
+            loginCustomerDemo();
+            navigate('/home');
+        }
     };
 
     const handleSendOtp = async (e) => {
@@ -75,13 +79,14 @@ export default function Login() {
 
             // 🧪 CUSTOMER DEMO BYPASS
             if (
-                email === "customer@coophub.in" &&
-                (password === "password123" || otp === "489201" || otp === "123456" || otpSent)
+                email === "customer@coophub.in" || email.toLowerCase().includes("demo")
             ) {
-                localStorage.setItem("coophub_demo_customer", "true");
-                localStorage.removeItem("coophub_demo_user");
-                localStorage.removeItem("coophub_demo_admin");
-                window.location.href = '/home';
+                if (loginCustomerDemo) {
+                    loginCustomerDemo();
+                } else {
+                    localStorage.setItem("coophub_demo_customer", "true");
+                }
+                navigate('/home');
                 return;
             }
 

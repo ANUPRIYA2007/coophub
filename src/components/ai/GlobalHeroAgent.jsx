@@ -250,31 +250,35 @@ export default function GlobalHeroAgent() {
             {heroGreeting && (
                 <div
                     onClick={handleOpenChat}
-                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-orange-200 dark:border-slate-700 shadow-xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative"
+                    style={{ backgroundColor: 'var(--color-surface, #FFFFFF)' }}
+                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm border-2 border-orange-400 dark:border-orange-500 shadow-2xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative"
                 >
-                    <div className="flex items-center justify-between gap-2 mb-1 border-b border-orange-100 dark:border-slate-700 pb-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                            <Sparkles size={11} /> CoopBot Live Guide
+                    <div className="flex items-center justify-between gap-2 mb-1.5 border-b border-orange-200 dark:border-slate-700 pb-1">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                            <Sparkles size={12} /> CoopBot Live Guide
                         </span>
 
                         <div className="flex items-center space-x-1.5">
                             <button
                                 onClick={speakGreeting}
-                                className={`p-1 rounded-md transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-navy-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-slate-700'}`}
+                                className={`p-1 rounded-md transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-slate-600 dark:text-slate-300 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-slate-800'}`}
                                 title={isSpeaking ? "Mute speech" : "Read aloud"}
                             >
-                                {isSpeaking ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                                {isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
                             </button>
                         </div>
                     </div>
 
-                    <p className="text-xs text-navy-800 dark:text-slate-100 leading-relaxed font-medium">
+                    <p 
+                        style={{ color: 'var(--color-text, #0F172A)' }}
+                        className="text-xs font-semibold leading-relaxed"
+                    >
                         "{heroGreeting}"
                     </p>
 
-                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-navy-400 dark:text-slate-400">
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                         <span className="italic flex items-center gap-1">
-                            <MessageSquare size={10} /> Tap to chat with AI
+                            <MessageSquare size={12} /> Tap to chat with AI
                         </span>
                         <span className="text-orange-500 font-bold">Ask anything →</span>
                     </div>
