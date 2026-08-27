@@ -189,7 +189,7 @@ export default function Landing() {
         }}>
           {/* Primary: Sign In */}
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/pillar/login')}
             id="hero-sign-in-btn"
             style={{
               background: 'linear-gradient(180deg, #F57C20 0%, #E66A0D 100%)',
@@ -223,7 +223,7 @@ export default function Landing() {
 
           {/* Secondary: Register / Sign Up */}
           <button
-            onClick={() => navigate('/register')}
+            onClick={() => navigate('/pillar/register')}
             id="hero-register-btn"
             style={{
               background: 'transparent',

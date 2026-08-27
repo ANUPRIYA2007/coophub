@@ -316,8 +316,29 @@ async function AgentRouter(userMsg, token, currentContext) {
 // Expected body: { messages: [{...}], language: 'English', token: 'jwt...', contextData: {...} }
 app.post('/api/ai/chat', async (req, res) => {
     try {
-        const { messages, language = 'English', catalogContext = 'No services available.', token, contextData = {} } = req.body;
+        // Support both Customer messages and Pillar prompt format
+        const { prompt, route = '/', messages, language = 'English', catalogContext = 'No services available.', token, contextData = {} } = req.body;
 
+        if (prompt !== undefined) {
+            // --- PILLAR PORTAL AI HANDLER ---
+            const authoritativeSystemPrompt = `You are CoopBot, the official 24/7 AI mascot and guide for the COOP HUB Pillar Portal.
+The user is currently viewing the ${route} page.
+Rules:
+1. Provide helpful, polite, and practical guidance for service technicians and technicians joining the platform.
+2. NEVER generate, suggest, or execute arbitrary SQL queries.
+3. NEVER reveal or invent private user orders, financial earnings, or account credentials.
+4. Keep replies concise, clean, and well-structured.`;
+
+            const reply = await generateAIResponse([{ role: 'user', content: prompt }], authoritativeSystemPrompt);
+            res.json({
+                success: true,
+                text: reply,
+                provider: NVIDIA_API_KEY ? 'nvidia' : 'gemini'
+            });
+            return;
+        }
+
+        // --- CUSTOMER PORTAL AI HANDLER ---
         // Extract latest message for Intent Router
         const latestMsg = messages[messages.length - 1]?.content || '';
 

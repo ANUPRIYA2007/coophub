@@ -124,7 +124,7 @@ export default function Register() {
           <p style={{ color: "var(--color-text-secondary)", marginTop: "var(--space-2)", marginBottom: "var(--space-6)", lineHeight: "1.6" }}>
             {t("auth.registrationSuccess")} Your Pillar ID will be active upon review approval.
           </p>
-          <Link to="/login" className="btn btn-primary btn-lg" style={{ width: "100%" }}>
+          <Link to="/pillar/login" className="btn btn-primary btn-lg" style={{ width: "100%" }}>
             Proceed to Login
           </Link>
         </div>
@@ -496,7 +496,7 @@ export default function Register() {
             <div style={{ marginTop: "24px", textAlign: "center", borderTop: "1px solid var(--color-border-light)", paddingTop: "16px" }}>
               <p style={{ fontSize: "13.5px", color: "var(--color-text-secondary)" }}>
                 {t("auth.alreadyRegistered")}{" "}
-                <Link to="/login" style={{ color: "var(--color-secondary)", fontWeight: "700" }}>
+                <Link to="/pillar/login" style={{ color: "var(--color-secondary)", fontWeight: "700" }}>
                   {t("auth.loginHere")}
                 </Link>
               </p>

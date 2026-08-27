@@ -34,8 +34,19 @@ export default function Login() {
             if (!email) throw new Error(t('validation.required_email'));
             if (!password) throw new Error(t('validation.required_password'));
 
+            if (email === "customer@coophub.in" && password === "password123") {
+                localStorage.setItem("coophub_demo_customer", "true");
+                localStorage.removeItem("coophub_demo_user");
+                localStorage.removeItem("coophub_demo_admin");
+                window.location.reload();
+                return;
+            }
+
+            localStorage.removeItem("coophub_demo_customer");
+            localStorage.removeItem("coophub_demo_user");
+            localStorage.removeItem("coophub_demo_admin");
+
             await authService.signInWithPassword(email, password);
-            // Auth context will catch the session change and redirect is handled inside ProtectedRoute
             navigate('/home');
         } catch (err) {
             if (err.message.includes('Invalid login credentials')) {

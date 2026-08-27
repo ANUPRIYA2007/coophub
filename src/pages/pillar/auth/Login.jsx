@@ -470,7 +470,7 @@ export default function Login() {
             <div style={{ marginTop: "24px", textAlign: "center", borderTop: "1px solid var(--color-border-light)", paddingTop: "16px" }}>
               <p style={{ fontSize: "13.5px", color: "var(--color-text-secondary)" }}>
                 {t("auth.newPillar")}{" "}
-                <Link to="/register" style={{ color: "var(--color-secondary)", fontWeight: "700" }}>
+                <Link to="/pillar/register" style={{ color: "var(--color-secondary)", fontWeight: "700" }}>
                   {t("auth.registerHere")}
                 </Link>
               </p>
