@@ -24,7 +24,7 @@ export function LanguageProvider({ children }) {
         document.documentElement.lang = language;
     }, [language]);
 
-    const t = (keyStr) => {
+    const t = (keyStr, params) => {
         const keys = keyStr.split('.');
         let result = translations[language];
 
@@ -41,18 +41,22 @@ export function LanguageProvider({ children }) {
                         return keyStr; // Return key path if not found in fallback either
                     }
                 }
-                return fallback;
+                result = fallback;
+                break;
             }
         }
 
-        // Replace dynamic variables, e.g., {seconds}
-        return (params = {}) => {
+        // Replace dynamic variables if params object is provided
+        if (typeof result === 'string' && params) {
             let finalStr = result;
             Object.keys(params).forEach(paramName => {
+                finalStr = finalStr.replace(`{{${paramName}}}`, params[paramName]);
                 finalStr = finalStr.replace(`{${paramName}}`, params[paramName]);
             });
             return finalStr;
-        };
+        }
+
+        return result;
     };
 
     return (

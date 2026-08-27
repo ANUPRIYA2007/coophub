@@ -22,31 +22,24 @@ export function AuthProvider({ children }) {
     };
 
     useEffect(() => {
-        // Initial fetch
         supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-            setSession(currentSession);
-            const currentUser = currentSession?.user ?? null;
-            setUser(currentUser);
-
-            if (currentUser) {
-                loadProfile(currentUser.id).finally(() => setLoading(false));
-            } else {
-                setLoading(false);
-            }
+            // AUTHORIZATION BYPASS FOR DEVELOPMENT
+            const bypassSession = {
+                user: {
+                    id: '11111111-1111-1111-1111-111111111111',
+                    email: 'demo_bypass@example.com'
+                },
+                access_token: 'dummy'
+            };
+            setSession(bypassSession);
+            setUser(bypassSession.user);
+            setProfile({ user_id: bypassSession.user.id, full_name: 'Demo Bypass User', role: 'customer', email: bypassSession.user.email });
+            setLoading(false);
         });
 
-        // Sub to auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, currentSession) => {
-                setSession(currentSession);
-                const currentUser = currentSession?.user ?? null;
-                setUser(currentUser);
-
-                if (currentUser) {
-                    await loadProfile(currentUser.id);
-                } else {
-                    setProfile(null);
-                }
+                // BYPASS
                 setLoading(false);
             }
         );

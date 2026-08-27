@@ -1,6 +1,6 @@
 import { useLanguage } from '../context/LanguageContext';
 
 export function useTranslation() {
-    const { t } = useLanguage();
-    return { t };
+    const ctx = useLanguage();
+    return { t: ctx.t, language: ctx.language, changeLanguage: ctx.setLanguage, languages: ctx.languages };
 }

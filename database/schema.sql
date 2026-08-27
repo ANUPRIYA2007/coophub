@@ -160,3 +160,249 @@ CREATE POLICY "Customers can read their own requests"
 
 -- Explicitly, customers CANNOT UPDATE or DELETE their requests directly (handled only by Pillar/Admin in future phases)
 
+-- ==========================================
+-- COOP HUB: Supabase Database Schema (Phase 5)
+-- ==========================================
+
+-- 13. Create Request Status History Table
+CREATE TABLE IF NOT EXISTS public.request_status_history (
+  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4(),
+  request_id uuid REFERENCES public.service_requests(id) ON DELETE CASCADE,
+  status text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT request_status_history_pkey PRIMARY KEY (id)
+);
+
+-- 14. Setup RLS for History
+ALTER TABLE public.request_status_history ENABLE ROW LEVEL SECURITY;
+
+-- Customers can read their own request's history
+CREATE POLICY "Customers can read history of own requests" 
+  ON public.request_status_history FOR SELECT 
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.service_requests sr
+      WHERE sr.id = request_status_history.request_id 
+      AND sr.customer_id = auth.uid()
+    )
+  );
+
+-- 15. Create Automatic Trigger for History Insertions
+CREATE OR REPLACE FUNCTION public.log_request_status_change()
+RETURNS trigger AS $$
+BEGIN
+  -- Insert on creation or when status actually changes
+  IF (TG_OP = 'INSERT') OR ((TG_OP = 'UPDATE') AND (OLD.status IS DISTINCT FROM NEW.status)) THEN
+    INSERT INTO public.request_status_history (request_id, status)
+    VALUES (NEW.id, NEW.status);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_request_status_change ON public.service_requests;
+CREATE TRIGGER on_request_status_change
+  AFTER INSERT OR UPDATE OF status ON public.service_requests
+  FOR EACH ROW EXECUTE PROCEDURE public.log_request_status_change();
+
+-- ==========================================
+-- COOP HUB: Supabase Database Schema (Phase 6)
+-- ==========================================
+
+-- 16. Create Messages Table
+CREATE TABLE IF NOT EXISTS public.messages (
+  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4(),
+  request_id uuid REFERENCES public.service_requests(id) ON DELETE CASCADE,
+  sender_id uuid NOT NULL,
+  sender_type text NOT NULL, -- 'customer' or 'pillar'
+  content text NOT NULL,
+  is_read boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT messages_pkey PRIMARY KEY (id)
+);
+
+-- RLS for Messages
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view messages of own requests" 
+  ON public.messages FOR SELECT 
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.service_requests sr
+      WHERE sr.id = messages.request_id 
+      AND sr.customer_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Customers can insert messages into own requests" 
+  ON public.messages FOR INSERT 
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.service_requests sr
+      WHERE sr.id = request_id 
+      AND sr.customer_id = auth.uid()
+    )
+    AND sender_id = auth.uid()
+    AND sender_type = 'customer'
+  );
+
+-- 17. Create Notifications Table
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4(),
+  customer_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  request_id uuid REFERENCES public.service_requests(id) ON DELETE CASCADE,
+  type text NOT NULL,
+  message_translations jsonb NOT NULL DEFAULT '{}'::jsonb,
+  is_read boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id)
+);
+
+-- RLS for Notifications
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view own notifications" 
+  ON public.notifications FOR SELECT 
+  USING (customer_id = auth.uid());
+
+CREATE POLICY "Customers can mark own notifications as read" 
+  ON public.notifications FOR UPDATE 
+  USING (customer_id = auth.uid());
+
+-- Trigger: Auto-create notifications for status changes natively
+CREATE OR REPLACE FUNCTION public.log_status_notification()
+RETURNS trigger AS $$
+BEGIN
+  IF (TG_OP = 'UPDATE') AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    -- Generate notification based on actual new status
+    INSERT INTO public.notifications (customer_id, request_id, type, message_translations)
+    VALUES (
+      NEW.customer_id, 
+      NEW.id, 
+      'request_' || NEW.status, 
+      jsonb_build_object(
+        'en', 'Service request status updated to: ' || NEW.status,
+        'hi', 'सेवा अनुरोध स्थिति अपडेट की गई: ' || NEW.status,
+        'ta', 'சேவை கோரிக்கை நிலை புதுப்பிக்கப்பட்டது: ' || NEW.status,
+        'te', 'సేవా అభ్యర్థన స్థితి నవీకరించబడింది: ' || NEW.status,
+        'kn', 'ಸೇವಾ ವಿನಂತಿ ಸ್ಥಿತಿ ನವೀಕರಿಸಲಾಗಿದೆ: ' || NEW.status
+      )
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_status_notification ON public.service_requests;
+CREATE TRIGGER on_status_notification
+  AFTER UPDATE OF status ON public.service_requests
+  FOR EACH ROW EXECUTE PROCEDURE public.log_status_notification();
+
+-- 18. Create Reviews Table
+CREATE TABLE IF NOT EXISTS public.reviews (
+  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4(),
+  request_id uuid REFERENCES public.service_requests(id) ON DELETE CASCADE,
+  customer_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  feedback text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT reviews_pkey PRIMARY KEY (id),
+  CONSTRAINT UNIQUE_review_per_request UNIQUE (request_id, customer_id)
+);
+
+-- RLS for Reviews
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view their own reviews" 
+  ON public.reviews FOR SELECT 
+  USING (customer_id = auth.uid());
+
+CREATE POLICY "Customers can insert their own reviews for completed requests"
+  ON public.reviews FOR INSERT
+  WITH CHECK (
+    customer_id = auth.uid() AND
+    EXISTS (
+      SELECT 1 FROM public.service_requests sr
+      WHERE sr.id = request_id 
+      AND sr.customer_id = auth.uid()
+  );
+
+-- ==========================================
+-- COOP HUB: Supabase Database Schema (Phase 7)
+-- ==========================================
+
+-- 19. Create FAQ Table (Read-only for Customers)
+CREATE TABLE IF NOT EXISTS public.faq (
+  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4(),
+  category text NOT NULL,
+  question_translations jsonb NOT NULL,
+  answer_translations jsonb NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT faq_pkey PRIMARY KEY (id)
+);
+
+ALTER TABLE public.faq ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view active FAQs" 
+  ON public.faq FOR SELECT 
+  USING (is_active = true);
+
+-- 20. Create Support Tickets Table
+CREATE TABLE IF NOT EXISTS public.support_tickets (
+  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4(),
+  customer_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  request_id uuid REFERENCES public.service_requests(id) ON DELETE SET NULL,
+  subject text NOT NULL,
+  category text NOT NULL,
+  description text NOT NULL,
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'waiting_for_customer', 'resolved', 'closed')),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT support_tickets_pkey PRIMARY KEY (id)
+);
+
+-- RLS for Support Tickets
+ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view their own support tickets" 
+  ON public.support_tickets FOR SELECT 
+  USING (customer_id = auth.uid());
+
+CREATE POLICY "Customers can create their own support tickets"
+  ON public.support_tickets FOR INSERT
+  WITH CHECK (customer_id = auth.uid());
+
+-- Trigger for Support Tickets updated_at
+CREATE TRIGGER update_support_tickets_modtime
+  BEFORE UPDATE ON public.support_tickets
+  FOR EACH ROW EXECUTE PROCEDURE public.update_modified_column();
+
+-- 21. Create Customer Notification Preferences
+CREATE TABLE IF NOT EXISTS public.customer_notification_preferences (
+  customer_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  request_updates boolean DEFAULT true,
+  messages boolean DEFAULT true,
+  promotions boolean DEFAULT false,
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- RLS for Preferences
+ALTER TABLE public.customer_notification_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Customers can view their own preferences" 
+  ON public.customer_notification_preferences FOR SELECT 
+  USING (customer_id = auth.uid());
+
+CREATE POLICY "Customers can update their own preferences"
+  ON public.customer_notification_preferences FOR UPDATE
+  USING (customer_id = auth.uid());
+
+CREATE POLICY "Customers can insert their own preferences"
+  ON public.customer_notification_preferences FOR INSERT
+  WITH CHECK (customer_id = auth.uid());
+
+-- Automatically create preferences row when a profile is created (via profiles trigger conceptually, but we can do it on auth)
+-- For zero-mock, the frontend will UPSERT or we can just rely on the SELECT returning empty and frontend doing INSERT on demand.
+

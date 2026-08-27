@@ -67,6 +67,8 @@ export default function Register() {
         } catch (err) {
             if (err.message.includes('already registered') || err.message.includes('already exists')) {
                 setError(t('errors.email_exists'));
+            } else if (err.message.toLowerCase().includes('rate limit')) {
+                setError("Email rate limit exceeded. Please wait a short while before requesting another confirmation email, or try a different address.");
             } else {
                 setError(err.message || t('errors.generic_error'));
             }

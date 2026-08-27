@@ -115,9 +115,14 @@
         "active_bookings": "आपकी {{count}} सक्रिय बुकिंग हैं।"
     },
     "navigation": {
-        "home": "होम",
-        "services": "कैटलॉग",
-        "profile": "प्रोफ़ाइल"
+        "my_requests": "मेरे अनुरोध",
+        "history": "इतिहास",
+        "notifications": "सूचनाएं",
+        "support": "सहायता और समर्थन",
+        "tickets": "मेरे टिकट",
+        "profile": "प्रोफ़ाइल",
+        "settings": "सेटिंग्स",
+        "create_ticket": "टिकट बनाएँ"
     },
     "ai_assistant": {
         "title": "सेवा सहायक",
@@ -148,5 +153,17 @@
         "status_requested": "असाइनमेंट की प्रतीक्षा करें",
         "success_title": "अनुरोध सबमिट किया गया!",
         "view_request": "अनुरोध देखें"
+    },
+    "requests": {
+        "empty_title": "कोई अनुरोध नहीं",
+        "empty_desc": "आपने अभी तक कोई सेवा अनुरोध नहीं किया है।"
+    },
+    "history": {
+        "empty_title": "कोई सेवा इतिहास नहीं",
+        "empty_desc": "आपके पास अभी तक कोई पूर्ण या रद्द की गई सेवाएं नहीं हैं।"
+    },
+    "notifications": {
+        "empty_title": "सब अद्यतित!",
+        "empty_desc": "आपके पास कोई हालिया सूचना नहीं है।"
     }
 }

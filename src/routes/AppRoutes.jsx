@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
+import CustomerPortalLayout from '../components/layout/CustomerPortalLayout';
 
 // Auth Pages
 import Login from '../pages/auth/Login';
@@ -8,23 +9,19 @@ import VerifyOtp from '../pages/auth/VerifyOtp';
 import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword from '../pages/auth/ResetPassword';
 
-// Main Pages
+// Portal Pages (rendered inside CustomerPortalLayout)
 import Home from '../pages/home/Home';
+import ServicesBrowse from '../pages/services/ServicesBrowse';
 import ServiceDetails from '../pages/services/ServiceDetails';
 import ServiceRequest from '../pages/booking/ServiceRequest';
+import RequestsList from '../pages/requests/RequestsList';
 import RequestDetails from '../pages/requests/RequestDetails';
-import Services from '../pages/services/Services';
-import ServiceDetail from '../pages/services/ServiceDetail';
-import Workers from '../pages/workers/Workers';
-import WorkerDetail from '../pages/workers/WorkerDetail';
-import Book from '../pages/booking/Book';
-import BookingDetail from '../pages/booking/BookingDetail';
-import Tracking from '../pages/tracking/Tracking';
-import Chat from '../pages/chat/Chat';
-import Notifications from '../pages/notifications/Notifications';
-import History from '../pages/history/History';
-import Profile from '../pages/profile/Profile';
-import Complaints from '../pages/complaints/Complaints';
+import RequestChat from '../pages/requests/RequestChat';
+import HistoryList from '../pages/history/HistoryList';
+import SupportCenter from '../pages/support/SupportCenter';
+import SettingsHub from '../pages/settings/SettingsHub';
+import ProfileIndex from '../pages/profile/ProfileIndex';
+import NotificationsList from '../pages/notifications/NotificationsList';
 
 // Landing
 import Landing from '../pages/Landing';
@@ -40,21 +37,22 @@ export default function AppRoutes() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
-            {/* Authenticated / Protected */}
-            <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-            <Route path="/services/:id" element={<ProtectedRoute><ServiceDetails /></ProtectedRoute>} />
-            <Route path="/services/:id/request" element={<ProtectedRoute><ServiceRequest /></ProtectedRoute>} />
-            <Route path="/requests/:id" element={<ProtectedRoute><RequestDetails /></ProtectedRoute>} />
-            <Route path="/workers" element={<ProtectedRoute><Workers /></ProtectedRoute>} />
-            <Route path="/workers/:id" element={<ProtectedRoute><WorkerDetail /></ProtectedRoute>} />
-            <Route path="/book" element={<ProtectedRoute><Book /></ProtectedRoute>} />
-            <Route path="/booking/:id" element={<ProtectedRoute><BookingDetail /></ProtectedRoute>} />
-            <Route path="/tracking/:id" element={<ProtectedRoute><Tracking /></ProtectedRoute>} />
-            <Route path="/chat/:id" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-            <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/complaints" element={<ProtectedRoute><Complaints /></ProtectedRoute>} />
+            {/* Customer Portal — nested inside shared layout shell */}
+            <Route element={<ProtectedRoute><CustomerPortalLayout /></ProtectedRoute>}>
+                <Route path="/home" element={<Home />} />
+                <Route path="/services" element={<ServicesBrowse />} />
+                <Route path="/services/:id" element={<ServiceDetails />} />
+                <Route path="/services/:id/request" element={<ServiceRequest />} />
+                <Route path="/requests" element={<RequestsList />} />
+                <Route path="/requests/:id" element={<RequestDetails />} />
+                <Route path="/requests/:id/chat" element={<RequestChat />} />
+                <Route path="/messages" element={<RequestsList />} />
+                <Route path="/history" element={<HistoryList />} />
+                <Route path="/support" element={<SupportCenter />} />
+                <Route path="/settings" element={<SettingsHub />} />
+                <Route path="/profile" element={<ProfileIndex />} />
+                <Route path="/notifications" element={<NotificationsList />} />
+            </Route>
         </Routes>
     );
 }

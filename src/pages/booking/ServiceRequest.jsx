@@ -124,14 +124,19 @@ export default function ServiceRequest() {
     return (
         <div className="min-h-screen bg-surface pb-20 px-4 pt-6">
             <div className="max-w-2xl mx-auto">
-                <button onClick={() => navigate(-1)} className="text-navy-600 mb-6 hover:text-navy-900 transition flex items-center font-medium">
-                    <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                    Back
-                </button>
+                {/* Unified Sticky Header */}
+                <header className="bg-white sticky top-0 z-40 border-b border-navy-100/50 shadow-sm px-4 py-3 flex items-center -mx-4 -mt-6 mb-6">
+                    <button onClick={() => navigate(-1)} className="mr-3 text-navy-500 hover:text-orange-500 transition-colors">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </button>
+                    <h1 className="font-bold text-navy-800 text-lg">{t('booking.request_service')}</h1>
+                </header>
 
                 <div className="mb-6">
-                    <h1 className="heading-3">{t('booking.request_service')}</h1>
-                    <p className="text-navy-500 mt-1">{serviceInfo.name} {subServiceInfo ? `› ${subServiceInfo.name}` : ''}</p>
+                    <h2 className="heading-3">{serviceInfo.name}</h2>
+                    <p className="text-navy-500 mt-1">{subServiceInfo ? `› ${subServiceInfo.name}` : ''}</p>
                 </div>
 
                 {error && (
@@ -192,11 +197,11 @@ export default function ServiceRequest() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
                                     <div>
                                         <label className="block text-xs font-medium text-muted mb-1">{t('booking.preferred_date')}</label>
-                                        <input type="date" name="preferred_date" value={formData.preferred_date} onChange={handleFormChange} disabled={formData.flexible_timing} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-gray-100" min={new Date().toISOString().split('T')[0]} />
+                                        <input type="date" name="preferred_date" value={formData.preferred_date} onChange={handleFormChange} disabled={formData.flexible_timing} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" min={new Date().toISOString().split('T')[0]} />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-muted mb-1">{t('booking.preferred_time')}</label>
-                                        <input type="time" name="preferred_time" value={formData.preferred_time} onChange={handleFormChange} disabled={formData.flexible_timing} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-gray-100" />
+                                        <input type="time" name="preferred_time" value={formData.preferred_time} onChange={handleFormChange} disabled={formData.flexible_timing} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" />
                                     </div>
                                 </div>
                                 <label className="flex items-center space-x-2 cursor-pointer">

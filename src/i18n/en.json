@@ -115,9 +115,14 @@
         "active_bookings": "You have {{count}} active booking(s)."
     },
     "navigation": {
-        "home": "Home",
-        "services": "Catalog",
-        "profile": "Profile"
+        "my_requests": "My Requests",
+        "history": "History",
+        "notifications": "Notifications",
+        "support": "Help & Support",
+        "tickets": "My Tickets",
+        "profile": "Profile",
+        "settings": "Settings",
+        "create_ticket": "Create Ticket"
     },
     "ai_assistant": {
         "title": "Service Assistant",
@@ -148,5 +153,17 @@
         "status_requested": "Wait for assignment",
         "success_title": "Request Submitted!",
         "view_request": "View Request"
+    },
+    "requests": {
+        "empty_title": "No requests yet",
+        "empty_desc": "You haven't made any service request yet."
+    },
+    "history": {
+        "empty_title": "No service history",
+        "empty_desc": "You don't have any completed or cancelled services yet."
+    },
+    "notifications": {
+        "empty_title": "All caught up!",
+        "empty_desc": "You don't have any recent notifications."
     }
 }

@@ -38,7 +38,7 @@ export default function ServiceDetails() {
     return (
         <div className="min-h-screen bg-surface pb-20">
             {/* Header Area */}
-            <div className="bg-navy-900 text-white pt-10 pb-16 px-6">
+            <div className="bg-navy-500 text-white pt-10 pb-16 px-6">
                 <div className="max-w-3xl mx-auto flex items-center mb-6">
                     <button onClick={() => navigate('/home')} className="mr-4 hover:opacity-80 transition-opacity">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -53,7 +53,7 @@ export default function ServiceDetails() {
             </div>
 
             <main className="max-w-3xl mx-auto px-4 -mt-10">
-                <div className="card bg-white p-6 shadow-xl shadow-navy-900/5 mb-8">
+                <div className="card bg-white p-6 shadow-xl shadow-navy-100 mb-8">
                     <h2 className="font-semibold text-navy-800 mb-4 text-lg">Select a specific requirement:</h2>
 
                     {subServices.length === 0 ? (
