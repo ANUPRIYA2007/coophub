@@ -17,7 +17,7 @@ src/
 │   │   ├── GlobalHeroAgent.jsx # Field-tracking floating bubble
 │   │   └── ChatAgent.jsx       # 24/7 CoopBot Assistant
 │   ├── layout/          # Portal layouts (Header, Sidebar)
-│   └── ui/              # Buttons, inputs, modals (contains GradientText)
+│   └── ui/              # Shared UI components (GradientText, TypewriterEffect)
 ├── context/             # Global states (Auth, Theme)
 ├── hooks/               # Custom data hooks (useServices, etc.)
 ├── i18n/                # Multi-language translation setup
@@ -60,30 +60,27 @@ The application defaults to a **Light Theme** on first load across all three por
 
 ---
 
-## 4. Brand Header Component (`GradientText`)
+## 4. Brand Components
 
+### 💫 Brand Header Component (`GradientText`)
 The main application header displayed inside all dashboard sidebars (Customer, Pillar, and Admin) uses the copy-pasteable **React Bits `GradientText`** component. It animates the brand name `"COOP HUB"` with an orange and white sweep gradient.
+
+### ✍️ Typewriter Effect Component (`TypewriterEffect`)
+Renders welcome subtitles on the dashboard home pages with a smooth, native typing animation.
+- **Customer Portal**: Types *"Find trusted services and get things done easily."*
+- **Pillar Portal**: Types *"Grow your services and connect with customers."*
+- **Admin Portal**: Types *"Manage and monitor the COOP HUB platform."*
+- Custom parameters: `loop={false}` prevents distracting continuous cycles, and it renders a blinking orange accent cursor (`#FF7A00`).
 
 ---
 
-## 5. Cross-Portal Connectivity & Routing
+## 5. Framer TOC Sidebar Navigation Styling
 
-Portals are fully interconnected via a central landing page `/` and cross-links on each login screen.
-
-### Navigation Hierarchy
-
-```mermaid
-graph TD
-    A[Landing Page /] -->|Customer Select| B[Customer Login /login]
-    A -->|Pillar Partner Select| C[Pillar Login /pillar/login]
-    A -->|Admin Portal Select| D[Admin Login /admin/login]
-
-    B -->|Demo/Real Auth| E[Customer Home /home]
-    C -->|Pillar Auth| F[Pillar Dashboard /dashboard]
-    D -->|Admin Auth| G[Admin Dashboard /admin]
-```
-
-- **Resetting State**: Logging out of any portal clears its respective demo flags and redirects the user back to the landing page `/`.
+All dashboard portal sidebars are designed to replicate the Framer Table of Content component's visual style:
+- **Active Indicator Line**: A horizontal indicator bar (`height: 3px`, `width: 12px` default) on the left of each link. Transitions to `width: 24px` and changes color to orange (`#FF7A00`) when active or hovered.
+- **Typography**: Geist-Mono monospace font (`font-family: "Geist Mono", monospace`), uppercase (`text-transform: uppercase`), and letter-spacing (`-0.02em`).
+- **Clean Design**: Removed placeholder icons and colored card background wrappers for a clean visual structure.
+- **Customer Dashboard Label**: Replaced the profile avatar/fallback name block under the customer logo header with a matching styled portal identifier tag `"Customer Dashboard"`.
 
 ---
 
@@ -93,7 +90,6 @@ graph TD
 - Positioned dynamically at the bottom-left of the viewport.
 - Focus-tracks input fields on login, registration, and forms.
 - **Sidebar Integration**: Nested directly inside the navigation sidebar component right above the Logout block. Configured via the `inline={true}` prop to render as a compact, premium card.
-- **Auto-Destruction**: The floating instance automatically self-destructs (returns `null`) on portal routes where the sidebar layout is active, avoiding visual overlap.
 - Speaks contextual tips, validation feedback, and errors with high bubble contrast and customizable Text-to-Speech (TTS).
 
 ### 💬 CoopBot Chat Assistant (`ChatAgent.jsx`)
@@ -106,29 +102,3 @@ graph TD
   - **Support**: Navigates to `/support`.
 - Renders **Contextual Action Buttons** inside the message bubbles for interactive, single-click navigation.
 - Falls back to the backend `/api/ai/chat` for unhandled queries.
-
----
-
-## 7. How to Run Locally
-
-### Environment Setup
-Create a `.env` file in the project root:
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### Build & Run Commands
-```bash
-# Install dependencies
-npm install
-
-# Run the local Vite dev server
-npm run dev
-
-# Build the production bundle
-npm run build
-
-# Preview production build locally
-npm run preview
-```
