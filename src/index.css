@@ -236,3 +236,112 @@ body {
     @apply text-xl sm:text-2xl font-display font-semibold text-navy-600;
   }
 }
+
+/* ==============================================================================
+   COOP HUB UNIFIED DARK THEME (Used in Pillar, Customer, and Admin Dashboards)
+   ============================================================================== */
+
+[data-theme="dark"],
+html.dark {
+  color-scheme: dark;
+  background-color: #0B1120 !important;
+  color: #F8FAFC !important;
+}
+
+[data-theme="dark"] body,
+html.dark body {
+  background-color: #0B1120 !important;
+  color: #F8FAFC !important;
+}
+
+[data-theme="dark"] .bg-surface,
+html.dark .bg-surface {
+  background-color: #0B1120 !important;
+}
+
+[data-theme="dark"] .bg-white,
+html.dark .bg-white {
+  background-color: #131D31 !important;
+  border-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+[data-theme="dark"] .card,
+html.dark .card {
+  background-color: #131D31 !important;
+  border-color: #1E293B !important;
+  color: #F8FAFC !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .bg-navy-50,
+html.dark .bg-navy-50 {
+  background-color: #1E293B !important;
+  color: #E2E8F0 !important;
+}
+
+[data-theme="dark"] .bg-navy-100,
+html.dark .bg-navy-100 {
+  background-color: #334155 !important;
+  color: #F8FAFC !important;
+}
+
+[data-theme="dark"] .text-navy-900,
+html.dark .text-navy-900,
+[data-theme="dark"] .text-navy-800,
+html.dark .text-navy-800 {
+  color: #F8FAFC !important;
+}
+
+[data-theme="dark"] .text-navy-700,
+html.dark .text-navy-700,
+[data-theme="dark"] .text-navy-600,
+html.dark .text-navy-600 {
+  color: #CBD5E1 !important;
+}
+
+[data-theme="dark"] .text-navy-500,
+html.dark .text-navy-500,
+[data-theme="dark"] .text-navy-400,
+html.dark .text-navy-400 {
+  color: #94A3B8 !important;
+}
+
+[data-theme="dark"] .border-navy-100,
+html.dark .border-navy-100,
+[data-theme="dark"] .border-navy-200,
+html.dark .border-navy-200 {
+  border-color: #1E293B !important;
+}
+
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] textarea,
+html.dark textarea,
+[data-theme="dark"] select,
+html.dark select {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
+}
+
+[data-theme="dark"] input:focus,
+html.dark input:focus,
+[data-theme="dark"] textarea:focus,
+html.dark textarea:focus {
+  border-color: #F58220 !important;
+  box-shadow: 0 0 0 2px rgba(245, 130, 32, 0.25) !important;
+}
+
+[data-theme="dark"] .btn-secondary,
+html.dark .btn-secondary {
+  background-color: #1E293B !important;
+  color: #E2E8F0 !important;
+  border-color: #334155 !important;
+}
+
+[data-theme="dark"] .btn-secondary:hover,
+html.dark .btn-secondary:hover {
+  background-color: #334155 !important;
+  color: #FFFFFF !important;
+}

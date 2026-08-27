@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { LanguageProvider as PillarLanguageProvider } from './i18n/LanguageContext';
 import { LanguageProvider as CustomerLanguageProvider } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import App from './App';
 
 // Styles
@@ -18,7 +19,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <CustomerLanguageProvider>
         <PillarLanguageProvider>
           <AuthProvider>
-            <App />
+            <ThemeProvider>
+              <App />
+            </ThemeProvider>
           </AuthProvider>
         </PillarLanguageProvider>
       </CustomerLanguageProvider>

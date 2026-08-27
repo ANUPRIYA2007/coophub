@@ -49,6 +49,9 @@ export default function Register() {
         const validationError = validate();
         if (validationError) {
             setError(validationError);
+            window.dispatchEvent(new CustomEvent('coophub-hero-event', {
+                detail: { type: 'error', message: validationError }
+            }));
             return;
         }
 
@@ -61,17 +64,23 @@ export default function Register() {
                 role: 'customer' // Automatically registered as a customer
             });
 
-            // On success, typically Supabase sends an OTP/verification email
-            // We will route them to the OTP verify page
+            window.dispatchEvent(new CustomEvent('coophub-hero-event', {
+                detail: { type: 'success', message: 'Awesome! Account created. Let us verify your email OTP!' }
+            }));
+
+            // On success, route to OTP verify page
             navigate(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
         } catch (err) {
+            let msg = err.message || t('errors.generic_error');
             if (err.message.includes('already registered') || err.message.includes('already exists')) {
-                setError(t('errors.email_exists'));
+                msg = t('errors.email_exists');
             } else if (err.message.toLowerCase().includes('rate limit')) {
-                setError("Email rate limit exceeded. Please wait a short while before requesting another confirmation email, or try a different address.");
-            } else {
-                setError(err.message || t('errors.generic_error'));
+                msg = "Email rate limit exceeded. Please wait a short while before requesting another confirmation email.";
             }
+            setError(msg);
+            window.dispatchEvent(new CustomEvent('coophub-hero-event', {
+                detail: { type: 'error', message: msg }
+            }));
         } finally {
             setLoading(false);
         }

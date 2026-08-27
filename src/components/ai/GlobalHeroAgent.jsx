@@ -1,43 +1,32 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
-import { Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare } from 'lucide-react';
 
 export default function GlobalHeroAgent() {
     const { t, language } = useTranslation();
     const location = useLocation();
     const params = useParams();
 
-    const currentContext = useMemo(() => {
-        const pathSegments = location.pathname.split('/').filter(Boolean);
-        const module = pathSegments[0] || 'home';
-        const entityId = params.id || (pathSegments.length > 2 && pathSegments[1] !== 'new' ? pathSegments[1] : null);
-
-        return {
-            route: location.pathname,
-            module: module,
-            entityId: entityId,
-            language: language
-        };
-    }, [location.pathname, params, language]);
-
-    const [animState, setAnimState] = useState('idle'); // idle, thinking, speaking
+    const [animState, setAnimState] = useState('idle'); // idle, listening, speaking, thinking, success, error, greeting
     const [heroGreeting, setHeroGreeting] = useState('');
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [activeInputName, setActiveInputName] = useState(null);
 
-    // Fetch dynamic context-aware greeting on route transition
+    // Initial greeting on route change
     useEffect(() => {
         let isMounted = true;
+        setAnimState('greeting');
+
         const announceContextChange = async () => {
             try {
-                setAnimState('thinking');
                 const res = await fetch('/api/ai/mascot-context', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         currentRoute: location.pathname,
                         language,
-                        module: currentContext.module
+                        module: location.pathname.split('/')[1] || 'home'
                     })
                 });
 
@@ -48,18 +37,21 @@ export default function GlobalHeroAgent() {
                     setHeroGreeting(data.message);
                 } else {
                     const fallbackGreetings = {
-                        ta: 'வணக்கம்! COOP HUB உங்களை அன்புடன் வரவேற்கிறது.',
-                        hi: 'नमस्ते! COOP HUB में आपका स्वागत है।',
-                        te: 'నమస్కారం! COOP HUB కి స్వాగతం.',
-                        kn: 'ನಮಸ್ಕಾರ! COOP HUB ಗೆ ಸುಸ್ವಾಗತ.',
-                        en: 'Welcome to COOP HUB! How can I assist your home today?'
+                        ta: 'வணக்கம்! நான் உங்கள் COOP HUB வழிகாட்டி. உங்களுக்கு உதவ நான் எப்போதும் தயார்!',
+                        hi: 'नमस्ते! मैं आपका COOP HUB सहायक हूँ। मैं आपकी कैसे मदद कर सकता हूँ?',
+                        te: 'నమస్కారం! నేను మీ COOP HUB గైడ్. మీకు ఎలా సహాయపడగలను?',
+                        kn: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ COOP HUB ಮಾರ್ಗದರ್ಶಿ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?',
+                        en: 'Hello! I am CoopBot, your live service guide. How can I assist your home today?'
                     };
                     setHeroGreeting(fallbackGreetings[language] || fallbackGreetings.en);
                 }
-                setAnimState('idle');
+
+                setTimeout(() => {
+                    if (isMounted) setAnimState('idle');
+                }, 1400);
             } catch (err) {
                 if (isMounted) {
-                    setHeroGreeting('Welcome to COOP HUB!');
+                    setHeroGreeting('Welcome to COOP HUB! I am right here to help.');
                     setAnimState('idle');
                 }
             }
@@ -69,9 +61,109 @@ export default function GlobalHeroAgent() {
         return () => {
             isMounted = false;
         };
-    }, [location.pathname, language, currentContext.module]);
+    }, [location.pathname, language]);
 
-    // Speak greeting aloud
+    // Global Interactive Live Focus & Error Tracking (Lively like Pillar Portal)
+    useEffect(() => {
+        const handleFocusIn = (e) => {
+            const target = e.target;
+            if (!target || !['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+
+            const name = (target.name || target.id || target.placeholder || '').toLowerCase();
+            setActiveInputName(name);
+            setAnimState('speaking');
+
+            // Contextual dynamic speech guidance per field
+            if (name.includes('fullname') || name.includes('name')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'உங்கள் முழு பெயரை உள்ளிடவும். இது தொழில்நுட்ப வல்லுநருக்கு அடையாளம் காண உதவும்.'
+                        : 'Enter your full legal name so your technician can identify you.'
+                );
+            } else if (name.includes('email')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'உங்கள் சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும். முன்பதிவு உறுதிப்படுத்தல் இங்கே அனுப்பப்படும்.'
+                        : 'Enter your email address to receive real-time booking updates and invoices.'
+                );
+            } else if (name.includes('mobile') || name.includes('phone')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'உங்கள் 10 இலக்க மொபைல் எண்ணை உள்ளிடவும். வீட்டு வருகை OTP இதற்கே அனுப்பப்படும்.'
+                        : 'Enter your 10-digit mobile number for arrival verification and OTP.'
+                );
+            } else if (name.includes('password')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'குறைந்தது 8 எழுத்துக்கள், ஒரு பெரிய எழுத்து மற்றும் எண்களுடன் பாதுகாப்பான கடவுச்சொல்லை உருவாக்கவும்.'
+                        : 'Create a secure password with 8+ characters, including numbers and uppercase letters.'
+                );
+            } else if (name.includes('address') || name.includes('city') || name.includes('area')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'உங்கள் சரியான வீட்டு முகவரியை உள்ளிடவும் அல்லது தானியங்கி GPS இருப்பிடத்தைத் தேர்ந்தெடுக்கவும்.'
+                        : 'Enter your exact street address or use Current GPS Location for accurate doorstep arrival.'
+                );
+            } else if (name.includes('date') || name.includes('time')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'சேவைக்கான உங்கள் விருப்பமான தேதி மற்றும் நேரத்தைத் தேர்ந்தெடுக்கவும்.'
+                        : 'Pick your preferred service date and time slot, or enable flexible timing.'
+                );
+            } else if (name.includes('description') || name.includes('tell_us_more')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'உங்கள் சாதனத்தின் சிக்கலை சுருக்கமாக விவரிக்கவும், இதனால் வல்லுநர் தேவையான கருவிகளை எடுத்து வருவார்.'
+                        : 'Describe your issue clearly so your Pillar arrives prepared with the right spare parts.'
+                );
+            } else if (name.includes('search')) {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'மின்சாரம், பிளம்பிங், ஏசி பழுது போன்ற உங்களுக்குத் தேவையான சேவையைத் தேடுங்கள்.'
+                        : 'Search any home service (Electrician, AC Repair, Plumber) to see verified nearby Pillars.'
+                );
+            } else {
+                setHeroGreeting(
+                    language === 'ta'
+                        ? 'நான் உங்கள் பதிவை கவனித்து வருகிறேன்! அடுத்த விவரத்தை நிரப்பவும்.'
+                        : "I'm watching your progress! Fill in the highlighted field."
+                );
+            }
+        };
+
+        const handleFocusOut = () => {
+            setActiveInputName(null);
+            setTimeout(() => {
+                setAnimState('idle');
+            }, 600);
+        };
+
+        // Custom live event dispatch listener for validation errors / successes
+        const handleHeroEvent = (e) => {
+            if (e.detail?.type === 'error') {
+                setAnimState('error');
+                setHeroGreeting(`⚠️ ${e.detail.message || 'Please check the highlighted field!'}`);
+            } else if (e.detail?.type === 'success') {
+                setAnimState('success');
+                setHeroGreeting(`🎉 ${e.detail.message || 'Action completed successfully!'}`);
+            } else if (e.detail?.message) {
+                setHeroGreeting(e.detail.message);
+                setAnimState(e.detail.state || 'speaking');
+            }
+        };
+
+        document.addEventListener('focusin', handleFocusIn);
+        document.addEventListener('focusout', handleFocusOut);
+        window.addEventListener('coophub-hero-event', handleHeroEvent);
+
+        return () => {
+            document.removeEventListener('focusin', handleFocusIn);
+            document.removeEventListener('focusout', handleFocusOut);
+            window.removeEventListener('coophub-hero-event', handleHeroEvent);
+        };
+    }, [language]);
+
+    // Voice Speech Synthesis
     const speakGreeting = (e) => {
         e?.stopPropagation();
         if (!('speechSynthesis' in window) || !heroGreeting) return;
@@ -83,7 +175,7 @@ export default function GlobalHeroAgent() {
         }
 
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(heroGreeting);
+        const utterance = new SpeechSynthesisUtterance(heroGreeting.replace(/[^\w\s\u0B80-\u0BFF\u0900-\u097F\u0C00-\u0C7F\u0C80-\u0CFF]/gi, ''));
         const langCodeMap = {
             ta: 'ta-IN',
             hi: 'hi-IN',
@@ -103,66 +195,92 @@ export default function GlobalHeroAgent() {
     };
 
     const handleOpenChat = () => {
-        window.dispatchEvent(new CustomEvent('open-customer-chat'));
+        window.dispatchEvent(new CustomEvent('open-chat-agent'));
     };
 
-    // Hide hero visual on login/register pages or small screens if desired to keep view clean
-    const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+    const getAnimationClass = () => {
+        switch (animState) {
+            case 'thinking': return 'anim-hero-thinking';
+            case 'speaking': return 'anim-hero-speaking';
+            case 'success': return 'anim-hero-success scale-110';
+            case 'error': return 'anim-hero-error';
+            case 'greeting': return 'animate-bounce';
+            case 'listening': return 'anim-hero-listening';
+            default: return 'anim-hero-idle';
+        }
+    };
 
     return (
-        <div className="fixed inset-0 pointer-events-none z-[9998] overflow-hidden">
-            {/* HERO VISUAL: Bottom Left */}
-            <div className={`absolute bottom-6 left-6 pointer-events-auto flex items-end space-x-3 transition-opacity duration-300 ${isAuthPage ? 'hidden sm:flex opacity-90' : 'flex'}`}>
-                {/* Visual Mascot Avatar */}
-                <div
-                    onClick={handleOpenChat}
-                    className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-2xl shadow-navy-900/20 border-[3px] border-orange-500 overflow-hidden shrink-0 filter drop-shadow-xl p-1 relative transition-all duration-300 hover:scale-110 cursor-pointer group"
-                    title="Click to chat with CoopBot"
-                >
+        <div className="fixed bottom-6 left-6 z-40 flex items-end space-x-3 pointer-events-none select-none">
+            
+            {/* Mascot Avatar Trigger */}
+            <div 
+                onClick={handleOpenChat}
+                className="relative group pointer-events-auto cursor-pointer"
+                title="Click to talk with CoopBot"
+            >
+                {/* Status Indicator Glow */}
+                <div className={`absolute -inset-1.5 rounded-full blur-md transition-all duration-500 opacity-60 group-hover:opacity-100 ${
+                    animState === 'error' ? 'bg-red-500' :
+                    animState === 'success' ? 'bg-green-500' :
+                    animState === 'speaking' ? 'bg-orange-500 animate-pulse' :
+                    'bg-orange-400'
+                }`} />
+
+                <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white dark:bg-slate-900 border-2 border-orange-400 p-1 shadow-2xl flex items-center justify-center transition-transform transform group-hover:scale-105 ${getAnimationClass()}`}>
                     <img
                         src="/assets/images/mascot-hero.png"
-                        alt="Hero Mascot"
-                        className="w-full h-full object-cover rounded-full group-hover:rotate-3 transition-transform"
+                        alt="COOP HUB Hero Mascot"
+                        className="w-full h-full object-contain rounded-full drop-shadow-md"
                         onError={(e) => {
                             e.target.src = '/src/assets/branding/mascot-ai.png';
                         }}
                     />
-                    {animState === 'thinking' && (
-                        <div className="absolute inset-0 bg-orange-500/15 rounded-full animate-pulse"></div>
-                    )}
-                </div>
 
-                {/* Contextual Speech Bubble */}
-                <div
-                    onClick={handleOpenChat}
-                    className="bg-white/95 backdrop-blur-md px-4 py-2.5 text-xs sm:text-sm text-navy-800 shadow-xl shadow-navy-900/10 rounded-2xl rounded-bl-xs font-medium border border-navy-100 max-w-[210px] sm:max-w-xs transition-all duration-200 hover:border-orange-400 hover:shadow-2xl cursor-pointer group flex flex-col justify-between"
-                >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider flex items-center gap-1">
-                            <Sparkles size={11} /> CoopBot Guide
-                        </span>
-                        <button
-                            onClick={speakGreeting}
-                            className={`p-1 rounded-full text-navy-400 hover:text-orange-500 transition-colors ${isSpeaking ? 'text-orange-500 bg-orange-50 animate-pulse' : ''}`}
-                            title={isSpeaking ? 'Stop Voice' : 'Listen to tip'}
-                        >
-                            {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
-                        </button>
+                    {/* Active State Mini Badge */}
+                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-sm">
+                        {animState === 'error' ? <AlertCircle size={12} className="text-white" /> :
+                         animState === 'success' ? <CheckCircle2 size={12} className="text-white" /> :
+                         <Sparkles size={11} className="text-white animate-spin" style={{ animationDuration: '4s' }} />}
                     </div>
-
-                    {animState === 'thinking' ? (
-                        <div className="flex space-x-1 items-center h-5 py-1">
-                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce"></div>
-                            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
-                            <div className="w-1.5 h-1.5 bg-navy-600 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
-                        </div>
-                    ) : (
-                        <p className="line-clamp-3 text-navy-700 leading-snug">
-                            {heroGreeting || 'Tap here to chat with AI Assistant!'}
-                        </p>
-                    )}
                 </div>
             </div>
+
+            {/* Lively Reactive Speech Bubble */}
+            {heroGreeting && (
+                <div
+                    onClick={handleOpenChat}
+                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-orange-200 dark:border-slate-700 shadow-xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative"
+                >
+                    <div className="flex items-center justify-between gap-2 mb-1 border-b border-orange-100 dark:border-slate-700 pb-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                            <Sparkles size={11} /> CoopBot Live Guide
+                        </span>
+
+                        <div className="flex items-center space-x-1.5">
+                            <button
+                                onClick={speakGreeting}
+                                className={`p-1 rounded-md transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-navy-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-slate-700'}`}
+                                title={isSpeaking ? "Mute speech" : "Read aloud"}
+                            >
+                                {isSpeaking ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <p className="text-xs text-navy-800 dark:text-slate-100 leading-relaxed font-medium">
+                        "{heroGreeting}"
+                    </p>
+
+                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-navy-400 dark:text-slate-400">
+                        <span className="italic flex items-center gap-1">
+                            <MessageSquare size={10} /> Tap to chat with AI
+                        </span>
+                        <span className="text-orange-500 font-bold">Ask anything →</span>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

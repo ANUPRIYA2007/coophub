@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import LanguageSelector from '../ui/LanguageSelector';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 import { supabase } from '../../lib/supabase';
-import { useEffect } from 'react';
+import { Sun, Moon } from 'lucide-react';
 
 export default function CustomerPortalLayout() {
     const { profile, signOut } = useAuth();
+    const { theme, toggleTheme, isDark } = useTheme();
     const { t } = useTranslation();
     const navigate = useNavigate();
 
@@ -137,10 +139,19 @@ export default function CustomerPortalLayout() {
                         <div className="flex items-center space-x-3">
                             <LanguageSelector />
 
+                            {/* Dark Mode Switcher */}
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 rounded-full hover:bg-navy-50 dark:hover:bg-slate-800 transition-colors text-navy-500 dark:text-slate-300"
+                                title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                            >
+                                {isDark ? <Sun size={19} className="text-amber-400" /> : <Moon size={19} className="text-navy-600" />}
+                            </button>
+
                             {/* Notification bell — ONLY location for notifications */}
                             <button
                                 onClick={() => navigate('/notifications')}
-                                className="relative p-2 rounded-full hover:bg-navy-50 transition-colors text-navy-500"
+                                className="relative p-2 rounded-full hover:bg-navy-50 dark:hover:bg-slate-800 transition-colors text-navy-500 dark:text-slate-300"
                             >
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -155,7 +166,7 @@ export default function CustomerPortalLayout() {
                             {/* Profile avatar */}
                             <button
                                 onClick={() => navigate('/profile')}
-                                className="w-9 h-9 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm hover:shadow-md transition-shadow"
+                                className="w-9 h-9 bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow"
                             >
                                 {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
                             </button>
