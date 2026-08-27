@@ -25,27 +25,20 @@ export default function Home() {
 
     useEffect(() => {
         const fetchDashboardData = async () => {
-            if (!profile?.user_id) {
-                setRequestsLoading(false);
-                return;
-            }
             try {
-                // Active requests (non-terminal statuses)
-                const { data: reqs } = await supabase
-                    .from('service_requests')
-                    .select('id, status, created_at, services(name_translations)')
-                    .eq('customer_id', profile.user_id)
-                    .not('status', 'in', '("completed","cancelled")')
-                    .order('created_at', { ascending: false })
-                    .limit(3);
-                setActiveRequests(reqs || []);
+                const reqs = await serviceRequestService.getCustomerRequests();
+                const active = (reqs || []).filter(r => r.status !== 'completed' && r.status !== 'cancelled').slice(0, 3);
+                setActiveRequests(active);
 
-                // Unread notification count
-                const { count } = await supabase
-                    .from('notifications')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('is_read', false);
-                setUnreadCount(count || 0);
+                if (localStorage.getItem('coophub_demo_customer') === 'true') {
+                    setUnreadCount(2);
+                } else if (profile?.user_id) {
+                    const { count } = await supabase
+                        .from('notifications')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('is_read', false);
+                    setUnreadCount(count || 0);
+                }
             } catch (err) {
                 console.error('Dashboard fetch error:', err);
             } finally {

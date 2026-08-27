@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
-import { supabase } from '../../lib/supabase';
+import { serviceRequestService } from '../../services/customer/serviceRequestService';
 import { useAuth } from '../../context/AuthContext';
 
 export default function RequestsList() {
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
     const navigate = useNavigate();
     const { profile } = useAuth();
 
@@ -16,16 +16,8 @@ export default function RequestsList() {
 
     useEffect(() => {
         const fetchRequests = async () => {
-            if (!profile?.user_id) return;
             try {
-                // Fetch requests and dynamically join translations natively
-                const { data, error: dbErr } = await supabase
-                    .from('service_requests')
-                    .select('id, status, created_at, preferred_date, preferred_time, flexible_timing, services(name_translations), sub_services(name_translations)')
-                    .eq('customer_id', profile.user_id)
-                    .order('created_at', { ascending: false });
-
-                if (dbErr) throw dbErr;
+                const data = await serviceRequestService.getCustomerRequests();
                 setRequests(data || []);
             } catch (err) {
                 setError(err.message);

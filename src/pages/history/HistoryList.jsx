@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { serviceRequestService } from '../../services/customer/serviceRequestService';
 import { useTranslation } from '../../hooks/useTranslation';
 
 export default function HistoryList() {
@@ -13,17 +13,10 @@ export default function HistoryList() {
 
     useEffect(() => {
         const fetchHistory = async () => {
-            if (!profile?.user_id) return;
             try {
-                const { data, error } = await supabase
-                    .from('service_requests')
-                    .select('id, status, created_at, services(name_translations), sub_services(name_translations)')
-                    .eq('customer_id', profile.user_id)
-                    .in('status', ['completed', 'cancelled'])
-                    .order('created_at', { ascending: false });
-
-                if (error) throw error;
-                setHistory(data || []);
+                const data = await serviceRequestService.getCustomerRequests();
+                const past = (data || []).filter(r => r.status === 'completed' || r.status === 'cancelled');
+                setHistory(past);
             } catch (err) {
                 console.error('Error fetching history:', err);
             } finally {

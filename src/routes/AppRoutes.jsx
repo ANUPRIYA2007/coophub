@@ -19,6 +19,8 @@ import RequestDetails from '../pages/requests/RequestDetails';
 import RequestChat from '../pages/requests/RequestChat';
 import HistoryList from '../pages/history/HistoryList';
 import SupportCenter from '../pages/support/SupportCenter';
+import CreateTicket from '../pages/support/CreateTicket';
+import SupportTickets from '../pages/support/SupportTickets';
 import SettingsHub from '../pages/settings/SettingsHub';
 import ProfileIndex from '../pages/profile/ProfileIndex';
 import NotificationsList from '../pages/notifications/NotificationsList';
@@ -49,6 +51,8 @@ export default function AppRoutes() {
                 <Route path="/messages" element={<RequestsList />} />
                 <Route path="/history" element={<HistoryList />} />
                 <Route path="/support" element={<SupportCenter />} />
+                <Route path="/support/new" element={<CreateTicket />} />
+                <Route path="/support/tickets" element={<SupportTickets />} />
                 <Route path="/settings" element={<SettingsHub />} />
                 <Route path="/profile" element={<ProfileIndex />} />
                 <Route path="/notifications" element={<NotificationsList />} />

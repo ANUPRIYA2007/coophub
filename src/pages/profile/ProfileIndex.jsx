@@ -19,7 +19,26 @@ export default function ProfileIndex() {
 
     useEffect(() => {
         const fetchProfile = async () => {
-            if (!authProfile?.user_id) return;
+            if (localStorage.getItem('coophub_demo_customer') === 'true') {
+                const demoP = {
+                    id: 'demo-cust-001',
+                    full_name: authProfile?.full_name || 'Anupriya Murugan',
+                    email: authProfile?.email || 'customer@coophub.in',
+                    phone: '+91 98401 23456',
+                    role: 'customer',
+                    preferred_language: 'en'
+                };
+                setProfile(demoP);
+                setFullName(demoP.full_name);
+                setPhone(demoP.phone);
+                setLoading(false);
+                return;
+            }
+
+            if (!authProfile?.user_id) {
+                setLoading(false);
+                return;
+            }
             try {
                 const { data, error } = await supabase
                     .from('profiles')

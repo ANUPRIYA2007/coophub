@@ -42,6 +42,14 @@ export default function ReviewForm({ requestId }) {
         setSubmitting(true);
         setError(null);
 
+        const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
+        if (isDemo) {
+            setHasReviewed(true);
+            setExistingReview({ rating, feedback, created_at: new Date().toISOString() });
+            setSubmitting(false);
+            return;
+        }
+
         try {
             const { error: insertErr } = await supabase.from('reviews').insert({
                 request_id: requestId,
