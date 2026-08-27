@@ -86,6 +86,7 @@ graph TD
 ### 🤖 Mascot Hero AI (`GlobalHeroAgent.jsx`)
 - Positioned dynamically at the bottom-left of the viewport.
 - Focus-tracks input fields on login, registration, and forms.
+- **Dynamic Sidebar Offset**: Auto-shifts layout on desktop to `lg:left-72` when a portal sidebar panel is active, preventing it from being covered or hidden behind the layout side panel.
 - Speaks contextual tips, validation feedback, and errors with high bubble contrast and customizable Text-to-Speech (TTS).
 
 ### 💬 CoopBot Chat Assistant (`ChatAgent.jsx`)
