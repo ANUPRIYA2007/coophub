@@ -93,20 +93,17 @@ export default function CustomerPortalLayout() {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto py-3 px-3">
+                <nav className="flex-1 overflow-y-auto py-4 px-5 space-y-1.5">
                     {navItems.map(item => (
                         <NavLink
                             key={item.to}
                             to={item.to}
                             onClick={() => setSidebarOpen(false)}
                             className={({ isActive }) =>
-                                `flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors mb-0.5 ${isActive
-                                    ? 'bg-orange-500 text-white shadow-sm'
-                                    : 'text-navy-300 hover:bg-navy-800 hover:text-white border border-transparent'
-                                }`
+                                `framer-side-menu-link ${isActive ? 'active' : ''}`
                             }
                         >
-                            <span className="w-5 h-5 shrink-0">{item.icon}</span>
+                            <div className="framer-indicator" />
                             <span>{item.label}</span>
                         </NavLink>
                     ))}

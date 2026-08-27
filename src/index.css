@@ -345,3 +345,54 @@ html.dark .btn-secondary:hover {
   background-color: #334155 !important;
   color: #FFFFFF !important;
 }
+
+/* ==============================================================================
+   FRAMER TABLE OF CONTENT (TOC) COMPONENT SIDEBAR MENUS
+   ============================================================================== */
+.framer-side-menu-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 22px !important;
+  padding: 0px !important;
+  margin: 10px 0 !important;
+  text-decoration: none !important;
+  font-family: "Geist Mono", monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: uppercase !important;
+  color: #8896AB !important; /* Muted blue-gray text color to match light theme guidelines */
+  background: transparent !important;
+  border: none !important;
+  transition: color 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+.framer-side-menu-link.active,
+.framer-side-menu-link:hover {
+  color: #050B14 !important; /* Primary Navy for active/hover */
+}
+
+/* In dark mode, adjust text color rules safely */
+[data-theme="dark"] .framer-side-menu-link.active,
+html.dark .framer-side-menu-link.active,
+[data-theme="dark"] .framer-side-menu-link:hover,
+html.dark .framer-side-menu-link:hover {
+  color: #ffffff !important;
+}
+
+.framer-indicator {
+  flex: none !important;
+  height: 3px !important;
+  width: 12px !important;
+  border-radius: 2px !important;
+  background-color: #8896AB !important;
+  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s ease !important;
+}
+
+.framer-side-menu-link.active .framer-indicator,
+.framer-side-menu-link:hover .framer-indicator {
+  width: 24px !important;
+  background-color: #FF7A00 !important; /* COOP HUB Orange */
+}

@@ -506,7 +506,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
         {/* Navigation List */}
         <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-3) 0" }} className="hide-scrollbar">
-          <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-3)" }}>
+          <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-4)" }}>
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -514,29 +514,21 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                   <Link 
                     to={item.path}
                     onClick={() => { if (window.innerWidth <= 1024) toggleSidebar(); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: "var(--space-3)",
-                      padding: "10px var(--space-4)", borderRadius: "var(--radius-md)",
-                      color: isActive ? "white" : "rgba(255,255,255,0.75)",
-                      background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
-                      transition: "all var(--transition-fast)",
-                      fontWeight: isActive ? "700" : "400",
-                      fontSize: "14px"
-                    }}
+                    className={`framer-side-menu-link ${isActive ? 'active' : ''}`}
                   >
-                    <item.icon size={19} color={isActive ? "var(--color-secondary)" : "rgba(255,255,255,0.85)"} />
-                    {item.name}
+                    <div className="framer-indicator" />
+                    <span>{item.name}</span>
                   </Link>
                 </li>
               );
             })}
           </ul>
 
-          <div style={{ margin: "var(--space-4) var(--space-4) var(--space-2)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.5, fontWeight: "bold" }}>
+          <div style={{ margin: "var(--space-4) var(--space-4) var(--space-2)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.5, fontWeight: "bold", fontFamily: "Geist Mono, monospace" }}>
             Settings & Help
           </div>
 
-          <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-3)" }}>
+          <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-4)" }}>
             {bottomNavItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -544,18 +536,10 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                   <Link 
                     to={item.path}
                     onClick={() => { if (window.innerWidth <= 1024) toggleSidebar(); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: "var(--space-3)",
-                      padding: "9px var(--space-4)", borderRadius: "var(--radius-md)",
-                      color: isActive ? "white" : "rgba(255,255,255,0.75)",
-                      background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
-                      transition: "all var(--transition-fast)",
-                      fontSize: "13.5px",
-                      fontWeight: isActive ? "700" : "400"
-                    }}
+                    className={`framer-side-menu-link ${isActive ? 'active' : ''}`}
                   >
-                    <item.icon size={17} color={isActive ? "var(--color-secondary)" : "rgba(255,255,255,0.85)"} />
-                    {item.name}
+                    <div className="framer-indicator" />
+                    <span>{item.name}</span>
                   </Link>
                 </li>
               );
