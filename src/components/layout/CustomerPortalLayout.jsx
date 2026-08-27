@@ -79,16 +79,10 @@ export default function CustomerPortalLayout() {
                     </GradientText>
                 </div>
 
-                {/* Profile Summary */}
+                {/* Portal Label */}
                 <div className="px-5 py-4 border-b border-navy-800">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-navy-800 text-orange-500 border border-orange-500/30 rounded-full flex items-center justify-center font-bold text-sm shrink-0">
-                            {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                        </div>
-                        <div className="overflow-hidden">
-                            <p className="font-semibold text-white text-sm truncate">{profile?.full_name || 'Customer'}</p>
-                            <p className="text-xs text-navy-400 truncate">{profile?.email || ''}</p>
-                        </div>
+                    <div className="font-bold text-orange-500 text-xs uppercase tracking-widest font-mono">
+                        Customer Dashboard
                     </div>
                 </div>
 
