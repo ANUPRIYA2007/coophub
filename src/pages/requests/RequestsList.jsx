@@ -93,8 +93,8 @@ export default function RequestsList() {
 
                         <div className="space-y-4">
                             {filteredRequests.map(req => {
-                                const serviceName = req.services?.name_translations?.[t('language_code')] || req.services?.name_translations?.['en'];
-                                const subName = req.sub_services?.name_translations?.[t('language_code')] || req.sub_services?.name_translations?.['en'];
+                                const serviceName = req.services?.name_translations?.[language] || req.services?.name_translations?.['en'] || 'Service';
+                                const subName = req.sub_services?.name_translations?.[language] || req.sub_services?.name_translations?.['en'] || '';
 
                                 return (
                                     <div key={req.id} onClick={() => navigate(`/requests/${req.id}`)} className="bg-white rounded-2xl p-5 border border-navy-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group">

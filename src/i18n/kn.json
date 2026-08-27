@@ -115,7 +115,10 @@
         "active_bookings": "ನಿಮಗೆ {{count}} ಬುಕಿಂಗ್‌ಗಳಿವೆ."
     },
     "navigation": {
+        "dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+        "find_services": "ಸೇವೆಗಳನ್ನು ಹುಡುಕಿ",
         "my_requests": "ನನ್ನ ವಿನಂತಿಗಳು",
+        "messages": "ಸಂದೇಶಗಳು",
         "history": "ಇತಿಹಾಸ",
         "notifications": "ಅಧಿಸೂಚನೆಗಳು",
         "support": "ಸಹಾಯ ಮತ್ತು ಬೆಂಬಲ",

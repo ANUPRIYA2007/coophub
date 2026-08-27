@@ -1,63 +1,145 @@
-import { useState, useRef, useEffect } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { supabase } from '../../lib/supabase';
+import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX, ArrowRight } from 'lucide-react';
 
 export default function ChatAgent({ contextData }) {
     const { t, language } = useTranslation();
     const location = useLocation();
     const params = useParams();
-    const [messages, setMessages] = useState([
-        { role: 'assistant', content: t('home.mascot_default') }
-    ]);
-    const [input, setInput] = useState('');
+    const navigate = useNavigate();
+
     const [isOpen, setIsOpen] = useState(false);
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    const [speakingMsgId, setSpeakingMsgId] = useState(null);
     const messagesEndRef = useRef(null);
 
-    // native speech recognition API
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+    // Listen for custom event to open customer chat (from hero bubble or other triggers)
+    useEffect(() => {
+        const handleOpen = () => setIsOpen(true);
+        window.addEventListener('open-customer-chat', handleOpen);
+        return () => window.removeEventListener('open-customer-chat', handleOpen);
+    }, []);
+
+    // Initial greeting based on language
+    useEffect(() => {
+        const greetings = {
+            ta: 'வணக்கம்! நான் உங்கள் CoopBot AI உதவியாளர். சேவைகளைத் தேட, உங்கள் கோரிக்கைகளைக் கண்காணிக்க அல்லது உதவி பெற என்னிடம் கேட்கலாம்.',
+            hi: 'नमस्ते! मैं आपका CoopBot AI सहायक हूँ। सेवाएं खोजने, अनुरोध ट्रैक करने या सहायता के लिए मुझसे पूछें।',
+            te: 'నమస్కారం! నేను మీ CoopBot AI సహాయకుడిని. సేవలను శోధించడానికి లేదా మీ అభ్యర్థనలను ట్రాక్ చేయడానికి నన్ను అడగండి.',
+            kn: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ CoopBot AI ಸಹಾಯಕ. ಸೇವೆಗಳನ್ನು ಹುಡುಕಲು ಅಥವಾ ನಿಮ್ಮ ವಿನಂತಿಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ನನ್ನನ್ನು ಕೇಳಿ.',
+            en: 'Hello! I am CoopBot, your 24/7 AI Customer Assistant. Ask me about booking home services, tracking requests, pricing, or support.'
+        };
+
+        setMessages([
+            {
+                id: 'welcome-1',
+                role: 'assistant',
+                content: greetings[language] || greetings.en,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+        ]);
+    }, [language]);
 
     useEffect(() => {
-        if (recognition) {
-            recognition.continuous = false;
-            recognition.lang = language === 'en' ? 'en-US' : (language === 'ta' ? 'ta-IN' : 'hi-IN');
+        if (isOpen) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages, isOpen]);
 
+    // Native Speech Synthesis (TTS Voice output)
+    const speakText = (text, msgId) => {
+        if (!('speechSynthesis' in window)) {
+            alert('Text-to-speech is not supported in this browser.');
+            return;
+        }
+
+        if (speakingMsgId === msgId) {
+            window.speechSynthesis.cancel();
+            setSpeakingMsgId(null);
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        const langCodeMap = {
+            ta: 'ta-IN',
+            hi: 'hi-IN',
+            te: 'te-IN',
+            kn: 'kn-IN',
+            en: 'en-US'
+        };
+        utterance.lang = langCodeMap[language] || 'en-US';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.05;
+
+        utterance.onstart = () => setSpeakingMsgId(msgId);
+        utterance.onend = () => setSpeakingMsgId(null);
+        utterance.onerror = () => setSpeakingMsgId(null);
+
+        window.speechSynthesis.speak(utterance);
+    };
+
+    // Speech-To-Text (Voice input)
+    const toggleListening = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('Voice speech recognition is not supported in this browser.');
+            return;
+        }
+
+        if (isListening) {
+            setIsListening(false);
+            return;
+        }
+
+        try {
+            const recognition = new SpeechRecognition();
+            const langCodeMap = {
+                ta: 'ta-IN',
+                hi: 'hi-IN',
+                te: 'te-IN',
+                kn: 'kn-IN',
+                en: 'en-US'
+            };
+            recognition.lang = langCodeMap[language] || 'en-US';
+            recognition.interimResults = false;
+
+            recognition.onstart = () => setIsListening(true);
+            recognition.onend = () => setIsListening(false);
+            recognition.onerror = () => setIsListening(false);
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                setInput(transcript);
-                setIsListening(false);
+                if (transcript) {
+                    setInput(transcript);
+                }
             };
 
-            recognition.onerror = () => setIsListening(false);
-            recognition.onend = () => setIsListening(false);
-        }
-    }, [language, recognition]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const toggleListening = () => {
-        if (!recognition) return alert('Speech Recognition not supported in this browser.');
-        if (isListening) {
-            recognition.stop();
-            setIsListening(false);
-        } else {
             recognition.start();
-            setIsListening(true);
+        } catch (err) {
+            console.error('STT error:', err);
+            setIsListening(false);
         }
     };
 
-    const handleSend = async (e) => {
+    const handleSend = async (e, directText = null) => {
         e?.preventDefault();
-        if (!input.trim() || loading) return;
+        const textToSend = (directText || input).trim();
+        if (!textToSend || loading) return;
 
-        const userMsg = input.trim();
         setInput('');
-        const newHistory = [...messages, { role: 'user', content: userMsg }];
+        const userMsg = {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            content: textToSend,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        const newHistory = [...messages, userMsg];
         setMessages(newHistory);
         setLoading(true);
 
@@ -68,104 +150,204 @@ export default function ChatAgent({ contextData }) {
                 currentRequestId: params.id || null
             };
 
-            const res = await fetch('http://localhost:3000/api/ai/chat', {
+            const res = await fetch('/api/ai/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: newHistory,
+                    messages: newHistory.map(m => ({ role: m.role, content: m.content })),
                     language,
                     catalogContext: contextData,
                     token: session?.access_token,
                     contextData: currentContext
                 })
             });
+
             const data = await res.json();
 
-            if (data.message) {
-                setMessages([...newHistory, { role: 'assistant', content: data.message }]);
-                // Optional TTS
-                const utterance = new SpeechSynthesisUtterance(data.message);
-                utterance.lang = language === 'ta' ? 'ta-IN' : 'en-US';
-                window.speechSynthesis.speak(utterance);
+            if (data.message || data.text) {
+                const botReply = data.message || data.text;
+                const newMsgId = `bot-${Date.now()}`;
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        id: newMsgId,
+                        role: 'assistant',
+                        content: botReply,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }
+                ]);
+            } else {
+                throw new Error(data.error || 'Empty response');
             }
         } catch (err) {
-            setMessages([...newHistory, { role: 'assistant', content: 'Connection error. Please try again.' }]);
+            console.error('Chat error:', err);
+            setMessages(prev => [
+                ...prev,
+                {
+                    id: `err-${Date.now()}`,
+                    role: 'assistant',
+                    content: language === 'ta'
+                        ? 'மன்னிக்கவும், இணைப்பு பிழை ஏற்பட்டுள்ளது. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.'
+                        : 'I am here to help. Could you please rephrase or try again?',
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }
+            ]);
         } finally {
             setLoading(false);
         }
     };
 
+    // Quick action chips for customer
+    const quickChips = [
+        { label: '🛠️ Find Services', query: 'What services are available in COOP HUB?' },
+        { label: '📦 My Bookings', query: 'Can you check my active service requests?' },
+        { label: '📍 Live Tracking', query: 'How do I track my assigned technician?' },
+        { label: '❓ Customer Support', query: 'How can I create a support ticket?' }
+    ];
+
     return (
         <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
             <div className="absolute bottom-6 right-6 pointer-events-auto flex flex-col items-end">
+                {/* ─── CHAT DRAWER MODAL ─── */}
                 {isOpen && (
-                    <div className="w-80 sm:w-96 bg-surface shadow-2xl rounded-2xl border border-navy-100 flex flex-col overflow-hidden mb-4 animate-fade-in-up">
+                    <div className="w-[340px] sm:w-[400px] bg-white shadow-2xl rounded-3xl border border-navy-100 flex flex-col overflow-hidden mb-4 animate-fade-in-up transition-all duration-200">
                         {/* Header */}
-                        <div className="bg-navy-900 text-white p-4 py-3 flex justify-between items-center">
-                            <div className="flex items-center space-x-2">
-                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center p-1">
-                                    <img src="/src/assets/branding/mascot-ai.jpg" alt="Mascot" className="w-full h-full object-cover rounded-full" />
+                        <div className="bg-gradient-to-r from-navy-900 via-navy-800 to-navy-900 text-white p-4 flex justify-between items-center border-b border-navy-700/50">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center p-0.5 shadow-md">
+                                    <img
+                                        src="/assets/images/mascot-hero.png"
+                                        alt="CoopBot"
+                                        className="w-full h-full object-cover rounded-full"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'block';
+                                        }}
+                                    />
+                                    <Bot size={20} className="text-white hidden" />
                                 </div>
-                                <span className="font-semibold text-sm">{t('ai_assistant.title')}</span>
+                                <div>
+                                    <div className="flex items-center space-x-2">
+                                        <span className="font-bold text-sm tracking-wide">CoopBot Assistant</span>
+                                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                                    </div>
+                                    <p className="text-[11px] text-navy-300 font-medium">Customer AI Intelligence</p>
+                                </div>
                             </div>
-                            <button onClick={() => setIsOpen(false)} className="text-white/70 hover:text-white transition-colors">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                            <button
+                                onClick={() => {
+                                    window.speechSynthesis?.cancel();
+                                    setSpeakingMsgId(null);
+                                    setIsOpen(false);
+                                }}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                            >
+                                <X size={18} />
                             </button>
                         </div>
 
-                        {/* Messages */}
-                        <div className="flex-1 p-4 overflow-y-auto max-h-96 min-h-[300px] space-y-4 bg-surface/50">
-                            {messages.map((msg, i) => (
-                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user' ? 'bg-orange-500 text-white rounded-br-none' : 'bg-white border border-navy-100 text-navy-800 rounded-bl-none shadow-sm'}`}>
-                                        {msg.content}
+                        {/* Quick Chips Bar */}
+                        <div className="bg-navy-50/70 border-b border-navy-100 px-3 py-2 flex gap-1.5 overflow-x-auto scrollbar-none">
+                            {quickChips.map((chip, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleSend(null, chip.query)}
+                                    className="whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-full bg-white border border-navy-200/80 text-navy-700 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all shadow-xs shrink-0"
+                                >
+                                    {chip.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Messages Feed */}
+                        <div className="flex-1 p-4 overflow-y-auto max-h-[380px] min-h-[280px] space-y-3.5 bg-slate-50/50">
+                            {messages.map((msg) => (
+                                <div
+                                    key={msg.id}
+                                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                                >
+                                    <div
+                                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                                            msg.role === 'user'
+                                                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-br-none shadow-md shadow-orange-500/15 font-medium'
+                                                : 'bg-white border border-navy-100 text-navy-800 rounded-bl-none shadow-sm'
+                                        }`}
+                                    >
+                                        <p className="whitespace-pre-line">{msg.content}</p>
+                                    </div>
+
+                                    {/* Footer / TTS Action */}
+                                    <div className="flex items-center space-x-2 mt-1 px-1">
+                                        <span className="text-[10px] text-navy-400 font-medium">{msg.timestamp}</span>
+                                        {msg.role === 'assistant' && (
+                                            <button
+                                                onClick={() => speakText(msg.content, msg.id)}
+                                                className={`p-1 rounded-full transition-colors ${
+                                                    speakingMsgId === msg.id
+                                                        ? 'text-orange-500 bg-orange-50 animate-pulse'
+                                                        : 'text-navy-400 hover:text-orange-500'
+                                                }`}
+                                                title={speakingMsgId === msg.id ? 'Stop Voice' : 'Read Aloud'}
+                                            >
+                                                {speakingMsgId === msg.id ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
+
                             {loading && (
                                 <div className="flex justify-start">
-                                    <div className="bg-white border border-navy-100 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex space-x-1">
-                                        <div className="w-2 h-2 bg-navy-300 rounded-full animate-bounce"></div>
-                                        <div className="w-2 h-2 bg-navy-300 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                                        <div className="w-2 h-2 bg-navy-300 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                                    <div className="bg-white border border-navy-100 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center space-x-1.5">
+                                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
+                                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                                        <div className="w-2 h-2 bg-navy-700 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                                        <span className="text-xs text-navy-400 font-medium ml-2">CoopBot thinking...</span>
                                     </div>
                                 </div>
                             )}
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input Form */}
+                        {/* Input Box with STT Voice & Send */}
                         <div className="p-3 bg-white border-t border-navy-100">
-                            <form onSubmit={handleSend} className="flex relative items-center bg-gray-50 rounded-full border border-gray-200">
+                            <form onSubmit={handleSend} className="flex relative items-center bg-navy-50/70 rounded-full border border-navy-200 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 transition-all">
                                 <input
                                     type="text"
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
-                                    placeholder={isListening ? t('ai_assistant.recording') : t('ai_assistant.input_placeholder')}
-                                    className="flex-1 bg-transparent py-2.5 pl-4 pr-20 text-sm focus:outline-none"
+                                    placeholder={
+                                        isListening
+                                            ? 'Listening... Speak now...'
+                                            : language === 'ta'
+                                            ? 'சேவைகள் அல்லது கேள்விகளைக் கேட்கவும்...'
+                                            : 'Ask about any service or booking...'
+                                    }
+                                    className="flex-1 bg-transparent py-2.5 pl-4 pr-20 text-sm text-navy-800 focus:outline-none placeholder:text-navy-400"
                                 />
 
-                                <div className="absolute right-1 flex items-center space-x-1">
+                                <div className="absolute right-1.5 flex items-center space-x-1">
+                                    {/* Mic STT Button */}
                                     <button
                                         type="button"
                                         onClick={toggleListening}
-                                        className={`p-1.5 rounded-full transition-colors ${isListening ? 'text-red-500 bg-red-50' : 'text-gray-400 hover:text-orange-500'}`}
+                                        className={`p-2 rounded-full transition-all ${
+                                            isListening
+                                                ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-500/30'
+                                                : 'text-navy-500 hover:text-orange-500 hover:bg-orange-50'
+                                        }`}
+                                        title={isListening ? 'Listening active...' : 'Speak via Microphone'}
                                     >
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8h-1a6 6 0 11-12 0H3a7.001 7.001 0 006 6.93V17H6v1h8v-1h-3v-2.07z" clipRule="evenodd" />
-                                        </svg>
+                                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
                                     </button>
 
+                                    {/* Send Button */}
                                     <button
                                         type="submit"
                                         disabled={!input.trim() || loading}
-                                        className="p-1.5 rounded-full bg-navy-500 text-white disabled:opacity-50 hover:bg-navy-600 transition-colors"
+                                        className="p-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md hover:shadow-orange-500/30 transition-all"
                                     >
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                        </svg>
+                                        <Send size={15} />
                                     </button>
                                 </div>
                             </form>
@@ -173,17 +355,35 @@ export default function ChatAgent({ contextData }) {
                     </div>
                 )}
 
+                {/* ─── FLOATING LAUNCHER PILL & MASCOT ─── */}
                 {!isOpen && (
-                    <button
-                        onClick={() => setIsOpen(true)}
-                        className="w-14 h-14 bg-navy-900 rounded-full shadow-2xl shadow-navy-900/40 flex items-center justify-center hover:bg-navy-800 hover:-translate-y-1 transition-all text-white border-2 border-white/10"
-                    >
-                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                    </button>
-                )}
+                    <div className="flex items-center space-x-3">
+                        <div
+                            onClick={() => setIsOpen(true)}
+                            className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-full shadow-xl shadow-navy-900/10 border border-navy-200/80 cursor-pointer flex items-center space-x-2 text-xs font-bold text-navy-800 hover:text-orange-600 hover:border-orange-400 transition-all hover:scale-105"
+                        >
+                            <Sparkles size={15} className="text-orange-500" />
+                            <span>Ask CoopBot AI</span>
+                        </div>
 
+                        <button
+                            onClick={() => setIsOpen(true)}
+                            className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 via-orange-600 to-navy-900 p-0.5 shadow-2xl shadow-orange-500/30 hover:scale-110 active:scale-95 transition-all text-white border-2 border-white overflow-hidden flex items-center justify-center group"
+                            title="Open Customer AI Assistant"
+                        >
+                            <img
+                                src="/assets/images/mascot-hero.png"
+                                alt="CoopBot"
+                                className="w-full h-full object-cover rounded-full group-hover:scale-105 transition-transform"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'block';
+                                }}
+                            />
+                            <MessageSquare size={24} className="text-white hidden" />
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

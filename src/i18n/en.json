@@ -115,7 +115,10 @@
         "active_bookings": "You have {{count}} active booking(s)."
     },
     "navigation": {
+        "dashboard": "Dashboard",
+        "find_services": "Find Services",
         "my_requests": "My Requests",
+        "messages": "Messages",
         "history": "History",
         "notifications": "Notifications",
         "support": "Help & Support",

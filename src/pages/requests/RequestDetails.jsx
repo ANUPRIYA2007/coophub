@@ -9,7 +9,7 @@ import ReviewForm from '../../components/reviews/ReviewForm';
 export default function RequestDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
     const [requestData, setRequestData] = useState(null);
     const [historyData, setHistoryData] = useState([]);
     const [invoiceData, setInvoiceData] = useState(null);
@@ -52,8 +52,8 @@ export default function RequestDetails() {
     );
 
     // Extract dynamic mapping from JSONB properly checking translations
-    const serviceName = requestData.services?.name_translations?.[t('language_code')] || requestData.services?.name_translations?.['en'] || 'Unknown Service';
-    const subServiceName = requestData.sub_services?.name_translations?.[t('language_code')] || requestData.sub_services?.name_translations?.['en'] || '';
+    const serviceName = requestData.services?.name_translations?.[language] || requestData.services?.name_translations?.['en'] || 'Unknown Service';
+    const subServiceName = requestData.sub_services?.name_translations?.[language] || requestData.sub_services?.name_translations?.['en'] || '';
 
     // Check if assignments tracking block should technically appear
     const isAssigned = ['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'completed'].includes(requestData.status);

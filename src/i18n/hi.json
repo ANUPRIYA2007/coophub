@@ -115,7 +115,10 @@
         "active_bookings": "आपकी {{count}} सक्रिय बुकिंग हैं।"
     },
     "navigation": {
+        "dashboard": "डैशबोर्ड",
+        "find_services": "सेवाएं खोजें",
         "my_requests": "मेरे अनुरोध",
+        "messages": "संदेश",
         "history": "इतिहास",
         "notifications": "सूचनाएं",
         "support": "सहायता और समर्थन",

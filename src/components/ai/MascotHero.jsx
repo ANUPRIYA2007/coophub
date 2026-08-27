@@ -10,7 +10,7 @@ export default function MascotHero({ customerName = 'Guest', currentRoute = '/ho
         const fetchMascotGreeting = async () => {
             setLoading(true);
             try {
-                const res = await fetch('http://localhost:3000/api/ai/mascot-context', {
+                const res = await fetch('/api/ai/mascot-context', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ customerName, currentRoute, activeBookingsCount, language })

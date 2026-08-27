@@ -17,8 +17,8 @@ export default function ServicesBrowse() {
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            <h1 className="text-2xl font-bold text-navy-800 mb-1">Find Services</h1>
-            <p className="text-sm text-navy-400 mb-6">Browse available services in your area</p>
+            <h1 className="text-2xl font-bold text-navy-800 mb-1">{t('navigation.find_services') || 'Find Services'}</h1>
+            <p className="text-sm text-navy-400 mb-6">{t('home.all_services') || 'Browse available services in your area'}</p>
 
             {/* Search */}
             <div className="relative max-w-xl mb-8">

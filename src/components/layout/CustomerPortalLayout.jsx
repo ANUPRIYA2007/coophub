@@ -33,14 +33,14 @@ export default function CustomerPortalLayout() {
 
     // Sidebar navigation items — Notifications is NOT here (header-only)
     const navItems = [
-        { to: '/home', label: 'Dashboard', icon: <HomeIcon /> },
-        { to: '/services', label: 'Find Services', icon: <ServicesIcon /> },
-        { to: '/requests', label: 'My Requests', icon: <RequestsIcon /> },
-        { to: '/messages', label: 'Messages', icon: <MessagesIcon /> },
-        { to: '/history', label: 'History', icon: <HistoryIcon /> },
-        { to: '/support', label: 'Support', icon: <SupportIcon /> },
-        { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
-        { to: '/profile', label: 'Profile', icon: <ProfileIcon /> },
+        { to: '/home', label: t('navigation.dashboard') || 'Dashboard', icon: <HomeIcon /> },
+        { to: '/services', label: t('navigation.find_services') || 'Find Services', icon: <ServicesIcon /> },
+        { to: '/requests', label: t('navigation.my_requests') || 'My Requests', icon: <RequestsIcon /> },
+        { to: '/messages', label: t('navigation.messages') || 'Messages', icon: <MessagesIcon /> },
+        { to: '/history', label: t('navigation.history') || 'History', icon: <HistoryIcon /> },
+        { to: '/support', label: t('navigation.support') || 'Support', icon: <SupportIcon /> },
+        { to: '/settings', label: t('navigation.settings') || 'Settings', icon: <SettingsIcon /> },
+        { to: '/profile', label: t('navigation.profile') || 'Profile', icon: <ProfileIcon /> },
     ];
 
     return (
@@ -108,7 +108,7 @@ export default function CustomerPortalLayout() {
                         className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors w-full border border-transparent"
                     >
                         <LogoutIcon />
-                        <span>Log Out</span>
+                        <span>{t('auth.logout') || 'Log Out'}</span>
                     </button>
                 </div>
             </aside >
@@ -129,7 +129,7 @@ export default function CustomerPortalLayout() {
                                 </svg>
                             </button>
                             <h2 className="font-semibold text-navy-800 text-base hidden sm:block">
-                                {customerName ? `Welcome, ${customerName}` : 'Customer Portal'}
+                                {customerName ? `Welcome, ${customerName}` : (t('navigation.dashboard') || 'Customer Portal')}
                             </h2>
                         </div>
 

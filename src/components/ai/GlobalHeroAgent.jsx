@@ -1,14 +1,13 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
-import { supabase } from '../../lib/supabase';
+import { Volume2, VolumeX, Sparkles } from 'lucide-react';
 
 export default function GlobalHeroAgent() {
     const { t, language } = useTranslation();
     const location = useLocation();
     const params = useParams();
 
-    // Context Evaluation logic directly mirroring React Router state
     const currentContext = useMemo(() => {
         const pathSegments = location.pathname.split('/').filter(Boolean);
         const module = pathSegments[0] || 'home';
@@ -22,178 +21,148 @@ export default function GlobalHeroAgent() {
         };
     }, [location.pathname, params, language]);
 
-    // Chat States
-    const [isChatOpen, setIsChatOpen] = useState(false);
-    const [messages, setMessages] = useState([
-        { role: 'assistant', content: t('home.mascot_default') || 'Hello! How can I help you today?' }
-    ]);
-    const [input, setInput] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [isListening, setIsListening] = useState(false);
-
-    // Expressive States
-    const [animState, setAnimState] = useState('idle'); // idle, listening, thinking, speaking, success, error
+    const [animState, setAnimState] = useState('idle'); // idle, thinking, speaking
     const [heroGreeting, setHeroGreeting] = useState('');
+    const [isSpeaking, setIsSpeaking] = useState(false);
 
-    const messagesEndRef = useRef(null);
-
-    // Speech Recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
-
-    // React to Context Changes automatically (Context Navigation Awareness)
+    // Fetch dynamic context-aware greeting on route transition
     useEffect(() => {
+        let isMounted = true;
         const announceContextChange = async () => {
             try {
-                // Gentle pulse on nav
                 setAnimState('thinking');
-                const res = await fetch('http://localhost:3000/api/ai/mascot-context', {
+                const res = await fetch('/api/ai/mascot-context', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ currentRoute: location.pathname, language, module: currentContext.module })
+                    body: JSON.stringify({
+                        currentRoute: location.pathname,
+                        language,
+                        module: currentContext.module
+                    })
                 });
+
                 const data = await res.json();
+                if (!isMounted) return;
 
                 if (res.ok && data.message) {
                     setHeroGreeting(data.message);
                 } else {
-                    setHeroGreeting('I am ready when you are!');
+                    const fallbackGreetings = {
+                        ta: 'வணக்கம்! COOP HUB உங்களை அன்புடன் வரவேற்கிறது.',
+                        hi: 'नमस्ते! COOP HUB में आपका स्वागत है।',
+                        te: 'నమస్కారం! COOP HUB కి స్వాగతం.',
+                        kn: 'ನಮಸ್ಕಾರ! COOP HUB ಗೆ ಸುಸ್ವಾಗತ.',
+                        en: 'Welcome to COOP HUB! How can I assist your home today?'
+                    };
+                    setHeroGreeting(fallbackGreetings[language] || fallbackGreetings.en);
                 }
-                setTimeout(() => setAnimState('idle'), 1000);
-            } catch (err) {
                 setAnimState('idle');
+            } catch (err) {
+                if (isMounted) {
+                    setHeroGreeting('Welcome to COOP HUB!');
+                    setAnimState('idle');
+                }
             }
         };
+
         announceContextChange();
+        return () => {
+            isMounted = false;
+        };
     }, [location.pathname, language, currentContext.module]);
 
-    useEffect(() => {
-        if (recognition) {
-            recognition.continuous = false;
-            recognition.lang = language === 'en' ? 'en-US' : (language === 'ta' ? 'ta-IN' : 'hi-IN');
+    // Speak greeting aloud
+    const speakGreeting = (e) => {
+        e?.stopPropagation();
+        if (!('speechSynthesis' in window) || !heroGreeting) return;
 
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                setInput(transcript);
-                setIsListening(false);
-                setAnimState('idle');
-            };
-
-            recognition.onerror = () => { setIsListening(false); setAnimState('error'); setTimeout(() => setAnimState('idle'), 1000); };
-            recognition.onend = () => { setIsListening(false); if (animState === 'listening') setAnimState('idle'); };
+        if (isSpeaking) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+            return;
         }
-    }, [language, recognition, animState]);
 
-    useEffect(() => {
-        if (isChatOpen) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [messages, isChatOpen]);
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(heroGreeting);
+        const langCodeMap = {
+            ta: 'ta-IN',
+            hi: 'hi-IN',
+            te: 'te-IN',
+            kn: 'kn-IN',
+            en: 'en-US'
+        };
+        utterance.lang = langCodeMap[language] || 'en-US';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.05;
 
-    const toggleListening = () => {
-        if (!recognition) return alert('Speech Recognition not supported in this browser.');
-        if (isListening) {
-            recognition.stop();
-            setIsListening(false);
-            setAnimState('idle');
-        } else {
-            recognition.start();
-            setIsListening(true);
-            setAnimState('listening');
-        }
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+
+        window.speechSynthesis.speak(utterance);
     };
 
-    const handleSend = async (e) => {
-        e?.preventDefault();
-        if (!input.trim() || loading) return;
-
-        const userMsg = input.trim();
-        setInput('');
-        const newHistory = [...messages, { role: 'user', content: userMsg }];
-        setMessages(newHistory);
-
-        setLoading(true);
-        setAnimState('thinking');
-
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-
-            const res = await fetch('http://localhost:3000/api/ai/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: newHistory,
-                    language,
-                    token: session?.access_token,
-                    contextData: currentContext
-                })
-            });
-            const data = await res.json();
-
-            if (data.message) {
-                setMessages([...newHistory, { role: 'assistant', content: data.message }]);
-                setAnimState('speaking');
-
-                // Keep speaking state briefly for visual feedback
-                setTimeout(() => setAnimState('idle'), 2500);
-
-                const utterance = new SpeechSynthesisUtterance(data.message);
-                utterance.lang = language === 'ta' ? 'ta-IN' : 'en-US';
-                window.speechSynthesis.speak(utterance);
-            }
-        } catch (err) {
-            setMessages([...newHistory, { role: 'assistant', content: 'Connection error. Please try again.' }]);
-            setAnimState('error');
-            setTimeout(() => setAnimState('idle'), 1200);
-        } finally {
-            setLoading(false);
-        }
+    const handleOpenChat = () => {
+        window.dispatchEvent(new CustomEvent('open-customer-chat'));
     };
 
-    const getHeroAnimationClass = () => {
-        switch (animState) {
-            case 'listening': return 'anim-hero-listening';
-            case 'thinking': return 'anim-hero-thinking';
-            case 'speaking': return 'anim-hero-speaking';
-            case 'success': return 'anim-hero-success';
-            case 'error': return 'anim-hero-error';
-            default: return 'anim-hero-idle';
-        }
-    };
+    // Hide hero visual on login/register pages or small screens if desired to keep view clean
+    const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
     return (
-        <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-
+        <div className="fixed inset-0 pointer-events-none z-[9998] overflow-hidden">
             {/* HERO VISUAL: Bottom Left */}
-            <div className="absolute bottom-6 left-6 pointer-events-auto flex items-end space-x-3">
-                {/* Visual Mascot */}
-                <div className={`w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-full shadow-2xl shadow-navy-900/20 border-[3px] border-orange-500 overflow-hidden shrink-0 filter drop-shadow-xl p-1 relative transition-transform ${getHeroAnimationClass()}`}>
+            <div className={`absolute bottom-6 left-6 pointer-events-auto flex items-end space-x-3 transition-opacity duration-300 ${isAuthPage ? 'hidden sm:flex opacity-90' : 'flex'}`}>
+                {/* Visual Mascot Avatar */}
+                <div
+                    onClick={handleOpenChat}
+                    className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-2xl shadow-navy-900/20 border-[3px] border-orange-500 overflow-hidden shrink-0 filter drop-shadow-xl p-1 relative transition-all duration-300 hover:scale-110 cursor-pointer group"
+                    title="Click to chat with CoopBot"
+                >
                     <img
-                        src="/src/assets/branding/mascot-ai.jpg"
+                        src="/assets/images/mascot-hero.png"
                         alt="Hero Mascot"
-                        className="w-full h-full object-cover rounded-full"
+                        className="w-full h-full object-cover rounded-full group-hover:rotate-3 transition-transform"
+                        onError={(e) => {
+                            e.target.src = '/src/assets/branding/mascot-ai.png';
+                        }}
                     />
-                    {animState === 'listening' && (
-                        <div className="absolute inset-0 bg-red-500/10 rounded-full animate-pulse"></div>
+                    {animState === 'thinking' && (
+                        <div className="absolute inset-0 bg-orange-500/15 rounded-full animate-pulse"></div>
                     )}
                 </div>
 
-                {/* Contextual Bubble */}
-                <div className="bg-white px-4 py-2 text-sm text-navy-800 shadow-xl rounded-2xl rounded-bl-sm font-medium border border-navy-100 max-w-[200px] sm:max-w-xs transition-opacity duration-300 opacity-90 hover:opacity-100">
+                {/* Contextual Speech Bubble */}
+                <div
+                    onClick={handleOpenChat}
+                    className="bg-white/95 backdrop-blur-md px-4 py-2.5 text-xs sm:text-sm text-navy-800 shadow-xl shadow-navy-900/10 rounded-2xl rounded-bl-xs font-medium border border-navy-100 max-w-[210px] sm:max-w-xs transition-all duration-200 hover:border-orange-400 hover:shadow-2xl cursor-pointer group flex flex-col justify-between"
+                >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider flex items-center gap-1">
+                            <Sparkles size={11} /> CoopBot Guide
+                        </span>
+                        <button
+                            onClick={speakGreeting}
+                            className={`p-1 rounded-full text-navy-400 hover:text-orange-500 transition-colors ${isSpeaking ? 'text-orange-500 bg-orange-50 animate-pulse' : ''}`}
+                            title={isSpeaking ? 'Stop Voice' : 'Listen to tip'}
+                        >
+                            {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                        </button>
+                    </div>
+
                     {animState === 'thinking' ? (
-                        <div className="flex space-x-1 items-center h-5">
-                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce delay-75"></div>
-                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce delay-150"></div>
-                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce delay-300"></div>
+                        <div className="flex space-x-1 items-center h-5 py-1">
+                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-bounce"></div>
+                            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                            <div className="w-1.5 h-1.5 bg-navy-600 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
                         </div>
                     ) : (
-                        heroGreeting || "Loading..."
+                        <p className="line-clamp-3 text-navy-700 leading-snug">
+                            {heroGreeting || 'Tap here to chat with AI Assistant!'}
+                        </p>
                     )}
                 </div>
             </div>
-
-
-
         </div>
     );
 }

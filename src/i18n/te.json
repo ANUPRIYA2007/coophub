@@ -115,7 +115,10 @@
         "active_bookings": "మీకు {{count}} బుకింగ్‌లు ఉన్నాయి."
     },
     "navigation": {
+        "dashboard": "డాష్‌బోర్డ్",
+        "find_services": "సేవలను కనుగొనండి",
         "my_requests": "నా అభ్యర్థనలు",
+        "messages": "సందేశాలు",
         "history": "చరిత్ర",
         "notifications": "నోటిఫికేషన్లు",
         "support": "సహాయం మరియు మద్దతు",

@@ -92,10 +92,12 @@ async function generateAIResponse(messages, systemPrompt = '') {
 app.post('/api/ai/mascot-context', async (req, res) => {
     try {
         const { customerName, currentRoute, activeBookingsCount, language = 'English' } = req.body;
+        const langMap = { en: 'English', ta: 'Tamil', hi: 'Hindi', te: 'Telugu', kn: 'Kannada' };
+        const targetLang = langMap[language] || language;
 
-        const systemPrompt = `You are a helpful, robotic Mascot Assistant 'Mascot Hero' for the COOP HUB platform. 
+        const systemPrompt = `You are a helpful, friendly AI Mascot Guide 'CoopBot / Mascot Hero' for the COOP HUB platform. 
     You provide short (1-2 sentences), friendly, contextual greetings based on the user's current situation.
-    Always respond in the requested language: ${language}.
+    Always respond strictly in ${targetLang}.
     Do not invent services or fabricate data.`;
 
         const userMessage = `Customer Name: ${customerName}. 
@@ -347,7 +349,7 @@ Rules:
 
         const systemPrompt = `You are the specific Customer AI Assistant for COOP HUB.
     Strict Rules:
-    1. Reply in the requested language: ${language}.
+    1. Reply in the requested language: ${targetLang}.
     2. Base all responses ONLY on the Provided Contexts.
     3. DO NOT invent or fabricate any services, booking IDs, timestamps, locations, or statuses.
     4. You cannot perform write actions or arbitrary SQL queries directly.
