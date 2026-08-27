@@ -258,7 +258,7 @@ export default function GlobalHeroAgent({ inline = false }) {
                                 {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
                             </button>
                         </div>
-                        <p className="text-[11px] text-navy-200 font-medium leading-normal line-clamp-2 mt-0.5">
+                        <p className="text-[11px] text-navy-200 font-medium leading-normal mt-0.5 whitespace-pre-line">
                             "{heroGreeting || 'I am right here to help.'}"
                         </p>
                     </div>
