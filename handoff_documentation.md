@@ -103,7 +103,13 @@ graph TD
 
 ---
 
-## 6. How to Run Locally
+## 6. Registration & SMTP Bypass
+
+If Supabase signup fails with an error related to confirmation email sending (e.g. Rate-limit or SMTP unconfigured), the portal registers the error and embeds a **"⚡ Enter Demo Mode"** button inside the warning banner. Clicking this button pre-authenticates the user session in client-side Demo mode and redirects the browser directly to the dashboard, ensuring testing flows are never blocked.
+
+---
+
+## 7. How to Run Locally
 
 ### Environment Setup
 Create a `.env` file in the project root:
