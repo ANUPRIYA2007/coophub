@@ -24,12 +24,9 @@
   <script>
     // Force light theme as default before React hydration
     (function() {
-      var t = localStorage.getItem('coophub_theme');
-      if (t !== 'dark') {
-        document.documentElement.removeAttribute('data-theme');
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('coophub_theme', 'light');
-      }
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('coophub_theme', 'light');
     })();
   </script>
   <div id="root"></div>
