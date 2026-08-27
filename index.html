@@ -21,6 +21,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <script>
+    // Force light theme as default before React hydration
+    (function() {
+      var t = localStorage.getItem('coophub_theme');
+      if (t !== 'dark') {
+        document.documentElement.removeAttribute('data-theme');
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('coophub_theme', 'light');
+      }
+    })();
+  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

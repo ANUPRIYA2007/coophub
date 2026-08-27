@@ -8,7 +8,9 @@ const ThemeContext = createContext({
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('coophub_theme') || 'light';
+    const stored = localStorage.getItem('coophub_theme');
+    // Default to light if nothing is stored
+    return stored === 'dark' ? 'dark' : 'light';
   });
 
   useEffect(() => {
