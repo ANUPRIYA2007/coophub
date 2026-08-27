@@ -1,14 +1,14 @@
 :root {
   /* === COOP HUB Brand Colors === */
-  --color-primary: #1B2A4A;
-  --color-primary-light: #2A3F6A;
-  --color-primary-dark: #111D35;
-  --color-primary-rgb: 27, 42, 74;
+  --color-primary: #050B14;
+  --color-primary-light: #0B1628;
+  --color-primary-dark: #020408;
+  --color-primary-rgb: 5, 11, 20;
 
-  --color-secondary: #F57C20;
-  --color-secondary-light: #FF9A4A;
-  --color-secondary-dark: #D46510;
-  --color-secondary-rgb: 245, 124, 32;
+  --color-secondary: #FF7A00;
+  --color-secondary-light: #FF9D4D;
+  --color-secondary-dark: #E66E00;
+  --color-secondary-rgb: 255, 122, 0;
 
   --color-accent: #00BCD4;
   --color-accent-light: #4DD0E1;
@@ -20,14 +20,14 @@
   --color-surface-hover: #F0F2F5;
   --color-surface-active: #E8EBF0;
 
-  --color-text: #1A1A2E;
+  --color-text: #050B14;
   --color-text-secondary: #4A5568;
   --color-text-muted: #8896AB;
   --color-text-inverse: #FFFFFF;
 
   --color-border: #E2E8F0;
   --color-border-light: #EDF2F7;
-  --color-border-focus: #F57C20;
+  --color-border-focus: #FF7A00;
 
   --color-success: #10B981;
   --color-success-bg: #ECFDF5;

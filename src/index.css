@@ -10,8 +10,8 @@
 :root {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
-  --color-navy: #14243A;
-  --color-orange: #F58220;
+  --color-navy: #050B14;
+  --color-orange: #FF7A00;
 }
 
 *,
@@ -31,8 +31,8 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F7F9FC;
-  color: #14243A;
+  background-color: #F5F7FA;
+  color: #050B14;
   min-height: 100vh;
 }
 
