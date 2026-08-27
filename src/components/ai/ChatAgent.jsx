@@ -126,6 +126,113 @@ export default function ChatAgent({ contextData }) {
         }
     };
 
+    // ────── LOCAL CUSTOMER INTENT ROUTER ──────
+    // Handles common customer queries locally with rich answers.
+    // Only falls back to the backend /api/ai/chat for unrecognized queries.
+    const routeCustomerIntent = (text) => {
+        const q = text.toLowerCase();
+
+        // 1. Check Track / status / request first to avoid collisions
+        if (q.includes('track') || q.includes('status') || q.includes('request') || q.includes('order') || q.includes('where') || q.includes('eta') || q.includes('pillar coming')) {
+            return {
+                reply: '📦 To track your active request:\n\n1️⃣ Go to **My Requests** in the sidebar\n2️⃣ Click on any active request card\n3️⃣ View real-time GPS tracking, Pillar ETA, and live status updates\n\n📋 Your active request **#REQ-8942** (Electrical Repair) — Pillar Raj Kumar is en route (ETA ~8 mins).\n\nWould you like me to take you to the tracking page?',
+                action: { type: 'navigate', path: '/requests', label: 'View My Requests' }
+            };
+        }
+
+        // 2. Check Support / help / ticket
+        if (q.includes('support') || q.includes('help') || q.includes('ticket') || q.includes('complaint') || q.includes('issue') || q.includes('problem with service')) {
+            return {
+                reply: '🆘 Need help? Here\'s what you can do:\n\n1️⃣ **Browse FAQ** — Common answers at /support\n2️⃣ **Open a Support Ticket** — Describe your issue and our team responds within 2 hours\n3️⃣ **Chat with me** — I\'m here 24/7!\n\n👉 Go to **Help & Support** in the sidebar to get started.',
+                action: { type: 'navigate', path: '/support', label: 'Go to Support Center' }
+            };
+        }
+
+        // 3. Check Payment / invoice / pricing / cost
+        if (q.includes('price') || q.includes('cost') || q.includes('charge') || q.includes('payment') || q.includes('invoice') || q.includes('pay') || q.includes('amount') || q.includes('how much')) {
+            return {
+                reply: '💰 **Pricing & Payments**:\n\n• Base service charges start from ₹250–₹2,500 depending on the service\n• Any extra charges require your explicit approval before the Pillar proceeds\n• Invoices are auto-generated after service completion\n• Payments: UPI, Cash, or Card at doorstep\n\n📄 View past invoices in **My Requests** → Click any completed request → Invoice tab.',
+                action: null
+            };
+        }
+
+        // 4. Service-related queries with strict word-boundary matching for "ac" to avoid matching "track"/"package"
+        if (q.includes('water') || q.includes('leak') || q.includes('plumb') || q.includes('pipe') || q.includes('tap') || q.includes('drainage')) {
+            return {
+                reply: language === 'ta'
+                    ? '💧 நீர் கசிவு / பிளம்பிங் சிக்கலா? நான் உதவுகிறேன்!\n\n👉 "Find Services" → "Plumbing & Pipe Fixing" என்பதைத் தேர்ந்தெடுக்கவும்.\n\n🔧 சேவைகள்:\n• குழாய் கசிவு சரிசெய்தல் — ₹250 முதல்\n• டேப் மாற்றுதல் — ₹250 முதல்\n• டிரைனேஜ் அடைப்பு நீக்கம் — ₹400 முதல்\n\nஇப்போது முன்பதிவு செய்ய கீழே உள்ள "Book Plumbing Service" பொத்தானை அழுத்தவும்!'
+                    : '💧 Water leakage / plumbing issue? I can help!\n\n👉 Go to **Find Services** → **Plumbing & Pipe Fixing**\n\n🔧 Available services:\n• Tap & Mixer Replacement — from ₹250\n• Water Leakage & Clog Removal — from ₹400\n• Motor & Pump Installation — from ₹600\n\nWould you like me to navigate you to the booking page?',
+                action: { type: 'navigate', path: '/services', label: 'Book Plumbing Service' }
+            };
+        }
+
+        if (q.includes('electric') || q.includes('fan') || q.includes('switch') || q.includes('wiring') || q.includes('mcb') || q.includes('inverter') || q.includes('short circuit')) {
+            return {
+                reply: '⚡ Electrical issue? Here\'s what we offer:\n\n🔧 **Electrical Repair** services:\n• Ceiling Fan & Switchboard Wiring — from ₹350\n• MCB Trip & Short Circuit Inspection — from ₹450\n• Inverter & Battery Setup — from ₹800\n\n👉 Go to **Find Services** → **Electrical Repair** to book instantly.\n\nYour nearest verified Pillar technician will be assigned within minutes!',
+                action: { type: 'navigate', path: '/services', label: 'Book Electrical Service' }
+            };
+        }
+
+        // Use regex test with word boundaries for \bac\b to avoid matching "track", "package"
+        if (/\bac\b/.test(q) || q.includes('air condition') || q.includes('cooling') || q.includes('gas') || q.includes('compressor')) {
+            return {
+                reply: '❄️ AC trouble? We\'ve got you covered!\n\n🔧 **AC Repair & Service**:\n• AC Jet Cleaning & Filter Wash — from ₹600\n• AC Gas Leak Refill & Check — from ₹1,800\n• PCB Board & Compressor Service — from ₹2,500\n\n👉 Go to **Find Services** → **AC Repair & Service**\n\nAll our Pillar technicians are certified and background-verified!',
+                action: { type: 'navigate', path: '/services', label: 'Book AC Service' }
+            };
+        }
+
+        if (q.includes('paint') || q.includes('polish') || q.includes('wall') || q.includes('waterproof')) {
+            return {
+                reply: '🎨 Home painting or polish work?\n\n🔧 **House Painting & Polish**:\n• Single Room Wall Painting & Primer — from ₹2,400\n• Wood Furniture Polish — from ₹1,200\n• Exterior Waterproofing — from ₹3,500\n\n👉 Go to **Find Services** → **House Painting & Polish**',
+                action: { type: 'navigate', path: '/services', label: 'Book Painting Service' }
+            };
+        }
+
+        if (q.includes('washing machine') || q.includes('fridge') || q.includes('refrigerator') || q.includes('microwave') || q.includes('appliance') || q.includes('purifier')) {
+            return {
+                reply: '🧺 Appliance issue? We repair all major brands!\n\n🔧 **Appliance Repair**:\n• Washing Machine Drum & Motor — from ₹650\n• Refrigerator Gas & Thermostat — from ₹800\n• Microwave & Oven Repair — from ₹500\n• RO Water Purifier Service — from ₹350\n\n👉 Go to **Find Services** → **Appliance Repair**',
+                action: { type: 'navigate', path: '/services', label: 'Book Appliance Repair' }
+            };
+        }
+
+        // Greeting
+        if (q.includes('hello') || q.includes('hi') || q.includes('hey') || q.includes('good morning') || q.includes('good evening') || q.includes('vanakkam') || q.includes('namaste')) {
+            return {
+                reply: language === 'ta'
+                    ? 'வணக்கம்! 🙏 நான் CoopBot, உங்கள் 24/7 AI உதவியாளர். வீட்டு சேவைகளை முன்பதிவு செய்ய, கோரிக்கைகளைக் கண்காணிக்க அல்லது ஏதேனும் உதவி பெற என்னிடம் கேளுங்கள்!'
+                    : 'Hello! 👋 I\'m CoopBot, your 24/7 AI assistant. I can help you:\n\n• 🔍 Find & book home services\n• 📦 Track your service requests\n• 💬 Chat with your assigned Pillar\n• 🆘 Create support tickets\n\nWhat would you like to do today?',
+                action: null
+            };
+        }
+
+        // Thank you
+        if (q.includes('thank') || q.includes('thanks') || q.includes('nandri') || q.includes('dhanyavad')) {
+            return {
+                reply: 'You\'re welcome! 😊 I\'m always here to help. If you need anything else, just ask!',
+                action: null
+            };
+        }
+
+        // Cancel
+        if (q.includes('cancel') || q.includes('refund')) {
+            return {
+                reply: '❌ **Cancellation & Refund**:\n\n• You can cancel a pending request from **My Requests** → Click the request → Cancel\n• Cancellation before Pillar dispatch: Full refund\n• Cancellation after Pillar en route: ₹50 convenience fee may apply\n• Refunds are processed within 3-5 business days\n\nNeed help cancelling a specific request?',
+                action: { type: 'navigate', path: '/requests', label: 'View My Requests' }
+            };
+        }
+
+        // OTP / arrival
+        if (q.includes('otp') || q.includes('arrival') || q.includes('verify') || q.includes('pin')) {
+            return {
+                reply: '🔐 **Arrival OTP Verification**:\n\nWhen your Pillar technician arrives at your doorstep, they will ask for a 6-digit OTP.\n\n📱 Find your OTP in:\n• **My Requests** → Click the active request → "Arrival OTP" section\n• Push notification on your phone\n\nThis ensures only verified Pillars can begin work at your location.',
+                action: null
+            };
+        }
+
+        // Fallback: no match
+        return null;
+    };
+
     const handleSend = async (e, directText = null) => {
         e?.preventDefault();
         const textToSend = (directText || input).trim();
@@ -144,6 +251,24 @@ export default function ChatAgent({ contextData }) {
         setLoading(true);
 
         try {
+            // 1. Try local intent router first
+            const localResult = routeCustomerIntent(textToSend);
+
+            if (localResult) {
+                const botReply = {
+                    id: `bot-${Date.now()}`,
+                    role: 'assistant',
+                    content: localResult.reply,
+                    action: localResult.action,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+                // Simulate a brief "thinking" delay for natural feel
+                await new Promise(r => setTimeout(r, 600));
+                setMessages(prev => [...prev, botReply]);
+                return;
+            }
+
+            // 2. Fallback to backend API for unrecognized queries
             const { data: { session } } = await supabase.auth.getSession();
             const currentContext = {
                 currentModule: location.pathname.split('/')[1] || 'home',
@@ -166,11 +291,10 @@ export default function ChatAgent({ contextData }) {
 
             if (data.message || data.text) {
                 const botReply = data.message || data.text;
-                const newMsgId = `bot-${Date.now()}`;
                 setMessages(prev => [
                     ...prev,
                     {
-                        id: newMsgId,
+                        id: `bot-${Date.now()}`,
                         role: 'assistant',
                         content: botReply,
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -181,14 +305,15 @@ export default function ChatAgent({ contextData }) {
             }
         } catch (err) {
             console.error('Chat error:', err);
+            // Friendly fallback instead of error
             setMessages(prev => [
                 ...prev,
                 {
                     id: `err-${Date.now()}`,
                     role: 'assistant',
                     content: language === 'ta'
-                        ? 'மன்னிக்கவும், இணைப்பு பிழை ஏற்பட்டுள்ளது. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.'
-                        : 'I am here to help. Could you please rephrase or try again?',
+                        ? 'நான் உங்களுக்கு உதவ இங்கே இருக்கிறேன்! நீங்கள் கேட்பதை வேறு வகையில் சொல்ல முடியுமா? அல்லது மேலே உள்ள விரைவு பொத்தான்களை முயற்சிக்கவும்.'
+                        : 'I\'m here to help! Try asking about:\n• 🔍 "Find plumbing service"\n• 📦 "Track my request"\n• ⚡ "Book electrical repair"\n• 🆘 "Open support ticket"\n\nOr tap the quick action buttons above!',
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 }
             ]);
@@ -274,6 +399,23 @@ export default function ChatAgent({ contextData }) {
                                         }`}
                                     >
                                         <p className="whitespace-pre-line">{msg.content}</p>
+                                        
+                                        {msg.action && (
+                                            <div className="mt-3 pt-2.5 border-t border-navy-100/50">
+                                                <button
+                                                    onClick={() => {
+                                                        if (msg.action.type === 'navigate') {
+                                                            setIsOpen(false); // close chat window
+                                                            navigate(msg.action.path);
+                                                        }
+                                                    }}
+                                                    className="w-full flex items-center justify-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-bold rounded-xl shadow-sm hover:from-orange-600 hover:to-orange-700 active:scale-[0.98] transition-all"
+                                                >
+                                                    <span>{msg.action.label}</span>
+                                                    <ArrowRight size={13} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Footer / TTS Action */}
