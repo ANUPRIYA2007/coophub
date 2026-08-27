@@ -6,6 +6,7 @@ import authService from '../../services/auth/authService';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 import PasswordInput from '../../components/ui/PasswordInput';
 import LanguageSelector from '../../components/ui/LanguageSelector';
+import { Mail, Lock, KeyRound, ArrowLeft, Shield, Wrench, ShoppingBag } from 'lucide-react';
 
 export default function Login() {
     const { session } = useAuth();
@@ -13,17 +14,56 @@ export default function Login() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [otp, setOtp] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [successMsg, setSuccessMsg] = useState(null);
 
     // If already authenticated, redirect
     if (session) {
         const from = location.state?.from?.pathname || '/home';
         return <Navigate to={from} replace />;
-        // Need Navigate from import, let's just use effect for redirect if they land here
     }
+
+    const handleDemoFill = () => {
+        setEmail('customer@coophub.in');
+        setPassword('password123');
+        setError(null);
+    };
+
+    const handleSendOtp = async (e) => {
+        e.preventDefault();
+        setError(null);
+        setSuccessMsg(null);
+
+        if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+            setError(t('validation.invalid_email') || 'Please enter a valid email address.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Demo Customer shortcut
+            if (email === 'customer@coophub.in') {
+                setOtpSent(true);
+                setSuccessMsg('Demo OTP sent: Use 489201 or 123456');
+                setLoading(false);
+                return;
+            }
+
+            await authService.sendOtp(email);
+            setOtpSent(true);
+            setSuccessMsg(t('auth.otp_sent') || '6-digit OTP code sent to your email.');
+        } catch (err) {
+            setError(err.message || 'Failed to send OTP to email.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -32,13 +72,16 @@ export default function Login() {
 
         try {
             if (!email) throw new Error(t('validation.required_email'));
-            if (!password) throw new Error(t('validation.required_password'));
 
-            if (email === "customer@coophub.in" && password === "password123") {
+            // 🧪 CUSTOMER DEMO BYPASS
+            if (
+                email === "customer@coophub.in" &&
+                (password === "password123" || otp === "489201" || otp === "123456" || otpSent)
+            ) {
                 localStorage.setItem("coophub_demo_customer", "true");
                 localStorage.removeItem("coophub_demo_user");
                 localStorage.removeItem("coophub_demo_admin");
-                window.location.reload();
+                window.location.href = '/home';
                 return;
             }
 
@@ -46,7 +89,14 @@ export default function Login() {
             localStorage.removeItem("coophub_demo_user");
             localStorage.removeItem("coophub_demo_admin");
 
-            await authService.signInWithPassword(email, password);
+            if (loginMode === 'password') {
+                if (!password) throw new Error(t('validation.required_password'));
+                await authService.signInWithPassword(email, password);
+            } else {
+                if (!otp || otp.length !== 6) throw new Error('Please enter the 6-digit OTP received in email.');
+                await authService.verifyOtp(email, otp);
+            }
+
             navigate('/home');
         } catch (err) {
             if (err.message.includes('Invalid login credentials')) {
@@ -60,67 +110,139 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-navy-50 via-white to-orange-50/30 px-4 py-8">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-navy-50 via-white to-orange-50/40 px-4 py-8 relative">
 
-            {/* Top right language switch */}
-            <div className="absolute top-4 right-4 w-40">
+            {/* Top Navigation & Language Selector */}
+            <div className="absolute top-4 left-4 z-10">
+                <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-orange-600 transition-colors bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-navy-100 shadow-xs">
+                    <ArrowLeft size={14} /> Back to Portals
+                </Link>
+            </div>
+
+            <div className="absolute top-4 right-4 w-40 z-10">
                 <LanguageSelector />
             </div>
 
-            <div className="card max-w-md w-full p-8 shadow-xl shadow-navy-900/5">
-                <div className="text-center mb-8">
-                    <img src={coopHubLogo} alt="COOP HUB" className="w-24 h-auto mx-auto mb-6" />
-                    <h1 className="heading-2 mb-2">{t('auth.login_title')}</h1>
-                    <p className="text-muted text-sm">{t('auth.login_subtitle')}</p>
+            <div className="card max-w-md w-full p-8 shadow-xl shadow-navy-900/5 mt-8 sm:mt-0 relative overflow-hidden">
+                <div className="text-center mb-6">
+                    <img src={coopHubLogo} alt="COOP HUB" className="w-24 h-auto mx-auto mb-4" />
+                    <div className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-700 mb-2">
+                        <ShoppingBag size={12} /> Customer Portal
+                    </div>
+                    <h1 className="heading-2 mb-1">{t('auth.login_title')}</h1>
+                    <p className="text-muted text-xs sm:text-sm">{t('auth.login_subtitle')}</p>
                 </div>
 
+                {/* Status alerts */}
                 {error && (
-                    <div className="mb-6 p-4 rounded-xl bg-danger-50 text-danger-600 text-sm font-medium border border-danger-100 flex items-start">
-                        <svg className="w-5 h-5 mr-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="mb-5 p-3 rounded-xl bg-danger-50 text-danger-600 text-xs font-medium border border-danger-100 flex items-start">
+                        <svg className="w-4 h-4 mr-2 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                         <span>{error}</span>
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                {successMsg && (
+                    <div className="mb-5 p-3 rounded-xl bg-green-50 text-green-700 text-xs font-medium border border-green-200">
+                        {successMsg}
+                    </div>
+                )}
+
+                {/* Login Mode Toggle Tabs */}
+                <div className="flex bg-navy-50 rounded-xl p-1 mb-5 border border-navy-100">
+                    <button
+                        type="button"
+                        onClick={() => { setLoginMode('password'); setError(null); }}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                            loginMode === 'password'
+                                ? 'bg-white text-navy-900 shadow-sm'
+                                : 'text-navy-500 hover:text-navy-800'
+                        }`}
+                    >
+                        Email & Password
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setLoginMode('otp'); setError(null); }}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                            loginMode === 'otp'
+                                ? 'bg-white text-navy-900 shadow-sm'
+                                : 'text-navy-500 hover:text-navy-800'
+                        }`}
+                    >
+                        Email OTP Code
+                    </button>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={loginMode === 'otp' && !otpSent ? handleSendOtp : handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-semibold text-navy-800 mb-1.5" htmlFor="email">
+                        <label className="block text-xs font-semibold text-navy-800 mb-1.5" htmlFor="email">
                             {t('auth.email')}
                         </label>
-                        <input
-                            type="email"
-                            id="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all hover:border-navy-300"
-                            placeholder={t('auth.email_placeholder')}
-                            required
-                        />
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-navy-400">
+                                <Mail size={16} />
+                            </div>
+                            <input
+                                type="email"
+                                id="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all hover:border-navy-300 text-sm"
+                                placeholder={t('auth.email_placeholder')}
+                                required
+                            />
+                        </div>
                     </div>
 
-                    <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                            <label className="block text-sm font-semibold text-navy-800" htmlFor="password">
-                                {t('auth.password')}
-                            </label>
-                            <Link to="/forgot-password" className="text-sm font-semibold text-orange-500 hover:text-orange-600 transition-colors">
-                                {t('auth.forgot_password_link')}
-                            </Link>
+                    {loginMode === 'password' && (
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <label className="block text-xs font-semibold text-navy-800" htmlFor="password">
+                                    {t('auth.password')}
+                                </label>
+                                <Link to="/forgot-password" className="text-xs font-semibold text-orange-500 hover:text-orange-600 transition-colors">
+                                    {t('auth.forgot_password_link')}
+                                </Link>
+                            </div>
+                            <PasswordInput
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder={t('auth.password_placeholder')}
+                                required
+                            />
                         </div>
-                        <PasswordInput
-                            id="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder={t('auth.password_placeholder')}
-                            required
-                        />
-                    </div>
+                    )}
+
+                    {loginMode === 'otp' && otpSent && (
+                        <div>
+                            <label className="block text-xs font-semibold text-navy-800 mb-1.5">
+                                Enter 6-Digit Email OTP
+                            </label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-navy-400">
+                                    <KeyRound size={16} />
+                                </div>
+                                <input
+                                    type="text"
+                                    maxLength={6}
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value)}
+                                    placeholder="Enter 6-digit code"
+                                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:ring-2 focus:ring-orange-400 font-mono tracking-widest text-sm"
+                                    required
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="btn-primary w-full py-3.5 text-base mt-2 shadow-lg shadow-orange-500/20"
+                        className="btn-primary w-full py-3.5 text-sm mt-2 shadow-lg shadow-orange-500/20"
                     >
                         {loading ? (
                             <span className="flex items-center justify-center">
@@ -130,18 +252,46 @@ export default function Login() {
                                 </svg>
                                 {t('auth.logging_in')}
                             </span>
+                        ) : loginMode === 'otp' && !otpSent ? (
+                            'Send Login OTP'
                         ) : (
                             t('auth.login_btn')
                         )}
                     </button>
                 </form>
 
-                <div className="mt-8 text-center text-sm text-navy-600">
-                    {t('auth.create_account_link')}{' '}
-                    <Link to="/register" className="font-bold text-navy-800 hover:text-orange-500 transition-colors">
-                        {t('auth.create_account_action')}
-                    </Link>
+                {/* Demo Quick Fill */}
+                <div className="mt-4 text-center">
+                    <button
+                        type="button"
+                        onClick={handleDemoFill}
+                        className="text-xs font-semibold text-orange-600 hover:text-orange-700 transition-colors"
+                    >
+                        ⚡ Fill Demo Customer Credentials
+                    </button>
                 </div>
+
+                {/* Register Account Link */}
+                <div className="mt-6 pt-5 border-t border-navy-100 text-center text-xs text-navy-600 space-y-3">
+                    <div>
+                        {t('auth.create_account_link')}{' '}
+                        <Link to="/register" className="font-bold text-orange-600 hover:underline">
+                            {t('auth.create_account_action')}
+                        </Link>
+                    </div>
+
+                    {/* Switch to Pillar or Admin Portal */}
+                    <div className="pt-2 border-t border-navy-50 flex items-center justify-center gap-3 text-[11px] text-navy-500">
+                        <Link to="/pillar/login" className="hover:text-blue-600 flex items-center gap-1 font-medium">
+                            <Wrench size={12} /> Pillar Login
+                        </Link>
+                        <span>•</span>
+                        <Link to="/admin/login" className="hover:text-amber-600 flex items-center gap-1 font-medium">
+                            <Shield size={12} /> Admin Login
+                        </Link>
+                    </div>
+                </div>
+
             </div>
         </div>
     );

@@ -36,6 +36,7 @@ import AdminServices from './modules/admin/pages/AdminServices';
 import AdminFeedback from './modules/admin/pages/AdminFeedback';
 import AdminFinance from './modules/admin/pages/AdminFinance';
 import AdminWelfare from './modules/admin/pages/AdminWelfare';
+import AdminLogin from './modules/admin/pages/AdminLogin';
 
 // --- CUSTOMER PORTAL PAGES & AGENTS ---
 import AppRoutes from './routes/AppRoutes';
@@ -109,7 +110,8 @@ export default function App() {
             }
           />
 
-          {/* 🏛️ Cooperative Admin Dashboard Routes */}
+          {/* 🏛️ Cooperative Admin Authentication & Dashboard Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route
             path="/admin/*"
             element={

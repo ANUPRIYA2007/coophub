@@ -85,9 +85,9 @@ export function AuthProvider({ children }) {
             setUser(customerDemoSession.user);
             setProfile({
               user_id: customerDemoSession.user.id,
-              full_name: 'Demo Bypass User',
+              full_name: 'Anupriya Murugan',
               role: 'customer',
-              email: customerDemoSession.user.email
+              email: 'customer@coophub.in'
             });
           }
         }
