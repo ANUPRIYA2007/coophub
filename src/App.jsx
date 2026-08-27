@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 
-// Pages
+// --- PILLAR PORTAL PAGES ---
 import Landing from './pages/pillar/Landing';
 import Login from './pages/pillar/auth/Login';
 import Register from './pages/pillar/auth/Register';
@@ -18,11 +18,11 @@ import SupportPage from './pages/pillar/support/SupportPage';
 import WelfarePage from './pages/pillar/support/WelfarePage';
 import InsurancePage from './pages/pillar/support/InsurancePage';
 
-// Layout & Global Hero AI Mascot
+// Layout & Global Hero AI Mascot for Pillar
 import PillarLayout from './components/pillar/layout/PillarLayout';
 import MascotFloating from './components/pillar/ai/MascotFloating';
 
-// Admin Module
+// --- ADMIN PORTAL MODULE ---
 import AdminLayout from './modules/admin/layouts/AdminLayout';
 import AdminOverview from './modules/admin/pages/AdminOverview';
 import PillarsList from './modules/admin/pages/PillarsList';
@@ -37,6 +37,12 @@ import AdminFeedback from './modules/admin/pages/AdminFeedback';
 import AdminFinance from './modules/admin/pages/AdminFinance';
 import AdminWelfare from './modules/admin/pages/AdminWelfare';
 
+// --- CUSTOMER PORTAL PAGES & AGENTS ---
+import AppRoutes from './routes/AppRoutes';
+import SplashScreen from './components/common/SplashScreen';
+import GlobalHeroAgent from './components/ai/GlobalHeroAgent';
+import ChatAgent from './components/ai/ChatAgent';
+
 // Direct Access Route Component (Allows direct exploration of Pillar Dashboard without login barrier)
 const ProtectedRoute = ({ children }) => {
   return children;
@@ -47,8 +53,18 @@ const AdminProtectedRoute = ({ children }) => {
   return children;
 };
 
-function App() {
+export default function App() {
   const { loading } = useAuth();
+  
+  const isPillarOrAdmin = window.location.pathname.startsWith('/pillar') || 
+                          window.location.pathname.startsWith('/dashboard') || 
+                          window.location.pathname.startsWith('/admin');
+                          
+  const [showSplash, setShowSplash] = useState(!isPillarOrAdmin);
+
+  const handleSplashComplete = useCallback(() => {
+    setShowSplash(false);
+  }, []);
 
   if (loading) {
     return (
@@ -60,70 +76,81 @@ function App() {
 
   return (
     <>
-      <Routes>
-        {/* Landing Page with Hero Exact UI format */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      {!showSplash && (
+        <Routes>
+          {/* 👥 Pillar Portal Auth & Landing (Moved to subpaths to avoid conflict with Customer Portal) */}
+          <Route path="/pillar" element={<Landing />} />
+          <Route path="/pillar/login" element={<Login />} />
+          <Route path="/pillar/register" element={<Register />} />
 
-        {/* Pillar Dashboard Routes (Direct Access) */}
-        <Route
-          path="/dashboard/*"
-          element={
-            <ProtectedRoute>
-              <PillarLayout>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/orders" element={<OrdersList />} />
-                  <Route path="/earnings" element={<EarningsPage />} />
-                  <Route path="/history" element={<HistoryPage />} />
-                  <Route path="/chat" element={<CustomerChat />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/support" element={<SupportPage />} />
-                  <Route path="/welfare" element={<WelfarePage />} />
-                  <Route path="/insurance" element={<InsurancePage />} />
-                  <Route path="*" element={<Dashboard />} />
-                </Routes>
-              </PillarLayout>
-            </ProtectedRoute>
-          }
-        />
+          {/* 👥 Pillar Portal Dashboard Routes */}
+          <Route
+            path="/dashboard/*"
+            element={
+              <ProtectedRoute>
+                <PillarLayout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/orders" element={<OrdersList />} />
+                    <Route path="/earnings" element={<EarningsPage />} />
+                    <Route path="/history" element={<HistoryPage />} />
+                    <Route path="/chat" element={<CustomerChat />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/support" element={<SupportPage />} />
+                    <Route path="/welfare" element={<WelfarePage />} />
+                    <Route path="/insurance" element={<InsurancePage />} />
+                    <Route path="*" element={<Dashboard />} />
+                  </Routes>
+                </PillarLayout>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Cooperative Admin Dashboard Routes (Fully Functional) */}
-        <Route
-          path="/admin/*"
-          element={
-            <AdminProtectedRoute>
-              <AdminLayout>
-                <Routes>
-                  <Route path="/" element={<AdminOverview />} />
-                  <Route path="/pillars" element={<PillarsList />} />
-                  <Route path="/pillars/:pillarId" element={<PillarDetails />} />
-                  <Route path="/services" element={<AdminServices />} />
-                  <Route path="/requests" element={<AdminRequests />} />
-                  <Route path="/tracking" element={<AdminTracking />} />
-                  <Route path="/finance" element={<AdminFinance />} />
-                  <Route path="/welfare" element={<AdminWelfare />} />
-                  <Route path="/feedback" element={<AdminFeedback />} />
-                  <Route path="/messages" element={<AdminMessages />} />
-                  <Route path="/support" element={<AdminSupport />} />
-                  <Route path="/settings" element={<AdminSettings />} />
-                  <Route path="*" element={<Navigate to="/admin" replace />} />
-                </Routes>
-              </AdminLayout>
-            </AdminProtectedRoute>
-          }
-        />
+          {/* 🏛️ Cooperative Admin Dashboard Routes */}
+          <Route
+            path="/admin/*"
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout>
+                  <Routes>
+                    <Route path="/" element={<AdminOverview />} />
+                    <Route path="/pillars" element={<PillarsList />} />
+                    <Route path="/pillars/:pillarId" element={<PillarDetails />} />
+                    <Route path="/services" element={<AdminServices />} />
+                    <Route path="/requests" element={<AdminRequests />} />
+                    <Route path="/tracking" element={<AdminTracking />} />
+                    <Route path="/finance" element={<AdminFinance />} />
+                    <Route path="/welfare" element={<AdminWelfare />} />
+                    <Route path="/feedback" element={<AdminFeedback />} />
+                    <Route path="/messages" element={<AdminMessages />} />
+                    <Route path="/support" element={<AdminSupport />} />
+                    <Route path="/settings" element={<AdminSettings />} />
+                    <Route path="*" element={<Navigate to="/admin" replace />} />
+                  </Routes>
+                </AdminLayout>
+              </AdminProtectedRoute>
+            }
+          />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* 🛒 Customer Portal Routes (Catch-all fallback route) */}
+          <Route
+            path="/*"
+            element={
+              <div className="min-h-screen bg-white font-sans text-navy-800">
+                <GlobalHeroAgent />
+                <ChatAgent />
+                <AppRoutes />
+              </div>
+            }
+          />
+        </Routes>
+      )}
 
-      {/* Hero AI & Chat Assistant — Present across entire Pillar journey */}
-      <MascotFloating />
+      {/* Persistent global mascot floating UI for Pillar and Admin dashboards */}
+      {isPillarOrAdmin && <MascotFloating />}
     </>
   );
 }
-
-export default App;

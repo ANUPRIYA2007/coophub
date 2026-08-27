@@ -1,9 +1,10 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { pillarAuthService } from "../services/pillar/authService";
 import { pillarProfileService } from "../services/pillar/profileService";
+import { getProfile } from "../services/auth/profileService";
 import { supabase } from "../lib/supabase";
 
-export const AuthContext = createContext();
+export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -11,22 +12,84 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Global Pillar Availability State (Synchronized across all components & portals)
+  // Global Pillar Availability State
   const [isAvailable, setIsAvailable] = useState(() => {
     return localStorage.getItem("coophub_pillar_available") !== "false";
   });
 
+  const loadProfile = async (userId) => {
+    try {
+      // 1. Try fetching Pillar Profile first
+      const { profile: pillarProfile } = await pillarProfileService.getProfile(userId);
+      if (pillarProfile) {
+        setProfile({ ...pillarProfile, role: 'pillar' });
+        if (pillarProfile.is_available !== undefined) {
+          setIsAvailable(pillarProfile.is_available);
+          localStorage.setItem("coophub_pillar_available", pillarProfile.is_available ? "true" : "false");
+        }
+        return;
+      }
+
+      // 2. Fallback to Customer Profile
+      const customerProfile = await getProfile(userId);
+      if (customerProfile) {
+        setProfile({ ...customerProfile, role: 'customer' });
+      }
+    } catch (error) {
+      console.error("Error loading unified profile:", error);
+    }
+  };
+
   useEffect(() => {
-    // Initial session check
     const initializeAuth = async () => {
       try {
-        const { session: currentSession, error: sessionError } = await pillarAuthService.getSession();
-        if (sessionError) throw sessionError;
-
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
         if (currentSession?.user) {
           setSession(currentSession);
           setUser(currentSession.user);
           await loadProfile(currentSession.user.id);
+        } else {
+          // Handle Demo / Bypass Modes
+          const isPillarDemo = localStorage.getItem("coophub_demo_user") === "true";
+          const isCustomerDemo = localStorage.getItem("coophub_demo_customer") === "true";
+          const isAdminDemo = localStorage.getItem("coophub_demo_admin") === "true";
+
+          if (isPillarDemo || isAdminDemo) {
+            const pillarDemoSession = {
+              user: { id: "00000000-0000-0000-0000-000000000000", email: "senthil@coophub.in" }
+            };
+            setSession(pillarDemoSession);
+            setUser(pillarDemoSession.user);
+            setProfile({
+              id: "00000000-0000-0000-0000-000000000000",
+              full_name: "Senthil Kumar",
+              pillar_code: "PIL-CHE-042",
+              main_services: ["Electrician", "AC Repair"],
+              sub_services: ["Wiring", "DB Box", "Inverter", "MCB Installation"],
+              experience_years: 6,
+              service_area: "Guindy, Velachery, Adyar",
+              is_available: isAvailable,
+              status: "approved",
+              rating: 4.9,
+              total_orders: 142,
+              completion_rate: 98.5,
+              role: 'pillar'
+            });
+          } else if (isCustomerDemo) {
+            const customerDemoSession = {
+              user: { id: '11111111-1111-1111-1111-111111111111', email: 'demo_bypass@example.com' },
+              access_token: 'dummy'
+            };
+            setSession(customerDemoSession);
+            setUser(customerDemoSession.user);
+            setProfile({
+              user_id: customerDemoSession.user.id,
+              full_name: 'Demo Bypass User',
+              role: 'customer',
+              email: customerDemoSession.user.email
+            });
+          }
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -37,7 +100,7 @@ export function AuthProvider({ children }) {
 
     initializeAuth();
 
-    // Listen for auth changes
+    // Listen for Auth changes from Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         setSession(currentSession);
@@ -48,13 +111,17 @@ export function AuthProvider({ children }) {
             await loadProfile(currentSession.user.id);
           }
         } else {
-          setProfile(null);
+          // If not in demo bypass, clear profile
+          const isPillarDemo = localStorage.getItem("coophub_demo_user") === "true";
+          const isCustomerDemo = localStorage.getItem("coophub_demo_customer") === "true";
+          if (!isPillarDemo && !isCustomerDemo) {
+            setProfile(null);
+          }
         }
         setLoading(false);
       }
     );
 
-    // Cross-tab / cross-component sync listener
     const handleAvailabilitySync = (e) => {
       if (e.detail?.isAvailable !== undefined) {
         setIsAvailable(e.detail.isAvailable);
@@ -70,27 +137,13 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const loadProfile = async (userId) => {
-    const { profile: userProfile, error } = await pillarProfileService.getProfile(userId);
-    if (!error && userProfile) {
-      setProfile(userProfile);
-      if (userProfile.is_available !== undefined) {
-        setIsAvailable(userProfile.is_available);
-        localStorage.setItem("coophub_pillar_available", userProfile.is_available ? "true" : "false");
-      }
-    }
-  };
-
-  // Centralized Global Availability Updater (Live 3-Portal Sync)
   const updateAvailability = async (nextStatus) => {
     setIsAvailable(nextStatus);
     localStorage.setItem("coophub_pillar_available", nextStatus ? "true" : "false");
     setProfile((prev) => prev ? { ...prev, is_available: nextStatus } : null);
 
-    // Broadcast event to update all mounted components immediately
     window.dispatchEvent(new CustomEvent("coophub_availability_change", { detail: { isAvailable: nextStatus } }));
 
-    // Persist to live Supabase database if real user
     if (user?.id && user.id !== "00000000-0000-0000-0000-000000000000") {
       try {
         await supabase
@@ -112,41 +165,31 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await pillarAuthService.logout();
+    await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     setSession(null);
     localStorage.removeItem("coophub_demo_user");
+    localStorage.removeItem("coophub_demo_admin");
+    localStorage.removeItem("coophub_demo_customer");
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user: user || { id: "00000000-0000-0000-0000-000000000000", email: "senthil@coophub.in", user_metadata: { full_name: "Senthil Kumar" } },
-        profile: {
-          id: profile?.id || "00000000-0000-0000-0000-000000000000",
-          full_name: profile?.full_name || "Senthil Kumar",
-          pillar_code: profile?.pillar_code || "PIL-CHE-042",
-          main_services: profile?.main_services || ["Electrician", "AC Repair"],
-          sub_services: profile?.sub_services || ["Wiring", "DB Box", "Inverter", "MCB Installation"],
-          experience_years: profile?.experience_years || 6,
-          service_area: profile?.service_area || "Guindy, Velachery, Adyar",
-          is_available: isAvailable,
-          status: profile?.status || "approved",
-          rating: profile?.rating || 4.9,
-          total_orders: profile?.total_orders || 142,
-          completion_rate: profile?.completion_rate || 98.5,
-        },
-        session: session || { user: { id: "00000000-0000-0000-0000-000000000000" } },
-        loading: false,
+        user,
+        profile,
+        session,
+        loading,
         isAvailable,
         setIsAvailable,
         updateAvailability,
         login,
         register,
         logout,
-        isAuthenticated: true,
-        isVerified: true,
+        signOut: logout, // compatibility alias for customer portal
+        isAuthenticated: !!user,
+        isVerified: true
       }}
     >
       {children}
@@ -154,9 +197,11 @@ export function AuthProvider({ children }) {
   );
 }
 
+export default AuthContext;
+
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (context === undefined || context === null) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;

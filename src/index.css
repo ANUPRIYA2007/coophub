@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================
+   COOP HUB — Base Styles
+   Brand: Navy (#1e3a5f) + Orange (#f58220)
+   =========================== */
+
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --color-navy: #14243A;
+  --color-orange: #F58220;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #F7F9FC;
+  color: #14243A;
+  min-height: 100vh;
+}
+
+/* ------------------------------------------------------------------
+   HERO AI EXPRESSIVE ANIMATIONS (Phase UI Update)
+------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* Gentle breathing float */
+  @keyframes hero-breathe {
+
+    0%,
+    100% {
+      transform: translateY(0) scaleY(1);
+    }
+
+    50% {
+      transform: translateY(-4px) scaleY(1.02);
+    }
+  }
+
+  /* Occasional blinking (weight shift down squeeze) */
+  @keyframes hero-blink {
+
+    0%,
+    96%,
+    100% {
+      transform: scaleY(1);
+    }
+
+    98% {
+      transform: scaleY(0.96) translateY(2px);
+    }
+  }
+
+  /* Thinking: Pulse glow and very slight tilt */
+  @keyframes hero-think {
+
+    0%,
+    100% {
+      transform: rotate(0deg);
+      filter: drop-shadow(0 0 0 rgba(249, 115, 22, 0));
+    }
+
+    50% {
+      transform: rotate(-2deg);
+      filter: drop-shadow(0 4px 12px rgba(249, 115, 22, 0.4));
+    }
+  }
+
+  /* Speaking bob */
+  @keyframes hero-speak {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    25% {
+      transform: translateY(-3px);
+    }
+
+    75% {
+      transform: translateY(2px);
+    }
+  }
+
+  /* Success hop */
+  @keyframes hero-bounce {
+    0% {
+      transform: translateY(0);
+    }
+
+    40% {
+      transform: translateY(-12px);
+    }
+
+    60% {
+      transform: translateY(0);
+    }
+
+    80% {
+      transform: translateY(-6px);
+    }
+
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  /* Error gentle shake */
+  @keyframes hero-shake {
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    20% {
+      transform: translateX(-4px);
+    }
+
+    40% {
+      transform: translateX(4px);
+    }
+
+    60% {
+      transform: translateX(-4px);
+    }
+
+    80% {
+      transform: translateX(4px);
+    }
+  }
+
+  .anim-hero-idle {
+    animation: hero-breathe 4s ease-in-out infinite, hero-blink 8s ease-in-out infinite;
+  }
+
+  .anim-hero-listening {
+    /* Subtle lean forward */
+    transform: scale(1.04) rotate(2deg) translateY(-2px);
+    transition: transform 0.3s ease-out;
+  }
+
+  .anim-hero-thinking {
+    animation: hero-think 2s ease-in-out infinite;
+  }
+
+  .anim-hero-speaking {
+    animation: hero-speak 2s ease-in-out infinite;
+  }
+
+  .anim-hero-success {
+    animation: hero-bounce 0.8s ease-out;
+  }
+
+  .anim-hero-error {
+    animation: hero-shake 0.4s ease-in-out;
+  }
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #aabbcf;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7f99b6;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-orange);
+  outline-offset: 2px;
+}
+
+/* Utility layer */
+@layer components {
+  .page-container {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-navy-100 p-6;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 active:bg-orange-700 transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white text-navy-600 font-semibold text-sm border border-navy-200 hover:bg-navy-50 active:bg-navy-100 transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-navy-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .heading-1 {
+    @apply text-3xl sm:text-4xl font-display font-bold text-navy-600;
+  }
+
+  .heading-2 {
+    @apply text-2xl sm:text-3xl font-display font-bold text-navy-600;
+  }
+
+  .heading-3 {
+    @apply text-xl sm:text-2xl font-display font-semibold text-navy-600;
+  }
+}
