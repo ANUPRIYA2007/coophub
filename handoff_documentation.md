@@ -17,7 +17,7 @@ src/
 │   │   ├── GlobalHeroAgent.jsx # Field-tracking floating bubble
 │   │   └── ChatAgent.jsx       # 24/7 CoopBot Assistant
 │   ├── layout/          # Portal layouts (Header, Sidebar)
-│   └── ui/              # Buttons, inputs, modals
+│   └── ui/              # Buttons, inputs, modals (contains GradientText)
 ├── context/             # Global states (Auth, Theme)
 ├── hooks/               # Custom data hooks (useServices, etc.)
 ├── i18n/                # Multi-language translation setup
@@ -50,17 +50,23 @@ The application supports a **dual-data system** that switches dynamically betwee
 
 ---
 
-## 3. Global Theme System
+## 3. Global Theme & Brand Colors
 
-The application defaults to a **Light Theme** on first load across all three portals, with the option to toggle to Dark Mode.
-
-- **Theme Context**: Managed globally in `src/context/ThemeContext.jsx`.
-- **Pre-Hydration Anti-Flash Script**: Placed inside `index.html` to instantly check `localStorage` and remove the `dark` class before React renders, avoiding any visual flash.
-- **Theme Sync**: Tailored to synchronize dynamically with the Tailwind CSS theme attributes on the `<html>` element.
+The application defaults to a **Light Theme** on first load across all three portals. The brand colors have been standardized globally in `tailwind.config.js` and `src/styles/variables.css` to match the Pillar Portal's guide:
+- **Primary (Dark Navy)**: `#050B14`
+- **Secondary (Navy)**: `#0B1628` / `#111827`
+- **Accent (Orange)**: `#FF7A00`
+- **Background**: `#F5F7FA`
 
 ---
 
-## 4. Cross-Portal Connectivity & Routing
+## 4. Brand Header Component (`GradientText`)
+
+The main application header displayed inside all dashboard sidebars (Customer, Pillar, and Admin) uses the copy-pasteable **React Bits `GradientText`** component. It animates the brand name `"COOP HUB"` with an orange and white sweep gradient.
+
+---
+
+## 5. Cross-Portal Connectivity & Routing
 
 Portals are fully interconnected via a central landing page `/` and cross-links on each login screen.
 
@@ -81,7 +87,7 @@ graph TD
 
 ---
 
-## 5. AI Assistant & Mascot Integration
+## 6. AI Assistant & Mascot Integration
 
 ### 🤖 Mascot Hero AI (`GlobalHeroAgent.jsx`)
 - Positioned dynamically at the bottom-left of the viewport.
@@ -103,7 +109,7 @@ graph TD
 
 ---
 
-## 6. How to Run Locally
+## 7. How to Run Locally
 
 ### Environment Setup
 Create a `.env` file in the project root:
