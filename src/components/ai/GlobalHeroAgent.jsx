@@ -210,8 +210,11 @@ export default function GlobalHeroAgent() {
         }
     };
 
+    const publicRoutes = ['/', '/login', '/register', '/verify-otp', '/forgot-password', '/reset-password'];
+    const hasSidebar = !publicRoutes.includes(location.pathname);
+
     return (
-        <div className="fixed bottom-6 left-6 z-40 flex items-end space-x-3 pointer-events-none select-none">
+        <div className={`fixed bottom-6 ${hasSidebar ? 'lg:left-72 left-6' : 'left-6'} z-40 flex items-end space-x-3 pointer-events-none select-none transition-all duration-300`}>
             
             {/* Mascot Avatar Trigger */}
             <div 
