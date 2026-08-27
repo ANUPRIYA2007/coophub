@@ -362,37 +362,41 @@ html.dark .btn-secondary:hover {
   font-weight: 500 !important;
   letter-spacing: -0.02em !important;
   text-transform: uppercase !important;
-  color: #8896AB !important; /* Muted blue-gray text color to match light theme guidelines */
+  color: rgba(255, 255, 255, 0.65) !important; /* Light text for dark navy background sidebars */
   background: transparent !important;
   border: none !important;
   transition: color 0.2s ease !important;
   cursor: pointer !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
-.framer-side-menu-link.active,
+.framer-side-menu-link.active {
+  color: #FF7A00 !important; /* Active text color COOP HUB Orange */
+}
+
 .framer-side-menu-link:hover {
-  color: #050B14 !important; /* Primary Navy for active/hover */
+  color: #ffffff !important; /* Hover text color white */
 }
 
-/* In dark mode, adjust text color rules safely */
-[data-theme="dark"] .framer-side-menu-link.active,
-html.dark .framer-side-menu-link.active,
-[data-theme="dark"] .framer-side-menu-link:hover,
-html.dark .framer-side-menu-link:hover {
-  color: #ffffff !important;
+.framer-side-menu-link:focus,
+.framer-side-menu-link:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .framer-indicator {
   flex: none !important;
   height: 3px !important;
-  width: 12px !important;
+  width: 0px !important; /* Hide indicator by default (0px width) */
+  opacity: 0 !important; /* Transparent default state */
   border-radius: 2px !important;
-  background-color: #8896AB !important;
-  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s ease !important;
+  background-color: #FF7A00 !important;
+  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease !important;
 }
 
 .framer-side-menu-link.active .framer-indicator,
 .framer-side-menu-link:hover .framer-indicator {
   width: 24px !important;
-  background-color: #FF7A00 !important; /* COOP HUB Orange */
+  opacity: 1 !important;
 }

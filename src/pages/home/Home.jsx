@@ -82,6 +82,10 @@ export default function Home() {
                     <div className="bg-gradient-to-r from-navy-900 via-navy-800 to-navy-700 rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden shadow-lg border border-navy-800">
                         <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
                         <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="bg-orange-500 text-white font-bold text-xs px-2 py-0.5 rounded-md" style={{ fontWeight: "700" }}>Customer Portal</span>
+                                <span className="text-navy-300 text-xs font-semibold tracking-wider">ID: {profile?.email || "customer@coophub.in"}</span>
+                            </div>
                             <h1 className="text-2xl sm:text-3xl font-bold mb-1">
                                 {displayName
                                     ? `Welcome back, ${displayName}!`
