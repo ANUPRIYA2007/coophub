@@ -86,7 +86,8 @@ graph TD
 ### 🤖 Mascot Hero AI (`GlobalHeroAgent.jsx`)
 - Positioned dynamically at the bottom-left of the viewport.
 - Focus-tracks input fields on login, registration, and forms.
-- **Dynamic Sidebar Offset**: Auto-shifts layout on desktop to `lg:left-72` when a portal sidebar panel is active, preventing it from being covered or hidden behind the layout side panel.
+- **Sidebar Integration**: Nested directly inside the navigation sidebar component right above the Logout block. Configured via the `inline={true}` prop to render as a compact, premium card.
+- **Auto-Destruction**: The floating instance automatically self-destructs (returns `null`) on portal routes where the sidebar layout is active, avoiding visual overlap.
 - Speaks contextual tips, validation feedback, and errors with high bubble contrast and customizable Text-to-Speech (TTS).
 
 ### 💬 CoopBot Chat Assistant (`ChatAgent.jsx`)
