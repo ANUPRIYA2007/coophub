@@ -8,6 +8,7 @@ import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 import { supabase } from '../../lib/supabase';
 import { Sun, Moon } from 'lucide-react';
 import GlobalHeroAgent from '../ai/GlobalHeroAgent';
+import GradientText from '../ui/GradientText';
 
 export default function CustomerPortalLayout() {
     const { profile, signOut } = useAuth();
@@ -68,7 +69,14 @@ export default function CustomerPortalLayout() {
                 {/* Logo */}
                 <div className="flex items-center space-x-3 px-5 py-5 border-b border-navy-800">
                     <img src={coopHubLogo} alt="COOP HUB" className="w-9 h-auto" />
-                    <span className="font-bold text-white text-lg tracking-tight">COOP HUB</span>
+                    <GradientText
+                        colors={["#FF7A00","#FFFFFF","#FF7A00"]}
+                        animationSpeed={8}
+                        showBorder={false}
+                        className="font-bold text-lg tracking-tight"
+                    >
+                        COOP HUB
+                    </GradientText>
                 </div>
 
                 {/* Profile Summary */}

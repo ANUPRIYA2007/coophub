@@ -5,6 +5,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
 import { pillarProfileService } from "../../../services/pillar/profileService";
 import gsap from "gsap";
+import GradientText from "../../ui/GradientText";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -445,7 +446,15 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <img src="/assets/images/coophub-logo.jpg" alt="Logo" style={{ height: "32px", borderRadius: "4px" }} />
-            <span style={{ fontWeight: "bold", fontSize: "1.1rem" }}>Pillar Portal</span>
+            <GradientText
+              colors={["#FF7A00","#FFFFFF","#FF7A00"]}
+              animationSpeed={8}
+              showBorder={false}
+              className="font-bold text-white"
+              style={{ fontSize: "1.1rem" }}
+            >
+              COOP HUB
+            </GradientText>
           </div>
           <button className="btn-icon hide-on-desktop" onClick={toggleSidebar} style={{ color: "white" }}>
             <X size={24} />
