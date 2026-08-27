@@ -6,6 +6,7 @@ import { pillarOrderService } from "../../../services/pillar/orderService";
 import { pillarEarningsService } from "../../../services/pillar/earningsService";
 import { Link, useNavigate } from "react-router-dom";
 import gsap from "gsap";
+import TypewriterEffect from "../../../components/ui/TypewriterEffect";
 import {
   ClipboardList,
   Wallet,
@@ -126,7 +127,21 @@ export default function Dashboard() {
             <h1 style={{ fontSize: "var(--font-size-3xl)", fontWeight: "800", margin: 0, color: "white" }}>
               {t("common.welcome")}, {profile?.full_name || "Pillar"}!
             </h1>
-            <p style={{ opacity: 0.9, fontSize: "var(--font-size-sm)", marginTop: "4px" }}>
+            <div style={{ minHeight: "20px", marginTop: "4px", fontSize: "14.5px", color: "#CCD6E6" }}>
+              <TypewriterEffect
+                words={[{ word: "Grow your services and connect with customers." }]}
+                typingSpeed={50}
+                deletingSpeed={30}
+                pauseDuration={999999}
+                loop={false}
+                cursorColor="#FF7A00"
+                cursorWidth={2}
+                cursorHeight={85}
+                font={{ fontSize: "inherit", fontWeight: "normal" }}
+                textColor="#CCD6E6"
+              />
+            </div>
+            <p style={{ opacity: 0.9, fontSize: "var(--font-size-sm)", marginTop: "6px" }}>
               {isAvailable
                 ? "You are currently ONLINE and ready to receive customer bookings."
                 : "You are currently OFFLINE. Switch on to start accepting incoming service requests."}

@@ -87,7 +87,20 @@ export default function Home() {
                                     ? `Welcome back, ${displayName}!`
                                     : 'Welcome to COOP HUB'}
                             </h1>
-                            <p className="text-navy-200 text-sm sm:text-base">{t('home.subtitle')}</p>
+                            <div className="text-navy-200 text-sm sm:text-base min-h-[24px]">
+                                <TypewriterEffect
+                                    words={[{ word: t('home.subtitle') || "Find trusted services and get things done easily." }]}
+                                    typingSpeed={50}
+                                    deletingSpeed={30}
+                                    pauseDuration={999999}
+                                    loop={false}
+                                    cursorColor="#FF7A00"
+                                    cursorWidth={2}
+                                    cursorHeight={85}
+                                    font={{ fontSize: "inherit", fontWeight: "normal" }}
+                                    textColor="#CCD6E6"
+                                />
+                            </div>
                         </div>
                     </div>
                 </section>

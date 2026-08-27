@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import gsap from "gsap";
+import TypewriterEffect from "../../../components/ui/TypewriterEffect";
 
 export default function AdminOverview() {
   const isDemo = localStorage.getItem("coophub_demo_admin") === "true" || localStorage.getItem("coophub_demo_user") === "true";
@@ -103,6 +104,20 @@ export default function AdminOverview() {
           <h1 style={{ fontSize: "1.6rem", fontWeight: "800", color: "var(--color-text)", margin: 0 }}>
             Executive Operations Dashboard
           </h1>
+          <div style={{ minHeight: "20px", marginTop: "6px", fontSize: "14px", color: "var(--color-text-muted)" }}>
+            <TypewriterEffect
+              words={[{ word: "Manage and monitor the COOP HUB platform." }]}
+              typingSpeed={50}
+              deletingSpeed={30}
+              pauseDuration={999999}
+              loop={false}
+              cursorColor="#FF7A00"
+              cursorWidth={2}
+              cursorHeight={85}
+              font={{ fontSize: "inherit", fontWeight: "normal" }}
+              textColor="var(--color-text-muted)"
+            />
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {/* Status Badge — reflects sidebar toggle (single source of truth) */}
