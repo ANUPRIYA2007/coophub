@@ -18,7 +18,8 @@ export default function ProtectedRoute({ children }) {
         );
     }
 
-    if (!session) {
+    const isCustomerDemo = localStorage.getItem('coophub_demo_customer') === 'true';
+    if (!session && !isCustomerDemo) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 

@@ -7,6 +7,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import { serviceRequestService } from '../../services/customer/serviceRequestService';
 import LanguageSelector from '../../components/ui/LanguageSelector';
+import TypewriterEffect from '../../components/ui/TypewriterEffect';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 
 export default function Home() {

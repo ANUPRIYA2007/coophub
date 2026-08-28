@@ -61,8 +61,8 @@ export default function App() {
   const isPillarOrAdmin = window.location.pathname.startsWith('/pillar') || 
                           window.location.pathname.startsWith('/dashboard') || 
                           window.location.pathname.startsWith('/admin');
-                          
-  const [showSplash, setShowSplash] = useState(!isPillarOrAdmin);
+  const isRoot = window.location.pathname === '/' || window.location.pathname === '';
+  const [showSplash, setShowSplash] = useState(isRoot);
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);

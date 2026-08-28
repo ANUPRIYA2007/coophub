@@ -22,13 +22,17 @@ export default function SplashScreen({ onComplete }) {
             return () => clearTimeout(timer);
         }
 
+        const safetyTimer = setTimeout(() => {
+            onComplete?.();
+        }, 1800);
+
         const ctx = gsap.context(() => {
             const tl = gsap.timeline({
                 onComplete: () => {
                     // Fade out entire splash screen
                     gsap.to(containerRef.current, {
                         opacity: 0,
-                        duration: 0.6,
+                        duration: 0.4,
                         ease: 'power2.inOut',
                         onComplete: () => onComplete?.(),
                     });
@@ -78,13 +82,17 @@ export default function SplashScreen({ onComplete }) {
             );
         }, containerRef);
 
-        return () => ctx.revert();
+        return () => {
+            clearTimeout(safetyTimer);
+            ctx.revert();
+        };
     }, [onComplete]);
 
     return (
         <div
             ref={containerRef}
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white"
+            onClick={() => onComplete?.()}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white cursor-pointer"
             role="status"
             aria-label="Loading COOP HUB"
         >
