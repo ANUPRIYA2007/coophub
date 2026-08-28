@@ -20,8 +20,31 @@ export default function RequestDetails() {
     const [invoiceData, setInvoiceData] = useState(null);
     const [paymentData, setPaymentData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const [callModalOpen, setCallModalOpen] = useState(false);
+    const [sharingLocation, setSharingLocation] = useState(false);
+    const [locationSharedSuccess, setLocationSharedSuccess] = useState(false);
+
+    const handleShareCustomerLocation = async () => {
+        setSharingLocation(true);
+        try {
+            const { getCurrentPosition } = await import('../../services/location/locationService');
+            const pos = await getCurrentPosition();
+            if (pos?.latitude && pos?.longitude) {
+                await supabase.from('service_requests').update({
+                    latitude: pos.latitude,
+                    longitude: pos.longitude
+                }).eq('id', id);
+                
+                setRequestData(prev => ({ ...prev, latitude: pos.latitude, longitude: pos.longitude }));
+                setLocationSharedSuccess(true);
+                setTimeout(() => setLocationSharedSuccess(false), 4000);
+            }
+        } catch (err) {
+            alert('Please allow browser location permissions to share your GPS coordinates.');
+        } finally {
+            setSharingLocation(false);
+        }
+    };
 
     useEffect(() => {
         const fetchRequest = async () => {
@@ -257,6 +280,32 @@ export default function RequestDetails() {
                                     Pillar Telemetry Active
                                 </span>
                                 <span>Updated: Just now</span>
+                            </div>
+
+                            {locationSharedSuccess && (
+                                <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold text-center">
+                                    ✓ Your live location was shared with the Pillar!
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                <a
+                                    href={`https://www.google.com/maps/@${pillar?.latitude || 13.3627904},${pillar?.longitude || 80.134144},15z?entry=ttu`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center space-x-1.5 py-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold transition-all text-center"
+                                >
+                                    <span>🗺️ Open Google Maps</span>
+                                </a>
+
+                                <button
+                                    onClick={handleShareCustomerLocation}
+                                    disabled={sharingLocation}
+                                    className="flex items-center justify-center space-x-1.5 py-2 px-3 rounded-xl bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold transition-all text-center"
+                                >
+                                    <MapPin size={13} />
+                                    <span>{sharingLocation ? "Locating..." : "📍 Share Location"}</span>
+                                </button>
                             </div>
                         </div>
                     </div>

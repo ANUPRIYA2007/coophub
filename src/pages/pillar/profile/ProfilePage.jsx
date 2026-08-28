@@ -9,7 +9,7 @@ export default function ProfilePage() {
   const { user, profile } = useAuth();
 
   // Handle arrays correctly
-  const mainSvc = Array.isArray(profile?.main_services) ? profile.main_services.join(", ") : (profile?.main_services || "Electrician & AC Specialist");
+  const mainSvc = Array.isArray(profile?.main_services) ? profile.main_services[0] : (profile?.main_services || "Electrician");
   const subSvc = Array.isArray(profile?.sub_services) ? profile.sub_services.join(", ") : (profile?.sub_services || "Wiring, DB Box Installation, Inverter Setup, Fan Repair");
 
   // Personal profile state
@@ -17,11 +17,61 @@ export default function ProfilePage() {
     fullName: profile?.full_name || "Senthil Kumar",
     email: profile?.email || user?.email || "senthil.electrician@coophub.in",
     mobile: profile?.mobile || "+91 98401 23456",
-    serviceArea: profile?.service_area || "Guindy, Adyar, Velachery, Chennai",
-    experience: profile?.experience_years || "5+ Years",
     mainService: mainSvc,
+    customRole: profile?.custom_role || "",
+    area: profile?.area || (Array.isArray(profile?.service_area) ? profile.service_area[0] : profile?.service_area) || "Guindy, Adyar",
+    pincode: profile?.pincode || (Array.isArray(profile?.service_area) && profile.service_area[1] ? profile.service_area[1] : "600032"),
+    experience: profile?.experience_years || "5+ Years",
     subServices: subSvc,
+    locationSharingEnabled: profile?.location_sharing_enabled !== false,
   });
+
+  // Sync state if profile loads dynamically
+  useEffect(() => {
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
+    if (isDemo) {
+      const savedDemo = JSON.parse(localStorage.getItem("coophub_demo_pillar_profile") || "{}");
+      const s = savedDemo.main_services ? (Array.isArray(savedDemo.main_services) ? savedDemo.main_services[0] : savedDemo.main_services) : (Array.isArray(profile?.main_services) ? profile.main_services[0] : (profile?.main_services || "Electrician"));
+      setFormData({
+        fullName: savedDemo.full_name || profile?.full_name || "Senthil Kumar",
+        email: savedDemo.email || profile?.email || user?.email || "senthil.electrician@coophub.in",
+        mobile: savedDemo.mobile || profile?.mobile || "+91 98401 23456",
+        mainService: s,
+        customRole: savedDemo.custom_role || profile?.custom_role || "",
+        area: savedDemo.area || profile?.area || (Array.isArray(profile?.service_area) ? profile.service_area[0] : profile?.service_area) || "Guindy, Adyar",
+        pincode: savedDemo.pincode || profile?.pincode || (Array.isArray(profile?.service_area) && profile.service_area[1] ? profile.service_area[1] : "600032"),
+        experience: savedDemo.experience_years || profile?.experience_years || "5+ Years",
+        subServices: Array.isArray(profile?.sub_services) ? profile.sub_services.join(", ") : (profile?.sub_services || ""),
+        locationSharingEnabled: savedDemo.location_sharing_enabled !== undefined ? savedDemo.location_sharing_enabled : (profile?.location_sharing_enabled !== false),
+      });
+
+      const savedBank = JSON.parse(localStorage.getItem("coophub_demo_pillar_bank") || "{}");
+      if (savedBank.accountNumber) {
+        setBankData(prev => ({
+          ...prev,
+          ...savedBank,
+          confirmAccountNumber: savedBank.accountNumber
+        }));
+      }
+      return;
+    }
+
+    if (profile) {
+      const s = Array.isArray(profile.main_services) ? profile.main_services[0] : profile.main_services;
+      setFormData({
+        fullName: profile.full_name || "",
+        email: profile.email || user?.email || "",
+        mobile: profile.mobile || "",
+        mainService: s || "Electrician",
+        customRole: profile.custom_role || "",
+        area: profile.area || (Array.isArray(profile.service_area) ? profile.service_area[0] : profile.service_area) || "",
+        pincode: profile.pincode || (Array.isArray(profile.service_area) && profile.service_area[1] ? profile.service_area[1] : ""),
+        experience: profile.experience_years || "3-5",
+        subServices: Array.isArray(profile.sub_services) ? profile.sub_services.join(", ") : (profile.sub_services || ""),
+        locationSharingEnabled: profile.location_sharing_enabled !== false,
+      });
+    }
+  }, [profile, user]);
 
   // KYC State
   const [kycDocs, setKycDocs] = useState([]);
@@ -40,7 +90,6 @@ export default function ProfilePage() {
     if (!file || !user) return;
     
     setUploadingKyc(true);
-    // Simulate slight delay for realism since we are mocking the actual storage upload
     setTimeout(async () => {
       const { data } = await pillarProfileService.uploadKycDocument(user.id, selectedDocType, file);
       if (data) {
@@ -62,15 +111,55 @@ export default function ProfilePage() {
   });
 
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState("");
   const [bankSaved, setBankSaved] = useState(false);
   const [bankError, setBankError] = useState("");
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
-    await pillarProfileService.updateProfile(user?.id, {
-      full_name: formData.fullName,
-      service_area: formData.serviceArea,
-    });
+    setProfileError("");
+
+    if (!formData.fullName.trim()) {
+      setProfileError("Full Name is required.");
+      return;
+    }
+    if (formData.mainService === "Others" && !formData.customRole.trim()) {
+      setProfileError("Please enter your custom job role / trade.");
+      return;
+    }
+    if (!formData.area.trim()) {
+      setProfileError("Area / Locality is required.");
+      return;
+    }
+    if (!formData.pincode.trim() || !/^\d{6}$/.test(formData.pincode.trim())) {
+      setProfileError("Please enter a valid 6-digit numeric Indian pincode.");
+      return;
+    }
+
+    const payload = {
+      full_name: formData.fullName.trim(),
+      main_services: [formData.mainService],
+      custom_role: formData.mainService === "Others" ? formData.customRole.trim() : null,
+      area: formData.area.trim(),
+      pincode: formData.pincode.trim(),
+      service_area: [formData.area.trim(), formData.pincode.trim()].filter(Boolean),
+      location_sharing_enabled: formData.locationSharingEnabled !== false,
+    };
+
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
+    if (isDemo) {
+      localStorage.setItem("coophub_demo_pillar_profile", JSON.stringify({
+        ...profile,
+        ...payload
+      }));
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
+      return;
+    }
+
+    if (user?.id) {
+      await pillarProfileService.updateProfile(user.id, payload);
+    }
     setProfileSaved(true);
     setTimeout(() => setProfileSaved(false), 3000);
   };
@@ -89,7 +178,23 @@ export default function ProfilePage() {
       return;
     }
 
-    if (user) {
+    const bankPayload = {
+      accountHolderName: bankData.accountHolderName,
+      bankName: bankData.bankName,
+      accountNumber: bankData.accountNumber,
+      ifscCode: bankData.ifscCode,
+      upiId: bankData.upiId
+    };
+
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
+    if (isDemo) {
+      localStorage.setItem("coophub_demo_pillar_bank", JSON.stringify(bankPayload));
+      setBankSaved(true);
+      setTimeout(() => setBankSaved(false), 3500);
+      return;
+    }
+
+    if (user?.id) {
       await pillarProfileService.updateProfile(user.id, {
         bank_account_holder: bankData.accountHolderName,
         bank_name: bankData.bankName,
@@ -175,15 +280,21 @@ export default function ProfilePage() {
                     ✓ Profile updated successfully!
                   </div>
                 )}
+                {profileError && (
+                  <div style={{ background: "rgba(239, 68, 68, 0.1)", color: "#EF4444", padding: "var(--space-3)", borderRadius: "var(--radius-md)", fontSize: "var(--font-size-sm)", fontWeight: "600" }}>
+                    ⚠️ {profileError}
+                  </div>
+                )}
 
                 <div className="grid grid-2" style={{ gap: "var(--space-4)" }}>
                   <div className="form-group">
-                    <label className="form-label">{t("auth.fullName")}</label>
+                    <label className="form-label">{t("auth.fullName")} <span className="required">*</span></label>
                     <input
                       type="text"
                       className="form-input"
                       value={formData.fullName}
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      required
                     />
                   </div>
 
@@ -194,31 +305,94 @@ export default function ProfilePage() {
                       className="form-input"
                       value={formData.mobile}
                       disabled
-                      style={{ background: "var(--color-surface-hover)" }}
+                      style={{ background: "var(--color-surface-hover)", opacity: 0.8 }}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-2" style={{ gap: "var(--space-4)" }}>
                   <div className="form-group">
-                    <label className="form-label">{t("auth.email")}</label>
-                    <input
-                      type="email"
+                    <label className="form-label">Core Trade / Job Role <span className="required">*</span></label>
+                    <select
                       className="form-input"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      value={formData.mainService}
+                      onChange={(e) => setFormData({ ...formData, mainService: e.target.value })}
+                      required
+                    >
+                      <option value="Electrician">Electrician (Home & Industrial)</option>
+                      <option value="Plumber">Plumber (Piping & Sanitary)</option>
+                      <option value="Carpenter">Carpenter & Woodwork</option>
+                      <option value="AC Repair">AC & HVAC Technician</option>
+                      <option value="Painter">Painter & Waterproofing</option>
+                      <option value="Cleaner">Deep Cleaning Specialist</option>
+                      <option value="Driver">Professional Driver (Personal & Commercial)</option>
+                      <option value="Others">Others (Custom Trade / Specialty)</option>
+                    </select>
+                  </div>
+
+                  {formData.mainService === "Others" ? (
+                    <div className="form-group" style={{ animation: "fadeIn 0.3s ease" }}>
+                      <label className="form-label">Custom Job Role / Specialty <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. CCTV Installation Technician"
+                        value={formData.customRole}
+                        onChange={(e) => setFormData({ ...formData, customRole: e.target.value })}
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="form-label">{t("auth.email")}</label>
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={formData.email}
+                        disabled
+                        style={{ background: "var(--color-surface-hover)", opacity: 0.8 }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-2" style={{ gap: "var(--space-4)" }}>
+                  <div className="form-group">
+                    <label className="form-label">Area / Locality <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Guindy, Velachery, Adyar"
+                      value={formData.area}
+                      onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                      required
                     />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Service Coverage Area</label>
+                    <label className="form-label">Pincode <span className="required">*</span></label>
                     <input
                       type="text"
+                      maxLength={6}
                       className="form-input"
-                      value={formData.serviceArea}
-                      onChange={(e) => setFormData({ ...formData, serviceArea: e.target.value })}
+                      placeholder="600032"
+                      value={formData.pincode}
+                      onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+                      required
                     />
                   </div>
+                </div>
+
+                <div style={{ background: "var(--color-surface-hover)", padding: "12px 14px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-border)" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "0.85rem", cursor: "pointer", color: "var(--color-text)", fontWeight: "600", userSelect: "none" }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.locationSharingEnabled}
+                      onChange={(e) => setFormData({ ...formData, locationSharingEnabled: e.target.checked })}
+                      style={{ accentColor: "var(--color-secondary)", width: "18px", height: "18px", cursor: "pointer" }}
+                    />
+                    <span>Allow live GPS location sharing for dispatch radar and customer approach navigation when Online</span>
+                  </label>
                 </div>
 
                 <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-end", marginTop: "var(--space-2)" }}>

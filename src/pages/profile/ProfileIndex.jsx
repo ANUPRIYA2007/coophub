@@ -20,13 +20,15 @@ export default function ProfileIndex() {
     useEffect(() => {
         const fetchProfile = async () => {
             if (localStorage.getItem('coophub_demo_customer') === 'true') {
+                const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
                 const demoP = {
                     id: 'demo-cust-001',
-                    full_name: authProfile?.full_name || 'Anupriya Murugan',
-                    email: authProfile?.email || 'customer@coophub.in',
-                    phone: '+91 98401 23456',
+                    full_name: savedDemo.full_name || authProfile?.full_name || 'Anupriya',
+                    email: savedDemo.email || authProfile?.email || 'customer@coophub.in',
+                    phone: savedDemo.phone || '+91 98401 23456',
                     role: 'customer',
-                    preferred_language: 'en'
+                    preferred_language: 'en',
+                    created_at: savedDemo.created_at || '2024-01-15T10:00:00.000Z'
                 };
                 setProfile(demoP);
                 setFullName(demoP.full_name);
@@ -63,6 +65,18 @@ export default function ProfileIndex() {
         e.preventDefault();
         setSaving(true);
         try {
+            if (localStorage.getItem('coophub_demo_customer') === 'true') {
+                const updated = {
+                    ...profile,
+                    full_name: fullName.trim(),
+                    phone: phone.trim()
+                };
+                localStorage.setItem('coophub_demo_profile', JSON.stringify(updated));
+                setProfile(updated);
+                setIsEditing(false);
+                return;
+            }
+
             const { error } = await supabase
                 .from('profiles')
                 .update({
@@ -75,6 +89,7 @@ export default function ProfileIndex() {
             setIsEditing(false);
             setProfile({ ...profile, full_name: fullName.trim(), phone: phone.trim() });
         } catch (err) {
+            console.error('Update profile error:', err);
             alert('Failed to update profile.');
         } finally {
             setSaving(false);

@@ -301,7 +301,12 @@ export default function PillarsList() {
                   const isPending = pillar.status === 'pending_review' || pillar.status === 'pending' || pillar.status === 'pending_verification' || !pillar.status;
                   const isVerified = pillar.status === 'verified';
                   const isSuspended = pillar.status === 'suspended' || pillar.status === 'rejected';
-                  const trades = Array.isArray(pillar.main_services) ? pillar.main_services.join(', ') : (pillar.main_services || 'General Trades');
+                  const trades = (Array.isArray(pillar.main_services) && pillar.main_services.includes('Others') && pillar.custom_role) 
+                    ? `${pillar.custom_role} (Custom)` 
+                    : (Array.isArray(pillar.main_services) ? pillar.main_services.join(', ') : (pillar.main_services || 'General Trades'));
+                  const areaDisplay = pillar.area 
+                    ? `${pillar.area}${pillar.pincode ? ` (${pillar.pincode})` : ''}` 
+                    : (Array.isArray(pillar.service_area) ? pillar.service_area.join(', ') : (pillar.service_area || "Chennai"));
 
                   return (
                     <tr key={pillar.id} style={{ borderBottom: "1px solid var(--color-border)", transition: "background 0.2s" }} className="hover-row">
@@ -335,7 +340,7 @@ export default function PillarsList() {
                       <td style={{ padding: "12px 16px" }}>
                         <div style={{ fontWeight: "600", color: "var(--color-text)" }}>{pillar.mobile || "N/A"}</div>
                         <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
-                          {Array.isArray(pillar.service_area) ? pillar.service_area.join(', ') : (pillar.service_area || "Chennai")}
+                          {areaDisplay}
                         </div>
                       </td>
 

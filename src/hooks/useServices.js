@@ -102,6 +102,46 @@ const DEMO_SERVICES = [
             te: 'ఇంటీరియర్ మరియు ఎక్స్‌టీరియర్ పెయింటింగ్ మరియు వాటర్‌ప్రూఫింగ్.',
             kn: 'ಒಳಾಂಗಣ ಮತ್ತು ಹೊರಾಂಗಣ ಪೇಂಟಿಂಗ್ ಮತ್ತು ವಾಟರ್‌ಪ್ರೂಫಿಂಗ್.'
         }
+    },
+    {
+        id: 'srv-driver',
+        name: 'Professional Driver Services',
+        category: 'Transport',
+        icon: '🚗',
+        name_translations: {
+            en: 'Professional Driver Services',
+            ta: 'தொழில்முறை ஓட்டுநர் சேவை',
+            hi: 'पेशेवर ड्राइवर सेवा',
+            te: 'డ్రైవర్ సేవలు',
+            kn: 'ಡ್ರೈವರ್ ಸೇವೆಗಳು'
+        },
+        description_translations: {
+            en: 'Verified personal and commercial chauffeurs for local and outstation trips.',
+            ta: 'உள்ளூர் மற்றும் வெளியூர் பயணங்களுக்கான சரிபார்க்கப்பட்ட ஓட்டுநர்கள்.',
+            hi: 'स्थानीय और बाहरी यात्राओं के लिए सत्यापित पेशेवर ड्राइवर।',
+            te: 'స్థానిక మరియు అవుట్‌స్టేషన్ ప్రయాణాల కోసం డ్రైవర్లు.',
+            kn: 'ಸ್ಥಳೀಯ ಮತ್ತು ಹೊರಗಿನ ಪ್ರಯಾಣಕ್ಕಾಗಿ ಪರಿಶೀಲಿಸಿದ ಚಾಲಕರು.'
+        }
+    },
+    {
+        id: 'srv-others',
+        name: 'Specialized & Custom Trades',
+        category: 'Specialized',
+        icon: '🛠️',
+        name_translations: {
+            en: 'Specialized & Custom Trades',
+            ta: 'சிறப்புத் தொழில்கள்',
+            hi: 'विशेषज्ञ सेवाएं',
+            te: 'ప్రత్యేక సేవలు',
+            kn: 'ವಿಶೇಷ ಸೇವೆಗಳು'
+        },
+        description_translations: {
+            en: 'CCTV installation, welding, masonry, and on-demand artisan trades.',
+            ta: 'சிசிடிவி பொருத்துதல், வெல்டிங் மற்றும் இதர பணிகள்.',
+            hi: 'सीसीटीवी स्थापना, वेल्डिंग और कस्टम सेवाएं।',
+            te: 'సీసీటీవీ ఇన్‌స్టాలేషన్ మరియు ఇతర సేవలు.',
+            kn: 'ಸಿಸಿಟಿವಿ ಸ್ಥಾಪನೆ ಮತ್ತು ಇತರ ವಿಶೇಷ ಸೇವೆಗಳು.'
+        }
     }
 ];
 
@@ -114,7 +154,10 @@ const DEMO_SUB_SERVICES = [
     { id: 'sub-6', service_id: 'srv-3', name: 'Tap & Mixer Replacement', base_price: 250 },
     { id: 'sub-7', service_id: 'srv-3', name: 'Water Leakage & Clog Removal', base_price: 400 },
     { id: 'sub-8', service_id: 'srv-4', name: 'Washing Machine Drum & Motor Service', base_price: 650 },
-    { id: 'sub-9', service_id: 'srv-5', name: 'Single Room Wall Painting & Primer', base_price: 2400 }
+    { id: 'sub-9', service_id: 'srv-5', name: 'Single Room Wall Painting & Primer', base_price: 2400 },
+    { id: 'sub-driver-1', service_id: 'srv-driver', name: 'Personal City Chauffeur (Local Trip)', base_price: 450 },
+    { id: 'sub-driver-2', service_id: 'srv-driver', name: 'Outstation / Full-Day Driver', base_price: 1200 },
+    { id: 'sub-other-1', service_id: 'srv-others', name: 'CCTV & Smart Security Setup', base_price: 850 }
 ];
 
 export function useServices() {

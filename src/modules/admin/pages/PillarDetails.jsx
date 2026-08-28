@@ -306,12 +306,12 @@ export default function PillarDetails() {
             <InfoRow 
               icon={<MapPin size={16} />} 
               label="Operating Location" 
-              value={Array.isArray(pillar.service_area) ? pillar.service_area.join(', ') : (pillar.service_area || "Chennai Metropolitan")} 
+              value={pillar.area ? `${pillar.area}${pillar.pincode ? ` (PIN: ${pillar.pincode})` : ''}` : (Array.isArray(pillar.service_area) ? pillar.service_area.join(', ') : (pillar.service_area || "Chennai Metropolitan"))} 
             />
             <InfoRow 
               icon={<Award size={16} />} 
               label="Primary Trade & Services" 
-              value={Array.isArray(pillar.main_services) ? pillar.main_services.join(', ') : (pillar.main_services || "Electrician")} 
+              value={(Array.isArray(pillar.main_services) && pillar.main_services.includes('Others') && pillar.custom_role) ? `${pillar.custom_role} (Custom Specialty)` : (Array.isArray(pillar.main_services) ? pillar.main_services.join(', ') : (pillar.main_services || "Electrician"))} 
             />
             <InfoRow 
               icon={<Briefcase size={16} />} 

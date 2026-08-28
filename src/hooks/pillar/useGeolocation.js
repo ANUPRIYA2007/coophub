@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 
-export function useGeolocation(enabled = false, pillarId = null, isDemo = false) {
+export function useGeolocation(enabled = false, pillarId = null, isDemo = false, locationConsent = true) {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
   const [tracking, setTracking] = useState(false);
   const lastSyncRef = useRef(0);
 
   useEffect(() => {
-    if (!enabled || !("geolocation" in navigator)) {
+    if (!enabled || !locationConsent || !("geolocation" in navigator)) {
       setTracking(false);
       return;
     }
@@ -60,7 +60,7 @@ export function useGeolocation(enabled = false, pillarId = null, isDemo = false)
       navigator.geolocation.clearWatch(watchId);
       setTracking(false);
     };
-  }, [enabled, pillarId, isDemo]);
+  }, [enabled, pillarId, isDemo, locationConsent]);
 
   return { location, error, tracking };
 }

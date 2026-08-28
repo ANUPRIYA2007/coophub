@@ -31,9 +31,13 @@ export default function Register() {
     password: "",
     confirmPassword: "",
     mainServices: "",
+    customRole: "",
     subServices: "",
     experience: "",
     serviceArea: "",
+    area: "",
+    pincode: "",
+    locationSharingEnabled: true,
     preferredLanguage: "en",
     // Step 3: Government ID Verification fields
     documentType: "aadhaar", // 'aadhaar' | 'pan' | 'voter_id' | 'driving_licence' | 'other'
@@ -143,14 +147,24 @@ export default function Register() {
       setActiveField("mainServices");
       return;
     }
+    if (formData.mainServices === "Others" && !formData.customRole.trim()) {
+      setError("Please enter your custom job role / trade");
+      setActiveField("customRole");
+      return;
+    }
     if (!formData.experience) {
       setError("Please select your years of experience");
       setActiveField("experience");
       return;
     }
-    if (!formData.serviceArea.trim()) {
-      setError("Please specify your service area or pincodes");
-      setActiveField("serviceArea");
+    if (!formData.area.trim()) {
+      setError("Please specify your area or locality");
+      setActiveField("area");
+      return;
+    }
+    if (!formData.pincode.trim() || !/^\d{6}$/.test(formData.pincode.trim())) {
+      setError("Please enter a valid 6-digit numeric Indian pincode");
+      setActiveField("pincode");
       return;
     }
     setError(null);
@@ -168,12 +182,19 @@ export default function Register() {
 
     setLoading(true);
 
+    const submissionPayload = {
+      ...formData,
+      mainServices: [formData.mainServices],
+      customRole: formData.mainServices === "Others" ? formData.customRole.trim() : null,
+      serviceArea: [formData.area.trim(), formData.pincode.trim()].filter(Boolean),
+      area: formData.area.trim(),
+      pincode: formData.pincode.trim(),
+      location_sharing_enabled: formData.locationSharingEnabled !== false,
+      subServices: formData.subServices ? formData.subServices.split(",").map((s) => s.trim()).filter(Boolean) : [],
+    };
+
     if (isResubmitting) {
-      const res = await pillarAuthService.resubmitVerification(formData.email, {
-        ...formData,
-        mainServices: [formData.mainServices],
-        subServices: formData.subServices ? formData.subServices.split(",").map((s) => s.trim()).filter(Boolean) : [],
-      });
+      const res = await pillarAuthService.resubmitVerification(formData.email, submissionPayload);
       setLoading(false);
       if (res.success) {
         setSuccess(true);
@@ -183,11 +204,7 @@ export default function Register() {
       return;
     }
 
-    const { user, error: regError } = await register({
-      ...formData,
-      mainServices: [formData.mainServices],
-      subServices: formData.subServices ? formData.subServices.split(",").map((s) => s.trim()).filter(Boolean) : [],
-    });
+    const { user, error: regError } = await register(submissionPayload);
 
     setLoading(false);
 
@@ -500,8 +517,28 @@ export default function Register() {
                     <option value="AC Repair">AC & HVAC Technician</option>
                     <option value="Painter">Painter & Waterproofing</option>
                     <option value="Cleaner">Deep Cleaning Specialist</option>
+                    <option value="Driver">Professional Driver (Personal & Commercial)</option>
+                    <option value="Others">Others (Custom Trade / Specialty)</option>
                   </select>
                 </div>
+
+                {formData.mainServices === "Others" && (
+                  <div className="form-group" style={{ animation: "fadeIn 0.3s ease" }}>
+                    <label className="form-label">Custom Job Role / Specialty <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      name="customRole"
+                      className="form-input"
+                      placeholder="e.g. CCTV Installation Technician, Welder, Mason"
+                      value={formData.customRole}
+                      onChange={handleInputChange}
+                      onFocus={() => setActiveField("customRole")}
+                      onBlur={() => setActiveField(null)}
+                      required
+                    />
+                    <span className="form-hint">Specify your exact vocational trade</span>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="form-label">{t("auth.subServices")}</label>
@@ -518,7 +555,7 @@ export default function Register() {
                   <span className="form-hint">Comma separated list of specific trade skills</span>
                 </div>
 
-                <div className="grid grid-2" style={{ gap: "16px" }}>
+                <div className="grid grid-3" style={{ gap: "16px" }}>
                   <div className="form-group">
                     <label className="form-label">{t("auth.experience")} <span className="required">*</span></label>
                     <select
@@ -537,20 +574,52 @@ export default function Register() {
                       <option value="10+">10+ Years (Senior Master)</option>
                     </select>
                   </div>
+
                   <div className="form-group">
-                    <label className="form-label">{t("auth.serviceArea")} <span className="required">*</span></label>
+                    <label className="form-label">Area / Locality <span className="required">*</span></label>
                     <input
                       type="text"
-                      name="serviceArea"
+                      name="area"
                       className="form-input"
                       placeholder="e.g. Guindy, Velachery, Adyar"
-                      value={formData.serviceArea}
+                      value={formData.area}
                       onChange={handleInputChange}
-                      onFocus={() => setActiveField("serviceArea")}
+                      onFocus={() => setActiveField("area")}
                       onBlur={() => setActiveField(null)}
                       required
                     />
                   </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Pincode <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      name="pincode"
+                      maxLength={6}
+                      className="form-input"
+                      placeholder="600032"
+                      value={formData.pincode}
+                      onChange={handleInputChange}
+                      onFocus={() => setActiveField("pincode")}
+                      onBlur={() => setActiveField(null)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ background: "rgba(255, 121, 0, 0.05)", padding: "12px 14px", borderRadius: "12px", border: "1px solid rgba(255, 121, 0, 0.18)", marginTop: "4px" }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "0.85rem", cursor: "pointer", color: "var(--color-text)", fontWeight: "600", userSelect: "none" }}>
+                    <input
+                      type="checkbox"
+                      name="locationSharingEnabled"
+                      checked={formData.locationSharingEnabled}
+                      onChange={(e) => setFormData({ ...formData, locationSharingEnabled: e.target.checked })}
+                      style={{ accentColor: "#FF7900", width: "18px", height: "18px", marginTop: "2px", cursor: "pointer" }}
+                    />
+                    <span>
+                      Allow live GPS location sharing for customer dispatch radar and approach navigation when Available/Online
+                    </span>
+                  </label>
                 </div>
 
                 <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>

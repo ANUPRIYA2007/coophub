@@ -216,6 +216,15 @@ export default function OrdersList() {
                     >
                       <Navigation size={16} /> {t("orders.startTravel")}
                     </button>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude || 13.3627904},${order.longitude || 80.134144}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline btn-sm"
+                      title="Open Directions in Google Maps"
+                    >
+                      🗺️ Maps
+                    </a>
                     <button
                       className="btn btn-outline btn-sm"
                       onClick={() => navigate("/dashboard/chat")}
@@ -226,13 +235,25 @@ export default function OrdersList() {
                 )}
 
                 {order.status === "onTheWay" && (
-                  <button
-                    className="btn btn-warning"
-                    style={{ width: "100%" }}
-                    onClick={() => setSelectedBookingForOtp(order.id)}
-                  >
-                    <MapPin size={16} /> {t("orders.markArrived")} (Enter OTP)
-                  </button>
+                  <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
+                    <button
+                      className="btn btn-warning"
+                      style={{ flex: 3 }}
+                      onClick={() => setSelectedBookingForOtp(order.id)}
+                    >
+                      <MapPin size={16} /> {t("orders.markArrived")} (Enter OTP)
+                    </button>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude || 13.3627904},${order.longitude || 80.134144}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                      title="Open Directions in Google Maps"
+                    >
+                      🗺️ Maps
+                    </a>
+                  </div>
                 )}
 
                 {(order.status === "arrived" || order.status === "inProgress") && (

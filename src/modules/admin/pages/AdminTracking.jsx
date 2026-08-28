@@ -126,7 +126,7 @@ export default function AdminTracking() {
                 style={{ border: 0 }} 
                 loading="lazy" 
                 allowFullScreen 
-                src={`https://maps.google.com/maps?q=${encodeURIComponent((selectedPillar?.service_area || 'Guindy, Chennai') + ', Tamil Nadu')}&t=&z=14&ie=UTF8&iwloc=&output=embed`} 
+                src={`https://maps.google.com/maps?q=${selectedPillar?.current_lat || 13.3627904},${selectedPillar?.current_lng || 80.134144}&t=&z=15&ie=UTF8&iwloc=&output=embed`} 
               />
             </div>
           ) : (
@@ -207,12 +207,12 @@ export default function AdminTracking() {
             </span>
             {selectedPillar && (
               <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((selectedPillar.service_area || selectedPillar.full_name) + ' Chennai')}`}
+                href={`https://www.google.com/maps/@${selectedPillar.current_lat || 13.3627904},${selectedPillar.current_lng || 80.134144},15z?entry=ttu`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "var(--color-primary)", fontWeight: "700", textDecoration: "none", fontSize: "0.78rem" }}
               >
-                📍 Open {selectedPillar.full_name} in Google Maps ↗
+                🗺️ Open {selectedPillar.full_name} Live Location in Google Maps ↗
               </a>
             )}
             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -264,7 +264,7 @@ export default function AdminTracking() {
                           {p.full_name || "Coop Pillar"}
                         </span>
                         <div style={{ fontSize: "0.75rem", color: "var(--color-secondary)", fontWeight: "700" }}>
-                          {p.pillar_code || "PIL-ID"} • {p.main_services?.[0] || "Technician"}
+                          {p.pillar_code || "PIL-ID"} • {(Array.isArray(p.main_services) && p.main_services.includes('Others') && p.custom_role) ? p.custom_role : (p.main_services?.[0] || "Technician")}
                         </div>
                       </div>
                       <span style={{

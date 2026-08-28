@@ -9,10 +9,11 @@ export default function PillarLayout({ children }) {
   const { profile, isAvailable } = useAuth();
   const isDemo = localStorage.getItem("coophub_demo_user") === "true";
 
-  // Mount background GPS streaming when technician is online/available
+  // Mount background GPS streaming when technician is online/available and consent is granted
   const pillarId = profile?.id || profile?.user_id;
-  const isTrackingEnabled = !!(pillarId && isAvailable);
-  useGeolocation(isTrackingEnabled, pillarId, isDemo);
+  const locationConsent = profile?.location_sharing_enabled !== false;
+  const isTrackingEnabled = !!(pillarId && isAvailable && locationConsent);
+  useGeolocation(isTrackingEnabled, pillarId, isDemo, locationConsent);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
