@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare } from 'lucide-react';
 
-export default function GlobalHeroAgent({ inline = false }) {
+export default function GlobalHeroAgentBackup({ inline = false }) {
     const { t, language } = useTranslation();
     const location = useLocation();
     const params = useParams();
@@ -13,51 +13,12 @@ export default function GlobalHeroAgent({ inline = false }) {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [activeInputName, setActiveInputName] = useState(null);
 
-    // Initial greeting on route change with context-awareness for newly added workflows
+    // Initial greeting on route change
     useEffect(() => {
         let isMounted = true;
         setAnimState('greeting');
 
         const announceContextChange = async () => {
-            const currentPath = location.pathname;
-
-            // Route-specific dynamic greetings for newly added sections
-            if (currentPath.includes('/admin/pillars/')) {
-                const msg = language === 'ta'
-                    ? 'பில்லர் சரிபார்ப்பு பணியிடம்: PaddleOCR முடிவுகளை ஆய்வு செய்து Auto-Verify மூலம் விண்ணப்பத்தைச் சரிபார்க்கவும்!'
-                    : 'Pillar Verification Workspace: Inspect PaddleOCR extraction and use Auto-Verify to assist your clearance decision.';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
-            if (currentPath === '/admin/pillars') {
-                const msg = language === 'ta'
-                    ? 'தொழில்நுட்ப வல்லுநர் பதிவுப் பட்டியல்: நிலுவையில் உள்ள புதிய விண்ணப்பங்களைச் சரிபார்த்து ஒப்புதல் அளிக்கவும்!'
-                    : 'Workforce Registry: Review the Pending Verification queue to approve new technician applicants.';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
-            if (currentPath === '/pillar/register') {
-                const msg = language === 'ta'
-                    ? 'பில்லர் பதிவு: உங்கள் தொழில் திறன்கள் மற்றும் அரசு அடையாள அட்டையை (ஆதார்/பான்) பதிவேற்றி இணையுங்கள்!'
-                    : 'Pillar Registration: Select your trade skills and upload your Government ID (Aadhaar/PAN/Voter ID) for verification!';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
-            if (currentPath === '/pillar/login') {
-                const msg = language === 'ta'
-                    ? 'பில்லர் போர்ட்டல்: உங்கள் பில்லர் ஐடி அல்லது கடவுச்சொல் மூலம் உள்நுழையவும்!'
-                    : 'Pillar Portal: Sign in with your assigned Unique Pillar ID, Password, or Mobile OTP!';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
             try {
                 const res = await fetch('/api/ai/mascot-context', {
                     method: 'POST',
@@ -102,7 +63,7 @@ export default function GlobalHeroAgent({ inline = false }) {
         };
     }, [location.pathname, language]);
 
-    // Global Interactive Live Focus & Error Tracking
+    // Global Interactive Live Focus & Error Tracking (Lively like Pillar Portal)
     useEffect(() => {
         const handleFocusIn = (e) => {
             const target = e.target;
@@ -113,19 +74,7 @@ export default function GlobalHeroAgent({ inline = false }) {
             setAnimState('speaking');
 
             // Contextual dynamic speech guidance per field
-            if (name.includes('documenttype') || name.includes('document_type')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'உங்கள் அரசு அடையாள அட்டையைத் தேர்ந்தெடுக்கவும் (ஆதார், பான், வாக்காளர் அட்டை அல்லது ஓட்டுநர் உரிமம்).'
-                        : 'Select your preferred government document: Aadhaar, PAN Card, Voter ID, or Driving Licence.'
-                );
-            } else if (name.includes('documentnumber') || name.includes('document_number')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'அரசு ஆவண எண்ணை உள்ளிடவும். உங்கள் தனிப்பட்ட தரவு பாதுகாப்பாக மறைக்கப்படும்.'
-                        : 'Enter your official government document number. Sensitive digits are securely masked.'
-                );
-            } else if (name.includes('fullname') || name.includes('name')) {
+            if (name.includes('fullname') || name.includes('name')) {
                 setHeroGreeting(
                     language === 'ta'
                         ? 'உங்கள் முழு பெயரை உள்ளிடவும். இது தொழில்நுட்ப வல்லுநருக்கு அடையாளம் காண உதவும்.'
@@ -246,7 +195,7 @@ export default function GlobalHeroAgent({ inline = false }) {
     };
 
     const handleOpenChat = () => {
-        window.dispatchEvent(new CustomEvent('open-customer-chat'));
+        window.dispatchEvent(new CustomEvent('open-chat-agent'));
     };
 
     const getAnimationClass = () => {
@@ -268,8 +217,7 @@ export default function GlobalHeroAgent({ inline = false }) {
         return (
             <div 
                 onClick={handleOpenChat}
-                style={{ background: "rgba(22, 34, 56, 0.8)", borderColor: "rgba(255, 121, 0, 0.2)" }}
-                className="mx-3 my-3 border rounded-2xl p-3 relative cursor-pointer hover:bg-opacity-100 transition-all select-none group"
+                className="mx-3 my-3 bg-navy-800/65 border border-navy-700/50 rounded-2xl p-3 relative cursor-pointer hover:bg-navy-800 transition-all select-none group"
                 title="Click to talk with CoopBot"
             >
                 <div className="flex items-center space-x-3">
@@ -281,7 +229,7 @@ export default function GlobalHeroAgent({ inline = false }) {
                             animState === 'speaking' ? 'bg-orange-500 animate-pulse' :
                             'bg-orange-400'
                         }`} />
-                        <div className={`relative w-12 h-12 rounded-full bg-white dark:bg-slate-900 border border-orange-500 p-0.5 flex items-center justify-center ${getAnimationClass()}`}>
+                        <div className={`relative w-12 h-12 rounded-full bg-white dark:bg-slate-900 border border-orange-400 p-0.5 flex items-center justify-center ${getAnimationClass()}`}>
                             <img
                                 src="/assets/images/mascot-hero.png"
                                 alt="CoopBot"
@@ -302,15 +250,15 @@ export default function GlobalHeroAgent({ inline = false }) {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    speakGreeting(e);
+                                    speakGreeting();
                                 }}
-                                className={`p-0.5 rounded transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-slate-400 hover:text-orange-400'}`}
+                                className={`p-0.5 rounded transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-navy-400 hover:text-orange-400'}`}
                                 title={isSpeaking ? "Mute speech" : "Read aloud"}
                             >
                                 {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
                             </button>
                         </div>
-                        <p className="text-[11px] text-slate-200 font-medium leading-normal mt-0.5 whitespace-pre-line">
+                        <p className="text-[11px] text-navy-200 font-medium leading-normal mt-0.5 whitespace-pre-line">
                             "{heroGreeting || 'I am right here to help.'}"
                         </p>
                     </div>
@@ -337,10 +285,10 @@ export default function GlobalHeroAgent({ inline = false }) {
                     animState === 'error' ? 'bg-red-500' :
                     animState === 'success' ? 'bg-green-500' :
                     animState === 'speaking' ? 'bg-orange-500 animate-pulse' :
-                    'bg-orange-500'
+                    'bg-orange-400'
                 }`} />
 
-                <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white dark:bg-slate-900 border-2 border-orange-500 p-1 shadow-2xl flex items-center justify-center transition-transform transform group-hover:scale-105 ${getAnimationClass()}`}>
+                <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white dark:bg-slate-900 border-2 border-orange-400 p-1 shadow-2xl flex items-center justify-center transition-transform transform group-hover:scale-105 ${getAnimationClass()}`}>
                     <img
                         src="/assets/images/mascot-hero.png"
                         alt="COOP HUB Hero Mascot"
@@ -363,8 +311,8 @@ export default function GlobalHeroAgent({ inline = false }) {
             {heroGreeting && (
                 <div
                     onClick={handleOpenChat}
-                    style={{ backgroundColor: 'var(--color-surface, #FFFFFF)', borderColor: '#FF7900' }}
-                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm border-2 shadow-2xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative"
+                    style={{ backgroundColor: 'var(--color-surface, #FFFFFF)' }}
+                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm border-2 border-orange-400 dark:border-orange-500 shadow-2xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative"
                 >
                     <div className="flex items-center justify-between gap-2 mb-1.5 border-b border-orange-200 dark:border-slate-700 pb-1">
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
@@ -393,7 +341,7 @@ export default function GlobalHeroAgent({ inline = false }) {
                         <span className="italic flex items-center gap-1">
                             <MessageSquare size={12} /> Tap to chat with AI
                         </span>
-                        <span style={{ color: '#FF7900' }} className="font-bold">Ask anything →</span>
+                        <span className="text-orange-500 font-bold">Ask anything →</span>
                     </div>
                 </div>
             )}

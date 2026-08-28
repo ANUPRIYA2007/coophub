@@ -67,7 +67,10 @@ export default function VerifyOtp() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-8">
+        <div 
+            className="min-h-screen flex items-center justify-center px-4 py-8"
+            style={{ background: "linear-gradient(135deg, #050A12 0%, #162238 50%, #050A12 100%)" }}
+        >
             <div className="card max-w-sm w-full p-8 shadow-xl shadow-navy-900/5 text-center">
 
                 <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-500">

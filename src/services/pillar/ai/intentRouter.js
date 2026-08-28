@@ -10,6 +10,7 @@ import {
   profileAgent,
   settingsAgent,
   navigationAgent,
+  welfareAgent,
 } from "./authenticatedAgents";
 
 import { adminAgent } from "./adminAgent";
@@ -106,6 +107,29 @@ export const intentRouter = {
 
     if (q.includes("setting") || q.includes("language") || q.includes("அமைப்புகள்") || q.includes("भाषा")) {
       return await settingsAgent.handle(q, ctx);
+    }
+
+    if (
+      q.includes("pf") ||
+      q.includes("provident") ||
+      q.includes("welfare") ||
+      q.includes("insurance") ||
+      q.includes("policy") ||
+      q.includes("claim") ||
+      q.includes("coverage") ||
+      q.includes("nominee") ||
+      q.includes("scheme") ||
+      q.includes("pmjjby") ||
+      q.includes("pmsby") ||
+      q.includes("pmsym") ||
+      q.includes("ayushman") ||
+      q.includes("tnuwwb") ||
+      q.includes("காப்பீடு") ||
+      q.includes("வைப்பு நிதி") ||
+      q.includes("திட்டம்") ||
+      q.includes("பாலிசி")
+    ) {
+      return await welfareAgent.handle(q, ctx);
     }
 
     // General route-aware query → Live AI API directly

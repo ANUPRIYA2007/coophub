@@ -109,6 +109,7 @@ export const en = {
     profile: "Profile",
     settings: "Settings",
     support: "Help & Support",
+    welfare: "Welfare & Insurance",
     chat: "Chat",
     mascot: "AI Assistant",
   },

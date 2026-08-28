@@ -18,7 +18,39 @@ export default function AdminOverview() {
     pendingPillars: 0,
     activeRequests: 0,
     totalRevenue: 0,
-    openTickets: 0
+    openTickets: 0,
+    totalCustomers: 0
+  });
+  const [analytics, setAnalytics] = useState(() => {
+    if (isDemo) {
+      return {
+        monthlyData: [
+          { month: "Apr", bookings: 120, revenue: 48000 },
+          { month: "May", bookings: 180, revenue: 72000 },
+          { month: "Jun", bookings: 240, revenue: 96000 },
+          { month: "Jul", bookings: 310, revenue: 135000 },
+          { month: "Aug", bookings: 420, revenue: 184000 },
+          { month: "Sep", bookings: 530, revenue: 238500 },
+        ],
+        categoryDistribution: [
+          { name: "Electrician Services", count: 48, percentage: 38, color: "var(--color-primary)" },
+          { name: "Plumbing & Motors", count: 35, percentage: 28, color: "var(--color-secondary)" },
+          { name: "Appliance & AC Repair", count: 28, percentage: 22, color: "#10B981" },
+          { name: "Deep Home Cleaning", count: 15, percentage: 12, color: "#8B5CF6" },
+        ],
+        recentTransactions: [
+          { id: "TX-9081", customer: "Meenakshi S.", service: "Fan Wiring & Switchboard", pillar: "Senthil Kumar (PIL-042)", amount: "₹450", status: "Completed", time: "10 mins ago" },
+          { id: "TX-9080", customer: "Karthik R.", service: "Main Pipe Leak Repair", pillar: "Murugan V (PIL-019)", amount: "₹350", status: "Completed", time: "42 mins ago" },
+          { id: "TX-9079", customer: "Deepak S.", service: "AC Deep Gas Top-up", pillar: "Praveen K (PIL-031)", amount: "₹1,200", status: "In Progress", time: "1h ago" },
+          { id: "TX-9078", customer: "Lakshmi M.", service: "Kitchen Sink Drain Unclog", pillar: "Ramesh P (PIL-055)", amount: "₹300", status: "Completed", time: "2h ago" },
+        ]
+      };
+    }
+    return {
+      monthlyData: [],
+      categoryDistribution: [],
+      recentTransactions: []
+    };
   });
   const [loading, setLoading] = useState(true);
 
@@ -45,6 +77,11 @@ export default function AdminOverview() {
     setLoading(true);
     const data = await adminService.getDashboardStats();
     setStats(data);
+
+    const analyticsData = await adminService.getOverviewAnalytics();
+    if (analyticsData) {
+      setAnalytics(analyticsData);
+    }
     setLoading(false);
 
     // GSAP Stagger Entrance
@@ -62,30 +99,8 @@ export default function AdminOverview() {
     }, 50);
   };
 
-  const monthlyData = [
-    { month: "Apr", bookings: 120, revenue: 48000 },
-    { month: "May", bookings: 180, revenue: 72000 },
-    { month: "Jun", bookings: 240, revenue: 96000 },
-    { month: "Jul", bookings: 310, revenue: 135000 },
-    { month: "Aug", bookings: 420, revenue: 184000 },
-    { month: "Sep", bookings: 530, revenue: 238500 },
-  ];
-
-  const maxRevenue = Math.max(...monthlyData.map(d => d.revenue));
-
-  const categoryDistribution = [
-    { name: "Electrician Services", count: 48, percentage: 38, color: "var(--color-primary)" },
-    { name: "Plumbing & Motors", count: 35, percentage: 28, color: "var(--color-secondary)" },
-    { name: "Appliance & AC Repair", count: 28, percentage: 22, color: "#10B981" },
-    { name: "Deep Home Cleaning", count: 15, percentage: 12, color: "#8B5CF6" },
-  ];
-
-  const recentTransactions = [
-    { id: "TX-9081", customer: "Meenakshi S.", service: "Fan Wiring & Switchboard", pillar: "Senthil Kumar (PIL-042)", amount: "₹450", status: "Completed", time: "10 mins ago" },
-    { id: "TX-9080", customer: "Karthik R.", service: "Main Pipe Leak Repair", pillar: "Murugan V (PIL-019)", amount: "₹350", status: "Completed", time: "42 mins ago" },
-    { id: "TX-9079", customer: "Deepak S.", service: "AC Deep Gas Top-up", pillar: "Praveen K (PIL-031)", amount: "₹1,200", status: "In Progress", time: "1h ago" },
-    { id: "TX-9078", customer: "Lakshmi M.", service: "Kitchen Sink Drain Unclog", pillar: "Ramesh P (PIL-055)", amount: "₹300", status: "Completed", time: "2h ago" },
-  ];
+  const { monthlyData, categoryDistribution, recentTransactions } = analytics;
+  const maxRevenue = monthlyData.length > 0 ? Math.max(...monthlyData.map(d => d.revenue)) : 1000;
 
   return (
     <div className="fade-in">
@@ -173,6 +188,7 @@ export default function AdminOverview() {
           value={stats.totalRevenue > 0 ? `₹${stats.totalRevenue.toLocaleString()}` : (isDemo ? "₹2,38,500" : "₹0")} 
           sub="+18.4% vs last month"
           color="var(--color-primary)" 
+          onClick={() => navigate("/admin/finance")}
         />
         <MetricCard 
           icon={<Users size={22} />} 
@@ -180,6 +196,7 @@ export default function AdminOverview() {
           value={stats.totalPillars > 0 ? stats.totalPillars : (isDemo ? "126" : "0")} 
           sub={`${stats.activePillars > 0 ? stats.activePillars : (isDemo ? "84" : "0")} Active On Duty`}
           color="var(--color-secondary)" 
+          onClick={() => navigate("/admin/pillars")}
         />
         <MetricCard 
           icon={<Activity size={22} />} 
@@ -187,6 +204,15 @@ export default function AdminOverview() {
           value={stats.activeRequests > 0 ? stats.activeRequests : (isDemo ? "18" : "0")} 
           sub="94.8% Dispatch SLA"
           color="#10B981" 
+          onClick={() => navigate("/admin/requests")}
+        />
+        <MetricCard 
+          icon={<UserCheck size={22} />} 
+          title="Registered Customers" 
+          value={stats.totalCustomers > 0 ? stats.totalCustomers : (isDemo ? "342" : "0")} 
+          sub="View customer directory →"
+          color="#8B5CF6" 
+          onClick={() => navigate("/admin/customers")}
         />
         <MetricCard 
           icon={<Star size={22} />} 
@@ -194,6 +220,7 @@ export default function AdminOverview() {
           value="4.92 ★" 
           sub="1,248 Verified Reviews"
           color="#F59E0B" 
+          onClick={() => navigate("/admin/feedback")}
         />
       </div>
 
@@ -316,28 +343,36 @@ export default function AdminOverview() {
               </tr>
             </thead>
             <tbody>
-              {recentTransactions.map((tx) => (
-                <tr key={tx.id} style={{ borderBottom: "1px solid var(--color-border)" }} className="hover-row">
-                  <td style={{ padding: "10px 14px", fontWeight: "700", color: "var(--color-primary)" }}>{tx.id}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: "600" }}>{tx.customer}</td>
-                  <td style={{ padding: "10px 14px" }}>{tx.service}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--color-secondary)", fontWeight: "600" }}>{tx.pillar}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: "700" }}>{tx.amount}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <span style={{
-                      padding: "2px 8px",
-                      borderRadius: "10px",
-                      fontSize: "0.75rem",
-                      fontWeight: "700",
-                      background: tx.status === "Completed" ? "var(--color-success-light)" : "rgba(59,130,246,0.15)",
-                      color: tx.status === "Completed" ? "var(--color-success)" : "#3B82F6"
-                    }}>
-                      {tx.status}
-                    </span>
+              {recentTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: "32px", textAlign: "center", color: "var(--color-text-secondary)" }}>
+                    No service transactions recorded yet in the live database. Live orders will populate automatically.
                   </td>
-                  <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-text-muted)", fontSize: "0.8rem" }}>{tx.time}</td>
                 </tr>
-              ))}
+              ) : (
+                recentTransactions.map((tx) => (
+                  <tr key={tx.id} style={{ borderBottom: "1px solid var(--color-border)" }} className="hover-row">
+                    <td style={{ padding: "10px 14px", fontWeight: "700", color: "var(--color-primary)" }}>{tx.id}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: "600" }}>{tx.customer}</td>
+                    <td style={{ padding: "10px 14px" }}>{tx.service}</td>
+                    <td style={{ padding: "10px 14px", color: "var(--color-secondary)", fontWeight: "600" }}>{tx.pillar}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: "700" }}>{tx.amount}</td>
+                    <td style={{ padding: "10px 14px" }}>
+                      <span style={{
+                        padding: "2px 8px",
+                        borderRadius: "10px",
+                        fontSize: "0.75rem",
+                        fontWeight: "700",
+                        background: (tx.status?.toLowerCase() === "completed" || tx.status === "Completed") ? "var(--color-success-light)" : "rgba(59,130,246,0.15)",
+                        color: (tx.status?.toLowerCase() === "completed" || tx.status === "Completed") ? "var(--color-success)" : "#3B82F6"
+                      }}>
+                        {tx.status?.replace('_', ' ')?.replace(/\b\w/g, c => c.toUpperCase())}
+                      </span>
+                    </td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-text-muted)", fontSize: "0.8rem" }}>{tx.time}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -346,10 +381,11 @@ export default function AdminOverview() {
   );
 }
 
-function MetricCard({ icon, title, value, sub, color }) {
+function MetricCard({ icon, title, value, sub, color, onClick }) {
   return (
     <div 
       className="admin-kpi-card"
+      onClick={onClick}
       style={{ 
         background: "var(--color-surface)", 
         padding: "var(--space-4)", 
@@ -358,7 +394,9 @@ function MetricCard({ icon, title, value, sub, color }) {
         display: "flex",
         alignItems: "center",
         gap: "var(--space-4)",
-        boxShadow: "var(--shadow-sm)"
+        boxShadow: "var(--shadow-sm)",
+        cursor: onClick ? "pointer" : "default",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease"
       }}
     >
       <div style={{ 

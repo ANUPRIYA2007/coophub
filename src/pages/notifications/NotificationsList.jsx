@@ -98,13 +98,19 @@ export default function NotificationsList() {
 
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
 
-        if (!isDemo) {
+        if (isDemo) {
+            const readIds = JSON.parse(localStorage.getItem('coophub_read_notifs') || '[]');
+            if (!readIds.includes(id)) readIds.push(id);
+            localStorage.setItem('coophub_read_notifs', JSON.stringify(readIds));
+        } else {
             try {
                 await supabase.from('notifications').update({ is_read: true }).eq('id', id);
             } catch (err) {
                 console.error('Failed to mark read', err);
             }
         }
+
+        window.dispatchEvent(new CustomEvent('coophub_notifications_updated'));
     };
 
     const handleNotificationClick = async (notif) => {

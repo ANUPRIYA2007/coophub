@@ -91,9 +91,12 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-navy-950 to-slate-900 px-4 py-8 text-white relative overflow-hidden">
+    <div 
+      className="min-h-screen flex items-center justify-center px-4 py-8 text-white relative overflow-hidden"
+      style={{ background: "linear-gradient(135deg, #050A12 0%, #162238 50%, #050A12 100%)" }}
+    >
       {/* Background ambient lighting */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-md w-full bg-navy-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative z-10">
@@ -103,7 +106,7 @@ export default function AdminLogin() {
           <Link to="/" className="inline-flex items-center gap-2 text-xs text-navy-300 hover:text-white transition-colors">
             <ArrowLeft size={14} /> Back to Portal Selection
           </Link>
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
             <Shield size={12} /> Cooperative Admin
           </span>
         </div>
@@ -135,7 +138,7 @@ export default function AdminLogin() {
             type="button"
             onClick={() => { setAuthMode('password'); setError(null); }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-              authMode === 'password' ? 'bg-amber-500 text-navy-950 shadow-md font-bold' : 'text-navy-300 hover:text-white'
+              authMode === 'password' ? 'bg-orange-500 text-navy-950 shadow-md font-bold' : 'text-navy-300 hover:text-white'
             }`}
           >
             Password Login
@@ -144,7 +147,7 @@ export default function AdminLogin() {
             type="button"
             onClick={() => { setAuthMode('otp'); setError(null); }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-              authMode === 'otp' ? 'bg-amber-500 text-navy-950 shadow-md font-bold' : 'text-navy-300 hover:text-white'
+              authMode === 'otp' ? 'bg-orange-500 text-navy-950 shadow-md font-bold' : 'text-navy-300 hover:text-white'
             }`}
           >
             Admin ID / OTP
@@ -166,7 +169,7 @@ export default function AdminLogin() {
                 value={adminId}
                 onChange={(e) => setAdminId(e.target.value)}
                 placeholder="e.g. admin@coophub.in or ADM-001"
-                className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 placeholder:text-navy-500 transition-all"
+                className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 placeholder:text-navy-500 transition-all"
                 required
               />
             </div>
@@ -184,7 +187,7 @@ export default function AdminLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 placeholder:text-navy-500 transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 placeholder:text-navy-500 transition-all"
                   required
                 />
               </div>
@@ -204,7 +207,7 @@ export default function AdminLogin() {
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   placeholder="Enter 6-digit PIN"
-                  className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white text-sm tracking-widest font-mono focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 placeholder:text-navy-500 transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white text-sm tracking-widest font-mono focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 placeholder:text-navy-500 transition-all"
                   required
                 />
               </div>
@@ -214,7 +217,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-navy-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-navy-950 font-bold text-sm shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50"
           >
             {loading
               ? 'Verifying Security Clearance...'
@@ -229,7 +232,7 @@ export default function AdminLogin() {
           <button
             type="button"
             onClick={handleDemoFill}
-            className="text-xs text-amber-400 hover:text-amber-300 font-medium transition-colors"
+            className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
           >
             ⚡ Quick-fill Demo Admin Credentials
           </button>

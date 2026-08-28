@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { emailService } from '../email/emailService';
 
 // Rich Demo Requests for Customer Demo Login mode
 const DEMO_REQUESTS = [
@@ -200,6 +201,19 @@ export const serviceRequestService = {
                 const existing = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
                 existing.unshift(demoItem);
                 localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(existing));
+
+                // Trigger confirmation email template
+                await emailService.sendServiceRequestConfirmationEmail({
+                    email: profile?.email || 'customer@coophub.in',
+                    customer_name: profile?.full_name || 'Valued Customer',
+                    service_name: requestData.service_name || 'Home Service',
+                    request_id: newId,
+                    service_date: requestData.preferred_date || new Date().toISOString().split('T')[0],
+                    service_time: requestData.preferred_time || '10:30 AM',
+                    service_location: [requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Guindy, Chennai',
+                    total_amount: requestData.total_amount || 450,
+                    request_status: 'Confirmed'
+                });
             } catch (e) { /* silent */ }
 
             return newId;
@@ -240,6 +254,28 @@ export const serviceRequestService = {
         if (error) {
             console.error('Request Creation Error:', error);
             throw new Error('Unable to create service request properly. Database constraint failure: ' + error.message);
+        }
+
+        // Trigger Service Request Confirmation Email with real data
+        try {
+            const loc = [requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ');
+            await emailService.sendServiceRequestConfirmationEmail({
+                email: user.email,
+                customer_name: profile?.full_name || user.email?.split('@')[0] || 'Customer',
+                service_name: requestData.service_name || 'Service Request',
+                request_id: data.id,
+                service_date: requestData.preferred_date || new Date().toLocaleDateString(),
+                service_time: requestData.preferred_time || (requestData.flexible_timing ? 'Flexible Timing' : 'Standard Slot'),
+                service_location: loc || 'Service Location',
+                total_amount: requestData.total_amount || requestData.estimated_price || '0',
+                request_status: 'Pending',
+                pillar_name: requestData.pillar_name || null,
+                pillar_id: requestData.pillar_id || null,
+                payment_status: requestData.payment_status || null,
+                invoice_number: null
+            });
+        } catch (mailErr) {
+            console.warn('Service request confirmation email notice:', mailErr);
         }
 
         return data.id;

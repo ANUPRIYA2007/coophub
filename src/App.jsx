@@ -36,6 +36,7 @@ import AdminServices from './modules/admin/pages/AdminServices';
 import AdminFeedback from './modules/admin/pages/AdminFeedback';
 import AdminFinance from './modules/admin/pages/AdminFinance';
 import AdminWelfare from './modules/admin/pages/AdminWelfare';
+import AdminCustomers from './modules/admin/pages/AdminCustomers';
 import AdminLogin from './modules/admin/pages/AdminLogin';
 
 // --- CUSTOMER PORTAL PAGES & AGENTS ---
@@ -121,6 +122,7 @@ export default function App() {
                     <Route path="/" element={<AdminOverview />} />
                     <Route path="/pillars" element={<PillarsList />} />
                     <Route path="/pillars/:pillarId" element={<PillarDetails />} />
+                    <Route path="/customers" element={<AdminCustomers />} />
                     <Route path="/services" element={<AdminServices />} />
                     <Route path="/requests" element={<AdminRequests />} />
                     <Route path="/tracking" element={<AdminTracking />} />

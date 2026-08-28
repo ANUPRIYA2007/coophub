@@ -266,6 +266,64 @@ export default function AdminSupport() {
               />
             </div>
 
+            {/* Disciplinary & Compliance Actions if ticket involves a Pillar */}
+            {selectedTicket.pillar_id && (
+              <div style={{ 
+                background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)", 
+                padding: "10px 14px", borderRadius: "var(--radius-md)", marginBottom: "var(--space-4)",
+                display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px"
+              }}>
+                <div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: "800", color: "#F59E0B", textTransform: "uppercase" }}>
+                    DISCIPLINARY ACTIONS (PILLAR COMPLIANCE)
+                  </div>
+                  <div style={{ fontSize: "0.82rem", color: "var(--color-text)" }}>
+                    Technician: <strong>{selectedTicket.pillar?.full_name || selectedTicket.pillar_name || "Assigned Pillar"}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const reason = prompt("Enter formal warning reason to dispatch to technician:", "Service complaint received from customer regarding quality standards.");
+                      if (reason) {
+                        setActionLoading(true);
+                        await adminService.issuePillarWarning(selectedTicket.pillar_id, {
+                          reason,
+                          severity: "Official Warning",
+                          ticketId: selectedTicket.id
+                        });
+                        alert("⚠️ Formal warning issued and dispatched to technician.");
+                        setActionLoading(false);
+                      }
+                    }}
+                    className="btn btn-sm"
+                    style={{ background: "rgba(245, 158, 11, 0.2)", color: "#F59E0B", border: "1px solid #F59E0B", fontSize: "0.75rem", fontWeight: "700" }}
+                  >
+                    ⚠️ Issue Formal Warning
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const reason = prompt("Enter temporary suspension justification:", "Multiple unresolved customer disputes under investigation.");
+                      if (reason) {
+                        setActionLoading(true);
+                        await adminService.suspendPillar(selectedTicket.pillar_id, reason);
+                        alert("🚫 Technician account has been suspended.");
+                        setActionLoading(false);
+                      }
+                    }}
+                    className="btn btn-sm"
+                    style={{ background: "rgba(239, 68, 68, 0.15)", color: "#EF4444", border: "1px solid #EF4444", fontSize: "0.75rem", fontWeight: "700" }}
+                  >
+                    🚫 Suspend Pillar
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-3)" }}>
               <button className="btn btn-outline" onClick={() => setSelectedTicket(null)}>
                 Cancel

@@ -6,5 +6,15 @@ export function useTranslation() {
   if (!context) {
     throw new Error("useTranslation must be used within a LanguageProvider");
   }
-  return context;
+  return {
+    t: context.t,
+    language: context.language,
+    changeLanguage: context.changeLanguage || context.setLanguage,
+    setLanguage: context.setLanguage || context.changeLanguage,
+    supportedLanguages: context.supportedLanguages,
+    languages: context.languages,
+    translations: context.translations
+  };
 }
+
+export default useTranslation;

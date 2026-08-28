@@ -22,15 +22,34 @@ export default function CustomerPortalLayout() {
     // Fetch unread notification count for header badge
     useEffect(() => {
         const fetchUnread = async () => {
+            const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
+            if (isDemo) {
+                const readIds = JSON.parse(localStorage.getItem('coophub_read_notifs') || '[]');
+                const unreadDemo = ['notif-1', 'notif-2'].filter(id => !readIds.includes(id)).length;
+                setUnreadCount(unreadDemo);
+                return;
+            }
+
             try {
-                const { count } = await supabase
+                const { count, error } = await supabase
                     .from('notifications')
                     .select('id', { count: 'exact', head: true })
                     .eq('is_read', false);
-                setUnreadCount(count || 0);
-            } catch (e) { /* silent */ }
+                if (!error && count !== null) {
+                    setUnreadCount(count);
+                } else {
+                    setUnreadCount(2); // fallback active alerts
+                }
+            } catch (e) {
+                setUnreadCount(2);
+            }
         };
+
         fetchUnread();
+
+        const handleNotifUpdate = () => fetchUnread();
+        window.addEventListener('coophub_notifications_updated', handleNotifUpdate);
+        return () => window.removeEventListener('coophub_notifications_updated', handleNotifUpdate);
     }, []);
 
     const customerName = profile?.full_name?.trim()?.split(' ')[0] || '';
@@ -70,7 +89,7 @@ export default function CustomerPortalLayout() {
                 <div className="flex items-center space-x-3 px-5 py-5 border-b border-navy-800">
                     <img src={coopHubLogo} alt="COOP HUB" className="w-9 h-auto" />
                     <GradientText
-                        colors={["#FF7A00","#FFFFFF","#FF7A00"]}
+                        colors={["#FF7900","#FFFFFF","#FF7900"]}
                         animationSpeed={8}
                         showBorder={false}
                         className="font-bold text-lg tracking-tight"

@@ -1,33 +1,33 @@
 :root {
   /* === COOP HUB Brand Colors === */
-  --color-primary: #050B14;
-  --color-primary-light: #0B1628;
-  --color-primary-dark: #020408;
-  --color-primary-rgb: 5, 11, 20;
+  --color-primary: #050A12;         /* Deep Dark - sidebars, headers, navigation areas */
+  --color-primary-light: #162238;   /* Primary Background - major dark surfaces */
+  --color-primary-dark: #020406;
+  --color-primary-rgb: 5, 10, 18;
 
-  --color-secondary: #FF7A00;
-  --color-secondary-light: #FF9D4D;
-  --color-secondary-dark: #E66E00;
-  --color-secondary-rgb: 255, 122, 0;
+  --color-secondary: #FF7900;       /* Primary Brand Orange */
+  --color-secondary-light: #FFA64D;
+  --color-secondary-dark: #E66A00;   /* Orange Hover */
+  --color-secondary-rgb: 255, 121, 0;
 
-  --color-accent: #00BCD4;
-  --color-accent-light: #4DD0E1;
-  --color-accent-dark: #0097A7;
+  --color-accent: #FF7900;
+  --color-accent-light: #FFA64D;
+  --color-accent-dark: #E66A00;
 
   /* === Semantic Colors === */
-  --color-background: #F5F7FA;
-  --color-surface: #FFFFFF;
+  --color-background: #F5F7FA;      /* Light Surface */
+  --color-surface: #FFFFFF;         /* White */
   --color-surface-hover: #F0F2F5;
   --color-surface-active: #E8EBF0;
 
-  --color-text: #050B14;
-  --color-text-secondary: #4A5568;
+  --color-text: #0B1220;            /* Primary Text */
+  --color-text-secondary: #64748B;  /* Secondary Text */
   --color-text-muted: #8896AB;
   --color-text-inverse: #FFFFFF;
 
-  --color-border: #E2E8F0;
+  --color-border: #D7DEE8;          /* Border */
   --color-border-light: #EDF2F7;
-  --color-border-focus: #FF7A00;
+  --color-border-focus: #FF7900;
 
   --color-success: #10B981;
   --color-success-bg: #ECFDF5;
@@ -84,7 +84,7 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  --shadow-glow: 0 0 20px rgba(245, 124, 32, 0.3);
+  --shadow-glow: 0 0 20px rgba(255, 121, 0, 0.3);
   --shadow-card: 0 2px 8px rgba(27, 42, 74, 0.06);
 
   /* === Transitions === */
@@ -104,23 +104,23 @@
 
 [data-theme="dark"] {
   /* === Dark Mode Semantic Colors === */
-  --color-background: #0B1120;
-  --color-surface: #1E293B;
-  --color-surface-hover: #334155;
-  --color-surface-active: #475569;
+  --color-background: #050A12;
+  --color-surface: #162238;
+  --color-surface-hover: #1F2E47;
+  --color-surface-active: #293C5A;
 
-  --color-text: #F8FAFC;
+  --color-text: #FFFFFF;
   --color-text-secondary: #CBD5E1;
   --color-text-muted: #94A3B8;
-  --color-text-inverse: #0F172A;
+  --color-text-inverse: #050A12;
 
   --color-border: #334155;
   --color-border-light: #1E293B;
-  --color-border-focus: #F57C20;
+  --color-border-focus: #FF7900;
 
-  --color-primary: #0F172A;
-  --color-primary-light: #1E293B;
-  --color-primary-dark: #020617;
+  --color-primary: #050A12;
+  --color-primary-light: #162238;
+  --color-primary-dark: #020406;
 
   --color-success-bg: rgba(16, 185, 129, 0.15);
   --color-warning-bg: rgba(245, 158, 11, 0.15);

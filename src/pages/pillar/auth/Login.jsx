@@ -18,6 +18,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [rejectedInfo, setRejectedInfo] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
   const handleInputChange = (e) => {
@@ -130,6 +131,14 @@ export default function Login() {
     setLoading(false);
 
     if (loginError) {
+      if (loginError.isRejected) {
+        setRejectedInfo({
+          reason: loginError.rejectionReason,
+          email: loginError.email || formData.pillarId
+        });
+      } else {
+        setRejectedInfo(null);
+      }
       setError(loginError.message || t("common.error"));
     } else if (user) {
       navigate("/dashboard");
@@ -140,6 +149,7 @@ export default function Login() {
     setStep("enter_id");
     setFormData({ ...formData, otp: "", password: "" });
     setError(null);
+    setRejectedInfo(null);
     setSuccessMsg(null);
   };
 
@@ -148,7 +158,7 @@ export default function Login() {
       style={{
         display: "flex",
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)",
+        background: "linear-gradient(135deg, #050A12 0%, #162238 50%, #050A12 100%)",
         alignItems: "stretch",
       }}
     >
@@ -237,8 +247,37 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Error Notification */}
-            {error && (
+            {/* Rejection Notification Card */}
+            {rejectedInfo ? (
+              <div
+                style={{
+                  background: "#FEF2F2",
+                  border: "1px solid #EF4444",
+                  borderRadius: "16px",
+                  padding: "18px 20px",
+                  marginBottom: "20px",
+                  animation: "slideInRight 0.2s ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#DC2626", fontWeight: "800", fontSize: "0.95rem", marginBottom: "6px" }}>
+                  <AlertCircle size={20} />
+                  <span>❌ Verification Rejected</span>
+                </div>
+                <div style={{ fontSize: "0.82rem", color: "#64748B", textTransform: "uppercase", fontWeight: "700", marginBottom: "2px" }}>
+                  Reason for rejection:
+                </div>
+                <div style={{ fontSize: "0.9rem", color: "#991B1B", fontWeight: "600", marginBottom: "14px", lineHeight: "1.5" }}>
+                  {rejectedInfo.reason || error}
+                </div>
+                <Link
+                  to={`/pillar/register?resubmit=true&email=${encodeURIComponent(rejectedInfo.email || formData.pillarId)}`}
+                  className="btn btn-primary"
+                  style={{ display: "block", textAlign: "center", background: "#FF7900", color: "white", padding: "10px 16px", fontSize: "0.85rem", fontWeight: "800", borderRadius: "8px", textDecoration: "none" }}
+                >
+                  REVIEW & RESUBMIT
+                </Link>
+              </div>
+            ) : error ? (
               <div
                 style={{
                   background: "var(--color-error-bg)",
@@ -258,7 +297,7 @@ export default function Login() {
                 <AlertCircle size={18} />
                 <span>{error}</span>
               </div>
-            )}
+            ) : null}
 
             {/* Success Notification */}
             {successMsg && (

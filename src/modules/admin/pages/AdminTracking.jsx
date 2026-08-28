@@ -7,6 +7,7 @@ export default function AdminTracking() {
   const [loading, setLoading] = useState(true);
   const [selectedPillar, setSelectedPillar] = useState(null);
   const [filterActiveOnly, setFilterActiveOnly] = useState(false);
+  const [viewMode, setViewMode] = useState("maps"); // 'maps' | 'radar'
 
   useEffect(() => {
     fetchTrackingData();
@@ -18,6 +19,9 @@ export default function AdminTracking() {
     setLoading(true);
     const data = await adminService.getPillarsLiveTracking();
     setPillars(data);
+    if (!selectedPillar && data && data.length > 0) {
+      setSelectedPillar(data[0]);
+    }
     setLoading(false);
   };
 
@@ -26,7 +30,7 @@ export default function AdminTracking() {
   return (
     <div className="fade-in">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-5)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-5)", flexWrap: "wrap", gap: "10px" }}>
         <div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: "800", color: "var(--color-text)", marginBottom: "var(--space-2)" }}>
             Live Pillar & Field Telemetry
@@ -35,7 +39,31 @@ export default function AdminTracking() {
             Real-time geospatial monitor and duty telemetry for all cooperative technicians.
           </p>
         </div>
-        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
+          {/* View Mode Toggle */}
+          <div style={{ display: "flex", background: "var(--color-surface)", padding: "3px", borderRadius: "20px", border: "1px solid var(--color-border)" }}>
+            <button
+              onClick={() => setViewMode("maps")}
+              style={{
+                padding: "4px 12px", borderRadius: "16px", border: "none", cursor: "pointer", fontSize: "0.78rem", fontWeight: "700",
+                background: viewMode === "maps" ? "var(--color-primary)" : "transparent",
+                color: viewMode === "maps" ? "white" : "var(--color-text-secondary)"
+              }}
+            >
+              🗺️ Google Maps
+            </button>
+            <button
+              onClick={() => setViewMode("radar")}
+              style={{
+                padding: "4px 12px", borderRadius: "16px", border: "none", cursor: "pointer", fontSize: "0.78rem", fontWeight: "700",
+                background: viewMode === "radar" ? "var(--color-primary)" : "transparent",
+                color: viewMode === "radar" ? "white" : "var(--color-text-secondary)"
+              }}
+            >
+              📡 Radar Live
+            </button>
+          </div>
+
           <button 
             onClick={() => setFilterActiveOnly(!filterActiveOnly)}
             className={`btn ${filterActiveOnly ? 'btn-primary' : 'btn-outline'}`}
@@ -57,7 +85,7 @@ export default function AdminTracking() {
       {/* Grid Layout: Map Simulation + Live Telemetry Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
         
-        {/* Visual Map Radar Simulation */}
+        {/* Visual Map / Radar Container */}
         <div style={{ 
           background: "var(--color-surface)", 
           borderRadius: "var(--radius-lg)", 
@@ -68,8 +96,9 @@ export default function AdminTracking() {
           flexDirection: "column"
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
-            <h3 style={{ fontSize: "1.05rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-              <Navigation size={18} color="var(--color-primary)" /> Chennai Metropolitan Hub
+            <h3 style={{ fontSize: "1.05rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+              <Navigation size={18} color="var(--color-primary)" /> 
+              {selectedPillar ? `${selectedPillar.full_name} (${selectedPillar.service_area || 'Chennai Hub'})` : "Chennai Metropolitan Hub"}
             </h3>
             <span style={{ 
               fontSize: "0.75rem", 
@@ -87,81 +116,105 @@ export default function AdminTracking() {
             </span>
           </div>
 
-          {/* Interactive Radar Visual */}
-          <div style={{ 
-            height: "360px", 
-            borderRadius: "var(--radius-md)", 
-            background: "radial-gradient(circle at center, rgba(14, 34, 61, 0.9) 0%, rgba(7, 18, 33, 0.98) 100%)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}>
-            {/* Concentric Radar Rings */}
-            <div style={{ position: "absolute", width: "100px", height: "100px", borderRadius: "50%", border: "1px dashed rgba(245, 124, 32, 0.4)" }} />
-            <div style={{ position: "absolute", width: "220px", height: "220px", borderRadius: "50%", border: "1px solid rgba(255, 255, 255, 0.1)" }} />
-            <div style={{ position: "absolute", width: "320px", height: "320px", borderRadius: "50%", border: "1px solid rgba(255, 255, 255, 0.05)" }} />
-
-            {/* Radar Center Hub */}
+          {/* Interactive Google Map vs Radar Visual */}
+          {viewMode === "maps" ? (
+            <div style={{ height: "360px", borderRadius: "var(--radius-md)", overflow: "hidden", border: "1px solid var(--color-border)" }}>
+              <iframe 
+                title="Google Maps Live Tracking"
+                width="100%" 
+                height="100%" 
+                style={{ border: 0 }} 
+                loading="lazy" 
+                allowFullScreen 
+                src={`https://maps.google.com/maps?q=${encodeURIComponent((selectedPillar?.service_area || 'Guindy, Chennai') + ', Tamil Nadu')}&t=&z=14&ie=UTF8&iwloc=&output=embed`} 
+              />
+            </div>
+          ) : (
             <div style={{ 
-              width: "14px", height: "14px", borderRadius: "50%", background: "var(--color-secondary)", 
-              boxShadow: "0 0 16px var(--color-secondary)", zIndex: 2 
-            }} title="Cooperative HQ - Guindy Hub" />
-            <span style={{ position: "absolute", top: "54%", fontSize: "10px", color: "rgba(255,255,255,0.6)", fontWeight: "600" }}>
-              HQ Center (Guindy)
-            </span>
+              height: "360px", 
+              borderRadius: "var(--radius-md)", 
+              background: "radial-gradient(circle at center, rgba(14, 34, 61, 0.9) 0%, rgba(7, 18, 33, 0.98) 100%)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              position: "relative",
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}>
+              {/* Concentric Radar Rings */}
+              <div style={{ position: "absolute", width: "100px", height: "100px", borderRadius: "50%", border: "1px dashed rgba(245, 124, 32, 0.4)" }} />
+              <div style={{ position: "absolute", width: "220px", height: "220px", borderRadius: "50%", border: "1px solid rgba(255, 255, 255, 0.1)" }} />
+              <div style={{ position: "absolute", width: "320px", height: "320px", borderRadius: "50%", border: "1px solid rgba(255, 255, 255, 0.05)" }} />
 
-            {/* Pillar Geolocation Pins Simulation */}
-            {displayedPillars.map((p, index) => {
-              const angles = [30, 85, 140, 210, 270, 320];
-              const radii = [60, 110, 80, 130, 95, 120];
-              const angle = (angles[index % angles.length] * Math.PI) / 180;
-              const radius = radii[index % radii.length];
-              const x = Math.cos(angle) * radius;
-              const y = Math.sin(angle) * radius;
+              {/* Radar Center Hub */}
+              <div style={{ 
+                width: "14px", height: "14px", borderRadius: "50%", background: "var(--color-secondary)", 
+                boxShadow: "0 0 16px var(--color-secondary)", zIndex: 2 
+              }} title="Cooperative HQ - Guindy Hub" />
+              <span style={{ position: "absolute", top: "54%", fontSize: "10px", color: "rgba(255,255,255,0.6)", fontWeight: "600" }}>
+                HQ Center (Guindy)
+              </span>
 
-              const isSelected = selectedPillar?.id === p.id;
+              {/* Pillar Geolocation Pins */}
+              {displayedPillars.map((p, index) => {
+                const angles = [30, 85, 140, 210, 270, 320];
+                const radii = [60, 110, 80, 130, 95, 120];
+                const angle = (angles[index % angles.length] * Math.PI) / 180;
+                const radius = radii[index % radii.length];
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
 
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => setSelectedPillar(p)}
-                  style={{
-                    position: "absolute",
-                    transform: `translate(${x}px, ${y}px)`,
-                    cursor: "pointer",
-                    zIndex: isSelected ? 10 : 3,
-                    transition: "transform 0.3s ease"
-                  }}
-                  title={`${p.full_name} (${p.pillar_code || 'Pillar'})`}
-                >
-                  <div style={{
-                    width: isSelected ? "24px" : "16px",
-                    height: isSelected ? "24px" : "16px",
-                    borderRadius: "50%",
-                    background: p.is_available ? "#10B981" : "#F59E0B",
-                    border: "2px solid white",
-                    boxShadow: isSelected ? "0 0 12px #3B82F6" : "0 2px 6px rgba(0,0,0,0.5)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "8px",
-                    color: "white",
-                    fontWeight: "bold"
-                  }}>
-                    {p.full_name?.charAt(0) || "P"}
+                const isSelected = selectedPillar?.id === p.id;
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setSelectedPillar(p)}
+                    style={{
+                      position: "absolute",
+                      transform: `translate(${x}px, ${y}px)`,
+                      cursor: "pointer",
+                      zIndex: isSelected ? 10 : 3,
+                      transition: "transform 0.3s ease"
+                    }}
+                    title={`${p.full_name} (${p.pillar_code || 'Pillar'})`}
+                  >
+                    <div style={{
+                      width: isSelected ? "24px" : "16px",
+                      height: isSelected ? "24px" : "16px",
+                      borderRadius: "50%",
+                      background: p.is_available ? "#10B981" : "#F59E0B",
+                      border: "2px solid white",
+                      boxShadow: isSelected ? "0 0 12px #3B82F6" : "0 2px 6px rgba(0,0,0,0.5)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "8px",
+                      color: "white",
+                      fontWeight: "bold"
+                    }}>
+                      {p.full_name?.charAt(0) || "P"}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
-          <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>
+          <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>
             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10B981" }}></span> Available ({pillars.filter(p => p.is_available).length})
             </span>
+            {selectedPillar && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((selectedPillar.service_area || selectedPillar.full_name) + ' Chennai')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--color-primary)", fontWeight: "700", textDecoration: "none", fontSize: "0.78rem" }}
+              >
+                📍 Open {selectedPillar.full_name} in Google Maps ↗
+              </a>
+            )}
             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#F59E0B" }}></span> Busy / On Job ({pillars.filter(p => !p.is_available).length})
             </span>

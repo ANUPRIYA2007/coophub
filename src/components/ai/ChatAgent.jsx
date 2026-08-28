@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { supabase } from '../../lib/supabase';
-import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX, ArrowRight } from 'lucide-react';
+import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 export default function ChatAgent({ contextData }) {
     const { t, language } = useTranslation();
@@ -22,17 +22,21 @@ export default function ChatAgent({ contextData }) {
     useEffect(() => {
         const handleOpen = () => setIsOpen(true);
         window.addEventListener('open-customer-chat', handleOpen);
-        return () => window.removeEventListener('open-customer-chat', handleOpen);
+        window.addEventListener('open-chat-agent', handleOpen);
+        return () => {
+            window.removeEventListener('open-customer-chat', handleOpen);
+            window.removeEventListener('open-chat-agent', handleOpen);
+        };
     }, []);
 
     // Initial greeting based on language
     useEffect(() => {
         const greetings = {
-            ta: 'வணக்கம்! நான் உங்கள் CoopBot AI உதவியாளர். சேவைகளைத் தேட, உங்கள் கோரிக்கைகளைக் கண்காணிக்க அல்லது உதவி பெற என்னிடம் கேட்கலாம்.',
-            hi: 'नमस्ते! मैं आपका CoopBot AI सहायक हूँ। सेवाएं खोजने, अनुरोध ट्रैक करने या सहायता के लिए मुझसे पूछें।',
-            te: 'నమస్కారం! నేను మీ CoopBot AI సహాయకుడిని. సేవలను శోధించడానికి లేదా మీ అభ్యర్థనలను ట్రాక్ చేయడానికి నన్ను అడగండి.',
-            kn: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ CoopBot AI ಸಹಾಯಕ. ಸೇವೆಗಳನ್ನು ಹುಡುಕಲು ಅಥವಾ ನಿಮ್ಮ ವಿನಂತಿಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ನನ್ನನ್ನು ಕೇಳಿ.',
-            en: 'Hello! I am CoopBot, your 24/7 AI Customer Assistant. Ask me about booking home services, tracking requests, pricing, or support.'
+            ta: 'வணக்கம்! நான் உங்கள் CoopBot AI உதவியாளர். சேவைகளை முன்பதிவு செய்ய, பில்லர் சரிபார்ப்பு அல்லது உங்கள் கோரிக்கைகளைக் கண்காணிக்க என்னிடம் கேட்கலாம்.',
+            hi: 'नमस्ते! मैं आपका CoopBot AI सहायक हूँ। सेवाएं बुक करने, पिलर सत्यापन या अनुरोध ट्रैक करने के लिए मुझसे पूछें।',
+            te: 'నమస్కారం! నేను మీ CoopBot AI సహాయకుడిని. సేవలను బుక్ చేయడానికి లేదా మీ అభ్యర్థనలను ట్రాక్ చేయడానికి నన్ను అడగండి.',
+            kn: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ CoopBot AI ಸಹಾಯಕ. ಸೇವೆಗಳನ್ನು ಕಾಯ್ದಿರಿಸಲು ಅಥವಾ ನಿಮ್ಮ ವಿನಂತಿಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ನನ್ನನ್ನು ಕೇಳಿ.',
+            en: 'Hello! I am CoopBot, your 24/7 AI Assistant. Ask me about booking verified home services, tracking requests, pricing, or technician verification.'
         };
 
         setMessages([
@@ -65,7 +69,7 @@ export default function ChatAgent({ contextData }) {
         }
 
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
+        const utterance = new SpeechSynthesisUtterance(text.replace(/[#*`_]/g, ''));
         const langCodeMap = {
             ta: 'ta-IN',
             hi: 'hi-IN',
@@ -126,110 +130,78 @@ export default function ChatAgent({ contextData }) {
         }
     };
 
-    // ────── LOCAL CUSTOMER INTENT ROUTER ──────
-    // Handles common customer queries locally with rich answers.
-    // Only falls back to the backend /api/ai/chat for unrecognized queries.
+    // ────── LOCAL CUSTOMER & PILLAR INTENT ROUTER ──────
     const routeCustomerIntent = (text) => {
         const q = text.toLowerCase();
 
-        // 1. Check Track / status / request first to avoid collisions
+        // 1. Pillar Verification & Onboarding inquiries
+        if (q.includes('become a pillar') || q.includes('join as technician') || q.includes('pillar registration') || q.includes('pillar verify') || q.includes('verification process')) {
+            return {
+                reply: '🏛️ **How to Become a Verified COOP HUB Pillar**:\n\n1️⃣ **Register Online** at `/pillar/register`\n2️⃣ **Select Your Trade Skills** (Electrician, Plumber, AC Repair, etc.)\n3️⃣ **Step 3 KYC Verification**: Upload your Aadhaar, PAN, Voter ID, or Driving Licence\n4️⃣ **PaddleOCR Inspection & Admin Approval**: Once verified, you will receive your Unique Pillar ID (`PIL-CHE-XXX`) via official email\n\nWould you like to open the Pillar Registration portal?',
+                action: { type: 'navigate', path: '/pillar/register', label: 'Go to Pillar Registration' }
+            };
+        }
+
+        // 2. Check Track / status / request
         if (q.includes('track') || q.includes('status') || q.includes('request') || q.includes('order') || q.includes('where') || q.includes('eta') || q.includes('pillar coming')) {
             return {
-                reply: '📦 To track your active request:\n\n1️⃣ Go to **My Requests** in the sidebar\n2️⃣ Click on any active request card\n3️⃣ View real-time GPS tracking, Pillar ETA, and live status updates\n\n📋 Your active request **#REQ-8942** (Electrical Repair) — Pillar Raj Kumar is en route (ETA ~8 mins).\n\nWould you like me to take you to the tracking page?',
+                reply: '📦 **Track Your Service Request**:\n\n1️⃣ Go to **My Requests** in your navigation\n2️⃣ Select your active booking\n3️⃣ View live technician dispatch status, ETA, and arrival OTP\n\nWould you like me to take you to your active requests?',
                 action: { type: 'navigate', path: '/requests', label: 'View My Requests' }
             };
         }
 
-        // 2. Check Support / help / ticket
+        // 3. Check Support / help / ticket
         if (q.includes('support') || q.includes('help') || q.includes('ticket') || q.includes('complaint') || q.includes('issue') || q.includes('problem with service')) {
             return {
-                reply: '🆘 Need help? Here\'s what you can do:\n\n1️⃣ **Browse FAQ** — Common answers at /support\n2️⃣ **Open a Support Ticket** — Describe your issue and our team responds within 2 hours\n3️⃣ **Chat with me** — I\'m here 24/7!\n\n👉 Go to **Help & Support** in the sidebar to get started.',
+                reply: '🆘 **COOP HUB Support Center**:\n\n• **24/7 Helpline**: Dedicated customer assistance\n• **Open a Support Ticket**: Guaranteed resolution within 2 hours\n• **Dispute Resolution**: Direct cooperative mediation for quality assurance\n\nGo to **Help & Support** in the menu to submit a ticket.',
                 action: { type: 'navigate', path: '/support', label: 'Go to Support Center' }
             };
         }
 
-        // 3. Check Payment / invoice / pricing / cost
-        if (q.includes('price') || q.includes('cost') || q.includes('charge') || q.includes('payment') || q.includes('invoice') || q.includes('pay') || q.includes('amount') || q.includes('how much')) {
+        // 4. Check Payment / pricing / cost
+        if (q.includes('price') || q.includes('cost') || q.includes('charge') || q.includes('payment') || q.includes('invoice') || q.includes('pay') || q.includes('how much')) {
             return {
-                reply: '💰 **Pricing & Payments**:\n\n• Base service charges start from ₹250–₹2,500 depending on the service\n• Any extra charges require your explicit approval before the Pillar proceeds\n• Invoices are auto-generated after service completion\n• Payments: UPI, Cash, or Card at doorstep\n\n📄 View past invoices in **My Requests** → Click any completed request → Invoice tab.',
+                reply: '💰 **Cooperative Pricing & Standard Rates**:\n\n• **Transparent Base Rates**: Starting from ₹250–₹2,500 based on standard trade rate cards\n• **Zero Hidden Fees**: All extra materials require your explicit OTP/in-app approval\n• **Safe Payment Options**: UPI, Doorstep Cash, or Card post-completion\n• **Official GST Invoices**: Auto-generated in your dashboard.',
                 action: null
             };
         }
 
-        // 4. Service-related queries with strict word-boundary matching for "ac" to avoid matching "track"/"package"
+        // 5. Plumbing
         if (q.includes('water') || q.includes('leak') || q.includes('plumb') || q.includes('pipe') || q.includes('tap') || q.includes('drainage')) {
             return {
                 reply: language === 'ta'
-                    ? '💧 நீர் கசிவு / பிளம்பிங் சிக்கலா? நான் உதவுகிறேன்!\n\n👉 "Find Services" → "Plumbing & Pipe Fixing" என்பதைத் தேர்ந்தெடுக்கவும்.\n\n🔧 சேவைகள்:\n• குழாய் கசிவு சரிசெய்தல் — ₹250 முதல்\n• டேப் மாற்றுதல் — ₹250 முதல்\n• டிரைனேஜ் அடைப்பு நீக்கம் — ₹400 முதல்\n\nஇப்போது முன்பதிவு செய்ய கீழே உள்ள "Book Plumbing Service" பொத்தானை அழுத்தவும்!'
-                    : '💧 Water leakage / plumbing issue? I can help!\n\n👉 Go to **Find Services** → **Plumbing & Pipe Fixing**\n\n🔧 Available services:\n• Tap & Mixer Replacement — from ₹250\n• Water Leakage & Clog Removal — from ₹400\n• Motor & Pump Installation — from ₹600\n\nWould you like me to navigate you to the booking page?',
+                    ? '💧 நீர் கசிவு / பிளம்பிங் சிக்கலா? நான் உதவுகிறேன்!\n\n👉 "Find Services" → "Plumbing & Pipe Fixing" என்பதைத் தேர்ந்தெடுக்கவும்.\n\n🔧 சேவைகள்:\n• குழாய் கசிவு சரிசெய்தல் — ₹250 முதல்\n• டேப் மாற்றுதல் — ₹250 முதல்\n• மோட்டார் பழுது — ₹600 முதல்\n\nமுன்பதிவு செய்ய கீழே உள்ள பொத்தானை அழுத்தவும்!'
+                    : '💧 **Plumbing & Pipe Repair**:\n\n• Tap & Mixer Replacement — from ₹250\n• Water Leakage & Clog Removal — from ₹400\n• Motor & Pump Installation — from ₹600\n\nAll technicians are background-verified and certified.',
                 action: { type: 'navigate', path: '/services', label: 'Book Plumbing Service' }
             };
         }
 
+        // 6. Electrical
         if (q.includes('electric') || q.includes('fan') || q.includes('switch') || q.includes('wiring') || q.includes('mcb') || q.includes('inverter') || q.includes('short circuit')) {
             return {
-                reply: '⚡ Electrical issue? Here\'s what we offer:\n\n🔧 **Electrical Repair** services:\n• Ceiling Fan & Switchboard Wiring — from ₹350\n• MCB Trip & Short Circuit Inspection — from ₹450\n• Inverter & Battery Setup — from ₹800\n\n👉 Go to **Find Services** → **Electrical Repair** to book instantly.\n\nYour nearest verified Pillar technician will be assigned within minutes!',
+                reply: '⚡ **Electrical Repair & Maintenance**:\n\n• Ceiling Fan & Switchboard Wiring — from ₹350\n• MCB Tripping & Short Circuit Inspection — from ₹450\n• Inverter & Battery Wiring — from ₹800\n\nNearest verified electrician will be assigned upon booking.',
                 action: { type: 'navigate', path: '/services', label: 'Book Electrical Service' }
             };
         }
 
-        // Use regex test with word boundaries for \bac\b to avoid matching "track", "package"
+        // 7. AC Repair
         if (/\bac\b/.test(q) || q.includes('air condition') || q.includes('cooling') || q.includes('gas') || q.includes('compressor')) {
             return {
-                reply: '❄️ AC trouble? We\'ve got you covered!\n\n🔧 **AC Repair & Service**:\n• AC Jet Cleaning & Filter Wash — from ₹600\n• AC Gas Leak Refill & Check — from ₹1,800\n• PCB Board & Compressor Service — from ₹2,500\n\n👉 Go to **Find Services** → **AC Repair & Service**\n\nAll our Pillar technicians are certified and background-verified!',
+                reply: '❄️ **AC Repair & Deep Cleaning**:\n\n• Jet Pump Cleaning & Filter Wash — from ₹600\n• Gas Leak Check & Refill — from ₹1,800\n• Compressor & PCB Diagnostics — from ₹2,500\n\nIncludes 30-day cooperative service warranty.',
                 action: { type: 'navigate', path: '/services', label: 'Book AC Service' }
             };
         }
 
-        if (q.includes('paint') || q.includes('polish') || q.includes('wall') || q.includes('waterproof')) {
-            return {
-                reply: '🎨 Home painting or polish work?\n\n🔧 **House Painting & Polish**:\n• Single Room Wall Painting & Primer — from ₹2,400\n• Wood Furniture Polish — from ₹1,200\n• Exterior Waterproofing — from ₹3,500\n\n👉 Go to **Find Services** → **House Painting & Polish**',
-                action: { type: 'navigate', path: '/services', label: 'Book Painting Service' }
-            };
-        }
-
-        if (q.includes('washing machine') || q.includes('fridge') || q.includes('refrigerator') || q.includes('microwave') || q.includes('appliance') || q.includes('purifier')) {
-            return {
-                reply: '🧺 Appliance issue? We repair all major brands!\n\n🔧 **Appliance Repair**:\n• Washing Machine Drum & Motor — from ₹650\n• Refrigerator Gas & Thermostat — from ₹800\n• Microwave & Oven Repair — from ₹500\n• RO Water Purifier Service — from ₹350\n\n👉 Go to **Find Services** → **Appliance Repair**',
-                action: { type: 'navigate', path: '/services', label: 'Book Appliance Repair' }
-            };
-        }
-
-        // Greeting
-        if (q.includes('hello') || q.includes('hi') || q.includes('hey') || q.includes('good morning') || q.includes('good evening') || q.includes('vanakkam') || q.includes('namaste')) {
+        // 8. Greetings
+        if (q.includes('hello') || q.includes('hi') || q.includes('hey') || q.includes('vanakkam') || q.includes('namaste')) {
             return {
                 reply: language === 'ta'
-                    ? 'வணக்கம்! 🙏 நான் CoopBot, உங்கள் 24/7 AI உதவியாளர். வீட்டு சேவைகளை முன்பதிவு செய்ய, கோரிக்கைகளைக் கண்காணிக்க அல்லது ஏதேனும் உதவி பெற என்னிடம் கேளுங்கள்!'
-                    : 'Hello! 👋 I\'m CoopBot, your 24/7 AI assistant. I can help you:\n\n• 🔍 Find & book home services\n• 📦 Track your service requests\n• 💬 Chat with your assigned Pillar\n• 🆘 Create support tickets\n\nWhat would you like to do today?',
+                    ? 'வணக்கம்! 🙏 நான் CoopBot, உங்கள் 24/7 AI உதவியாளர். வீட்டு சேவைகளை முன்பதிவு செய்ய அல்லது சந்தேகங்களுக்கு உதவ நான் தயாராக உள்ளேன்!'
+                    : 'Hello! 👋 I am CoopBot, your COOP HUB AI Guide. I can help you find verified technicians, track requests, calculate pricing, or guide Pillar verification.',
                 action: null
             };
         }
 
-        // Thank you
-        if (q.includes('thank') || q.includes('thanks') || q.includes('nandri') || q.includes('dhanyavad')) {
-            return {
-                reply: 'You\'re welcome! 😊 I\'m always here to help. If you need anything else, just ask!',
-                action: null
-            };
-        }
-
-        // Cancel
-        if (q.includes('cancel') || q.includes('refund')) {
-            return {
-                reply: '❌ **Cancellation & Refund**:\n\n• You can cancel a pending request from **My Requests** → Click the request → Cancel\n• Cancellation before Pillar dispatch: Full refund\n• Cancellation after Pillar en route: ₹50 convenience fee may apply\n• Refunds are processed within 3-5 business days\n\nNeed help cancelling a specific request?',
-                action: { type: 'navigate', path: '/requests', label: 'View My Requests' }
-            };
-        }
-
-        // OTP / arrival
-        if (q.includes('otp') || q.includes('arrival') || q.includes('verify') || q.includes('pin')) {
-            return {
-                reply: '🔐 **Arrival OTP Verification**:\n\nWhen your Pillar technician arrives at your doorstep, they will ask for a 6-digit OTP.\n\n📱 Find your OTP in:\n• **My Requests** → Click the active request → "Arrival OTP" section\n• Push notification on your phone\n\nThis ensures only verified Pillars can begin work at your location.',
-                action: null
-            };
-        }
-
-        // Fallback: no match
         return null;
     };
 
@@ -262,8 +234,7 @@ export default function ChatAgent({ contextData }) {
                     action: localResult.action,
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 };
-                // Simulate a brief "thinking" delay for natural feel
-                await new Promise(r => setTimeout(r, 600));
+                await new Promise(r => setTimeout(r, 500));
                 setMessages(prev => [...prev, botReply]);
                 return;
             }
@@ -305,15 +276,14 @@ export default function ChatAgent({ contextData }) {
             }
         } catch (err) {
             console.error('Chat error:', err);
-            // Friendly fallback instead of error
             setMessages(prev => [
                 ...prev,
                 {
                     id: `err-${Date.now()}`,
                     role: 'assistant',
                     content: language === 'ta'
-                        ? 'நான் உங்களுக்கு உதவ இங்கே இருக்கிறேன்! நீங்கள் கேட்பதை வேறு வகையில் சொல்ல முடியுமா? அல்லது மேலே உள்ள விரைவு பொத்தான்களை முயற்சிக்கவும்.'
-                        : 'I\'m here to help! Try asking about:\n• 🔍 "Find plumbing service"\n• 📦 "Track my request"\n• ⚡ "Book electrical repair"\n• 🆘 "Open support ticket"\n\nOr tap the quick action buttons above!',
+                        ? 'நான் உங்களுக்கு உதவ இங்கே இருக்கிறேன்! நீங்கள் கேட்கும் கேள்வியை வேறு விதமாக கூற முடியுமா? அல்லது மேலே உள்ள விரைவு பொத்தான்களைப் பயன்படுத்தவும்.'
+                        : 'I\'m here to help! You can ask about:\n• ⚡ "Book Electrical Service"\n• 💧 "Fix plumbing leak"\n• 📦 "Track my request"\n• 🏛️ "How to become a Pillar technician"\n\nOr click one of the quick options above!',
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 }
             ]);
@@ -322,24 +292,55 @@ export default function ChatAgent({ contextData }) {
         }
     };
 
-    // Quick action chips for customer
+    // Quick action chips
     const quickChips = [
-        { label: '🛠️ Find Services', query: 'What services are available in COOP HUB?' },
-        { label: '📦 My Bookings', query: 'Can you check my active service requests?' },
-        { label: '📍 Live Tracking', query: 'How do I track my assigned technician?' },
-        { label: '❓ Customer Support', query: 'How can I create a support ticket?' }
+        { label: '⚡ Electrician', query: 'I need to book an electrician' },
+        { label: '💧 Plumbing', query: 'I need plumbing repair service' },
+        { label: '📦 Track Request', query: 'How do I track my active booking?' },
+        { label: '🏛️ Become a Pillar', query: 'How to become a verified Pillar technician?' }
     ];
 
     return (
         <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
             <div className="absolute bottom-6 right-6 pointer-events-auto flex flex-col items-end">
-                {/* ─── CHAT DRAWER MODAL ─── */}
+                {/* ─── CHAT MODAL ─── */}
                 {isOpen && (
-                    <div className="w-[340px] sm:w-[400px] bg-white shadow-2xl rounded-3xl border border-navy-100 flex flex-col overflow-hidden mb-4 animate-fade-in-up transition-all duration-200">
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-navy-900 via-navy-800 to-navy-900 text-white p-4 flex justify-between items-center border-b border-navy-700/50">
+                    <div 
+                        style={{
+                            width: "360px",
+                            maxWidth: "calc(100vw - 32px)",
+                            background: "#FFFFFF",
+                            boxShadow: "0 25px 50px -12px rgba(5, 10, 18, 0.45)",
+                            borderRadius: "24px",
+                            border: "1px solid rgba(22, 34, 56, 0.15)",
+                            overflow: "hidden",
+                            marginBottom: "16px",
+                            display: "flex",
+                            flexDirection: "column"
+                        }}
+                        className="animate-fade-in-up transition-all duration-200"
+                    >
+                        {/* Header styled with Deep Navy #050A12 & Orange Highlights */}
+                        <div 
+                            style={{
+                                background: "linear-gradient(135deg, #050A12 0%, #162238 100%)",
+                                color: "white",
+                                padding: "16px",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                borderBottom: "1px solid rgba(255, 121, 0, 0.2)"
+                            }}
+                        >
                             <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center p-0.5 shadow-md">
+                                <div 
+                                    style={{
+                                        width: "40px", height: "40px", borderRadius: "50%",
+                                        background: "linear-gradient(135deg, #FF7900 0%, #E66A00 100%)",
+                                        padding: "2px", display: "flex", alignItems: "center", justifyContent: "center",
+                                        boxShadow: "0 4px 12px rgba(255, 121, 0, 0.3)"
+                                    }}
+                                >
                                     <img
                                         src="/assets/images/mascot-hero.png"
                                         alt="CoopBot"
@@ -353,10 +354,10 @@ export default function ChatAgent({ contextData }) {
                                 </div>
                                 <div>
                                     <div className="flex items-center space-x-2">
-                                        <span className="font-bold text-sm tracking-wide">CoopBot Assistant</span>
-                                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                                        <span className="font-bold text-sm text-white">CoopBot Assistant</span>
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                                     </div>
-                                    <p className="text-[11px] text-navy-300 font-medium">Customer AI Intelligence</p>
+                                    <p className="text-[11px] text-slate-300 font-medium">COOP HUB 24/7 AI Guide</p>
                                 </div>
                             </div>
                             <button
@@ -372,12 +373,36 @@ export default function ChatAgent({ contextData }) {
                         </div>
 
                         {/* Quick Chips Bar */}
-                        <div className="bg-navy-50/70 border-b border-navy-100 px-3 py-2 flex gap-1.5 overflow-x-auto scrollbar-none">
+                        <div 
+                            style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}
+                            className="px-3 py-2 flex gap-1.5 overflow-x-auto scrollbar-none"
+                        >
                             {quickChips.map((chip, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => handleSend(null, chip.query)}
-                                    className="whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-full bg-white border border-navy-200/80 text-navy-700 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all shadow-xs shrink-0"
+                                    style={{
+                                        fontSize: "11.5px",
+                                        fontWeight: "700",
+                                        padding: "5px 12px",
+                                        borderRadius: "9999px",
+                                        background: "white",
+                                        border: "1px solid #CBD5E1",
+                                        color: "#0F172A",
+                                        whiteSpace: "nowrap",
+                                        cursor: "pointer",
+                                        transition: "all 0.2s"
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = "#FF7900";
+                                        e.currentTarget.style.color = "#FFFFFF";
+                                        e.currentTarget.style.borderColor = "#FF7900";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = "white";
+                                        e.currentTarget.style.color = "#0F172A";
+                                        e.currentTarget.style.borderColor = "#CBD5E1";
+                                    }}
                                 >
                                     {chip.label}
                                 </button>
@@ -385,31 +410,53 @@ export default function ChatAgent({ contextData }) {
                         </div>
 
                         {/* Messages Feed */}
-                        <div className="flex-1 p-4 overflow-y-auto max-h-[380px] min-h-[280px] space-y-3.5 bg-slate-50/50">
+                        <div className="flex-1 p-4 overflow-y-auto max-h-[380px] min-h-[280px] space-y-3.5 bg-slate-50/60">
                             {messages.map((msg) => (
                                 <div
                                     key={msg.id}
                                     className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                                 >
                                     <div
-                                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                                            msg.role === 'user'
-                                                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-br-none shadow-md shadow-orange-500/15 font-medium'
-                                                : 'bg-white border border-navy-100 text-navy-800 rounded-bl-none shadow-sm'
-                                        }`}
+                                        style={{
+                                            maxWidth: "85%",
+                                            borderRadius: "16px",
+                                            padding: "10px 14px",
+                                            fontSize: "13px",
+                                            lineHeight: "1.5",
+                                            background: msg.role === 'user' ? "linear-gradient(135deg, #FF7900 0%, #E66A00 100%)" : "#FFFFFF",
+                                            color: msg.role === 'user' ? "#FFFFFF" : "#0B1220",
+                                            border: msg.role === 'user' ? "none" : "1px solid #E2E8F0",
+                                            borderBottomRightRadius: msg.role === 'user' ? "4px" : "16px",
+                                            borderBottomLeftRadius: msg.role === 'user' ? "16px" : "4px",
+                                            boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
+                                        }}
                                     >
-                                        <p className="whitespace-pre-line">{msg.content}</p>
+                                        <p className="whitespace-pre-line m-0 font-medium">{msg.content}</p>
                                         
                                         {msg.action && (
-                                            <div className="mt-3 pt-2.5 border-t border-navy-100/50">
+                                            <div className="mt-3 pt-2 border-t border-slate-200">
                                                 <button
                                                     onClick={() => {
                                                         if (msg.action.type === 'navigate') {
-                                                            setIsOpen(false); // close chat window
+                                                            setIsOpen(false);
                                                             navigate(msg.action.path);
                                                         }
                                                     }}
-                                                    className="w-full flex items-center justify-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-bold rounded-xl shadow-sm hover:from-orange-600 hover:to-orange-700 active:scale-[0.98] transition-all"
+                                                    style={{
+                                                        width: "100%",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        gap: "6px",
+                                                        background: "#FF7900",
+                                                        color: "white",
+                                                        padding: "8px 12px",
+                                                        fontSize: "12px",
+                                                        fontWeight: "800",
+                                                        borderRadius: "10px",
+                                                        border: "none",
+                                                        cursor: "pointer"
+                                                    }}
                                                 >
                                                     <span>{msg.action.label}</span>
                                                     <ArrowRight size={13} />
@@ -420,14 +467,14 @@ export default function ChatAgent({ contextData }) {
 
                                     {/* Footer / TTS Action */}
                                     <div className="flex items-center space-x-2 mt-1 px-1">
-                                        <span className="text-[10px] text-navy-400 font-medium">{msg.timestamp}</span>
+                                        <span className="text-[10px] text-slate-400 font-medium">{msg.timestamp}</span>
                                         {msg.role === 'assistant' && (
                                             <button
                                                 onClick={() => speakText(msg.content, msg.id)}
                                                 className={`p-1 rounded-full transition-colors ${
                                                     speakingMsgId === msg.id
                                                         ? 'text-orange-500 bg-orange-50 animate-pulse'
-                                                        : 'text-navy-400 hover:text-orange-500'
+                                                        : 'text-slate-400 hover:text-orange-500'
                                                 }`}
                                                 title={speakingMsgId === msg.id ? 'Stop Voice' : 'Read Aloud'}
                                             >
@@ -440,20 +487,20 @@ export default function ChatAgent({ contextData }) {
 
                             {loading && (
                                 <div className="flex justify-start">
-                                    <div className="bg-white border border-navy-100 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center space-x-1.5">
-                                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
-                                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
-                                        <div className="w-2 h-2 bg-navy-700 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
-                                        <span className="text-xs text-navy-400 font-medium ml-2">CoopBot thinking...</span>
+                                    <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center space-x-2">
+                                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" />
+                                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                                        <div className="w-2 h-2 bg-navy-800 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                                        <span className="text-xs text-slate-500 font-medium ml-2">CoopBot thinking...</span>
                                     </div>
                                 </div>
                             )}
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input Box with STT Voice & Send */}
-                        <div className="p-3 bg-white border-t border-navy-100">
-                            <form onSubmit={handleSend} className="flex relative items-center bg-navy-50/70 rounded-full border border-navy-200 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 transition-all">
+                        {/* Input Box */}
+                        <div className="p-3 bg-white border-t border-slate-200">
+                            <form onSubmit={handleSend} className="flex relative items-center bg-slate-50 rounded-full border border-slate-300 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 transition-all">
                                 <input
                                     type="text"
                                     value={input}
@@ -463,9 +510,9 @@ export default function ChatAgent({ contextData }) {
                                             ? 'Listening... Speak now...'
                                             : language === 'ta'
                                             ? 'சேவைகள் அல்லது கேள்விகளைக் கேட்கவும்...'
-                                            : 'Ask about any service or booking...'
+                                            : 'Ask about any service, tracking, or pricing...'
                                     }
-                                    className="flex-1 bg-transparent py-2.5 pl-4 pr-20 text-sm text-navy-800 focus:outline-none placeholder:text-navy-400"
+                                    className="flex-1 bg-transparent py-2.5 pl-4 pr-20 text-sm text-slate-800 focus:outline-none placeholder:text-slate-400"
                                 />
 
                                 <div className="absolute right-1.5 flex items-center space-x-1">
@@ -476,7 +523,7 @@ export default function ChatAgent({ contextData }) {
                                         className={`p-2 rounded-full transition-all ${
                                             isListening
                                                 ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-500/30'
-                                                : 'text-navy-500 hover:text-orange-500 hover:bg-orange-50'
+                                                : 'text-slate-500 hover:text-orange-500 hover:bg-orange-50'
                                         }`}
                                         title={isListening ? 'Listening active...' : 'Speak via Microphone'}
                                     >
@@ -487,7 +534,8 @@ export default function ChatAgent({ contextData }) {
                                     <button
                                         type="submit"
                                         disabled={!input.trim() || loading}
-                                        className="p-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md hover:shadow-orange-500/30 transition-all"
+                                        style={{ background: "#FF7900" }}
+                                        className="p-2 rounded-full text-white disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-md hover:shadow-orange-500/30 transition-all"
                                     >
                                         <Send size={15} />
                                     </button>
@@ -502,16 +550,22 @@ export default function ChatAgent({ contextData }) {
                     <div className="flex items-center space-x-3">
                         <div
                             onClick={() => setIsOpen(true)}
-                            className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-full shadow-xl shadow-navy-900/10 border border-navy-200/80 cursor-pointer flex items-center space-x-2 text-xs font-bold text-navy-800 hover:text-orange-600 hover:border-orange-400 transition-all hover:scale-105"
+                            style={{ background: "rgba(255, 255, 255, 0.95)", border: "1px solid rgba(22, 34, 56, 0.15)" }}
+                            className="backdrop-blur-md px-4 py-2 rounded-full shadow-xl cursor-pointer flex items-center space-x-2 text-xs font-bold text-slate-800 hover:text-orange-600 hover:border-orange-400 transition-all hover:scale-105"
                         >
-                            <Sparkles size={15} className="text-orange-500" />
+                            <Sparkles size={15} color="#FF7900" />
                             <span>Ask CoopBot AI</span>
                         </div>
 
                         <button
                             onClick={() => setIsOpen(true)}
-                            className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 via-orange-600 to-navy-900 p-0.5 shadow-2xl shadow-orange-500/30 hover:scale-110 active:scale-95 transition-all text-white border-2 border-white overflow-hidden flex items-center justify-center group"
-                            title="Open Customer AI Assistant"
+                            style={{
+                                background: "linear-gradient(135deg, #FF7900 0%, #050A12 100%)",
+                                border: "2px solid white",
+                                boxShadow: "0 8px 24px rgba(255, 121, 0, 0.35)"
+                            }}
+                            className="w-14 h-14 rounded-full p-0.5 hover:scale-110 active:scale-95 transition-all text-white overflow-hidden flex items-center justify-center group"
+                            title="Open AI Assistant"
                         >
                             <img
                                 src="/assets/images/mascot-hero.png"

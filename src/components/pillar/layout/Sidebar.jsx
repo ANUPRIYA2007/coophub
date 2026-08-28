@@ -24,7 +24,8 @@ import {
   Mic,
   MicOff,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  HeartHandshake
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
@@ -90,6 +91,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     "/dashboard/chat": { emoji: "💬", mood: "helpful", greeting: `Need to reach a customer? I'll help!` },
     "/dashboard/profile": { emoji: "🛡️", mood: "happy", greeting: `Your profile looks great, ${userName}!` },
     "/dashboard/settings": { emoji: "⚙️", mood: "helpful", greeting: `What would you like to customize?` },
+    "/dashboard/welfare": { emoji: "🛡️", mood: "excited", greeting: `Checking your PF balance & insurance shield, ${userName}!` },
     "/dashboard/support": { emoji: "🆘", mood: "helpful", greeting: `I'm here to help with any issues!` },
     "/dashboard/notifications": { emoji: "🔔", mood: "excited", greeting: `Let me check your notifications...` },
   };
@@ -387,6 +389,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { name: t("nav.orders"), path: "/dashboard/orders", icon: ClipboardList },
     { name: t("nav.earnings"), path: "/dashboard/earnings", icon: Wallet },
     { name: t("nav.history"), path: "/dashboard/history", icon: Clock },
+    { name: t("nav.welfare") || "Welfare & Insurance", path: "/dashboard/welfare", icon: HeartHandshake },
     { name: t("nav.chat"), path: "/dashboard/chat", icon: MessageSquare },
   ];
 
@@ -447,7 +450,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <img src="/assets/images/coophub-logo.jpg" alt="Logo" style={{ height: "32px", borderRadius: "4px" }} />
             <GradientText
-              colors={["#FF7A00","#FFFFFF","#FF7A00"]}
+              colors={["#FF7900","#FFFFFF","#FF7900"]}
               animationSpeed={8}
               showBorder={false}
               className="font-bold text-white"
@@ -459,6 +462,13 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           <button className="btn-icon hide-on-desktop" onClick={toggleSidebar} style={{ color: "white" }}>
             <X size={24} />
           </button>
+        </div>
+
+        {/* Portal Label */}
+        <div style={{ padding: "10px var(--space-4)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ fontWeight: "bold", color: "var(--color-secondary)", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "monospace" }}>
+            PILLAR PORTAL
+          </div>
         </div>
 
         {/* Profile Summary with Pillar ID */}

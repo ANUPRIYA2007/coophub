@@ -33,7 +33,10 @@ export default function ForgotPassword() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-8">
+        <div 
+            className="min-h-screen flex items-center justify-center px-4 py-8"
+            style={{ background: "linear-gradient(135deg, #050A12 0%, #162238 50%, #050A12 100%)" }}
+        >
             <div className="card max-w-md w-full p-8 shadow-xl shadow-navy-900/5 text-center">
 
                 <img src={coopHubLogo} alt="COOP HUB" className="w-20 h-auto mx-auto mb-6" />

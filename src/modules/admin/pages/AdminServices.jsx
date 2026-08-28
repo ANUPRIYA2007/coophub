@@ -1,15 +1,16 @@
 import React, { useState } from "react";
+import { idGenerator } from "../../../utils/idGenerator";
 import { Wrench, Plus, Search, CheckCircle, Edit, Trash2, Tag, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
 
 export default function AdminServices() {
   const [services, setServices] = useState([
-    { id: "s-1", name: "Ceiling Fan Installation & Repair", category: "Electrician", base_price: 350, standard_time: "45 mins", active: true, pillars_assigned: 14 },
-    { id: "s-2", name: "Switchboard & Wiring Troubleshooting", category: "Electrician", base_price: 450, standard_time: "60 mins", active: true, pillars_assigned: 18 },
-    { id: "s-3", name: "Pipe Leakage & Tap Replacement", category: "Plumber", base_price: 300, standard_time: "30 mins", active: true, pillars_assigned: 12 },
-    { id: "s-4", name: "Water Tank Cleaning & Motor Check", category: "Plumber", base_price: 850, standard_time: "90 mins", active: true, pillars_assigned: 9 },
-    { id: "s-5", name: "Air Conditioner Deep Gas Refill & Service", category: "Appliance", base_price: 1200, standard_time: "75 mins", active: true, pillars_assigned: 15 },
-    { id: "s-6", name: "Washing Machine Drum & Motor Diagnostic", category: "Appliance", base_price: 650, standard_time: "60 mins", active: true, pillars_assigned: 11 },
-    { id: "s-7", name: "Full Home Deep Sanitization", category: "Cleaning", base_price: 1800, standard_time: "180 mins", active: false, pillars_assigned: 6 },
+    { id: "SRV-ELEC-101", service_code: "SRV-ELEC-101", name: "Ceiling Fan Installation & Repair", category: "Electrician", base_price: 350, standard_time: "45 mins", active: true, pillars_assigned: 14 },
+    { id: "SRV-ELEC-102", service_code: "SRV-ELEC-102", name: "Switchboard & Wiring Troubleshooting", category: "Electrician", base_price: 450, standard_time: "60 mins", active: true, pillars_assigned: 18 },
+    { id: "SRV-PLUM-201", service_code: "SRV-PLUM-201", name: "Pipe Leakage & Tap Replacement", category: "Plumber", base_price: 300, standard_time: "30 mins", active: true, pillars_assigned: 12 },
+    { id: "SRV-PLUM-202", service_code: "SRV-PLUM-202", name: "Water Tank Cleaning & Motor Check", category: "Plumber", base_price: 850, standard_time: "90 mins", active: true, pillars_assigned: 9 },
+    { id: "SRV-ACRP-301", service_code: "SRV-ACRP-301", name: "Air Conditioner Deep Gas Refill & Service", category: "Appliance", base_price: 1200, standard_time: "75 mins", active: true, pillars_assigned: 15 },
+    { id: "SRV-APPL-302", service_code: "SRV-APPL-302", name: "Washing Machine Drum & Motor Diagnostic", category: "Appliance", base_price: 650, standard_time: "60 mins", active: true, pillars_assigned: 11 },
+    { id: "SRV-CLEN-401", service_code: "SRV-CLEN-401", name: "Full Home Deep Sanitization", category: "Cleaning", base_price: 1800, standard_time: "180 mins", active: false, pillars_assigned: 6 },
   ]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,8 +25,10 @@ export default function AdminServices() {
   const handleAddService = (e) => {
     e.preventDefault();
     if (!newService.name.trim() || !newService.base_price) return;
+    const realServiceCode = idGenerator.generateServiceCode(newService.category, services);
     const created = {
-      id: `s-${Date.now()}`,
+      id: realServiceCode,
+      service_code: realServiceCode,
       name: newService.name,
       category: newService.category,
       base_price: Number(newService.base_price),

@@ -237,6 +237,69 @@ export const settingsAgent = {
   },
 };
 
+// ─── WELFARE & INSURANCE AGENT ─────────────────────────────
+export const welfareAgent = {
+  async handle(query, { session, language = "en" }) {
+    const pillarId = session?.user?.id;
+    const userName = session?.user?.user_metadata?.full_name || "Pillar";
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true" || localStorage.getItem("coophub_demo_pillar") === "true";
+    let dataContext = "";
+
+    if (isDemo) {
+      // DEMO MODE CONTEXT
+      dataContext = `Technician: ${userName} (Demo Account). PF Balance: ₹48,500. Total PF Contributions: ₹54,000 (Worker Share: ₹27,000, Coop Match: ₹27,000). Last PF Deposit: 2 days ago. Group Insurance: Active (COOP HUB Suraksha Group Shield). Coverage: ₹5,00,000. Monthly Premium: ₹500. Policy Expiry: 2026-12-31. Nominee: Radha Senthil (Spouse). Claims: 1 approved claim for ₹15,000. Available Govt Schemes: TNUWWB (Manual Workers Board), PMJJBY (Life ₹2L at ₹436/yr), PMSBY (Accident ₹2L at ₹20/yr), PM-SYM (Pension ₹3k/mo), Ayushman Bharat PM-JAY (Health ₹5L/yr).`;
+    } else {
+      // REAL PRODUCTION MODE: STRICTLY REAL DATA ONLY
+      try {
+        // 1. Fetch Real PF Record
+        const { data: pfAccount } = await supabase
+          .from("pf_accounts")
+          .select("current_balance, total_contributions, last_contribution_at, account_status, pillar_contribution_total, coop_contribution_total")
+          .eq("pillar_id", pillarId)
+          .maybeSingle();
+
+        const pfInfo = pfAccount
+          ? `PF Balance: ₹${Number(pfAccount.current_balance || 0).toLocaleString('en-IN')}, Total Contributions: ₹${Number(pfAccount.total_contributions || 0).toLocaleString('en-IN')} (Worker Share: ₹${Number(pfAccount.pillar_contribution_total || 0).toLocaleString('en-IN')}, Coop Match: ₹${Number(pfAccount.coop_contribution_total || 0).toLocaleString('en-IN')}), Last Deposit: ${pfAccount.last_contribution_at ? new Date(pfAccount.last_contribution_at).toLocaleDateString() : 'None'}`
+          : "PF Balance: Not available yet (No PF account record found on file).";
+
+        // 2. Fetch Real Insurance Record
+        const { data: insMember } = await supabase
+          .from("insurance_members")
+          .select("coverage_amount, monthly_premium, start_date, expiry_date, nominee_name, nominee_relation, status, member_id")
+          .eq("pillar_id", pillarId)
+          .maybeSingle();
+
+        const insInfo = insMember
+          ? `Insurance: ${insMember.status}, Member ID: ${insMember.member_id}, Coverage: ₹${Number(insMember.coverage_amount || 0).toLocaleString('en-IN')}, Monthly Premium: ₹${Number(insMember.monthly_premium || 0)}, Policy Period: ${insMember.start_date} to ${insMember.expiry_date}, Nominee: ${insMember.nominee_name || 'Not provided'} (${insMember.nominee_relation || 'Dependent'})`
+          : "Insurance: No active insurance policy found on file for this technician.";
+
+        // 3. Fetch Real Claims
+        const { data: claims } = await supabase
+          .from("insurance_claims")
+          .select("claim_code, claim_type, claim_amount, status, rejection_reason")
+          .eq("pillar_id", pillarId)
+          .order("submitted_date", { ascending: false })
+          .limit(3);
+
+        const claimsInfo = (claims && claims.length > 0)
+          ? `Claims: ${claims.map(c => `${c.claim_code}: ${c.claim_type} for ₹${Number(c.claim_amount || 0).toLocaleString('en-IN')} (${c.status})${c.rejection_reason ? ` [Rejection Reason: ${c.rejection_reason}]` : ''}`).join("; ")}`
+          : "Claims: No insurance claims found on record.";
+
+        dataContext = `Technician: ${userName}. Real Production Account. ${pfInfo}. ${insInfo}. ${claimsInfo}. Available Govt Schemes: TNUWWB, PMJJBY, PMSBY, PM-SYM, Ayushman Bharat PM-JAY.`;
+      } catch (err) {
+        dataContext = `Technician: ${userName}. Real Production Account. Database records are currently being updated. No mock data should be displayed.`;
+      }
+    }
+
+    return getLiveAiReply({
+      prompt: `${query}. LIVE WELFARE CONTEXT: ${dataContext}. Answer the technician's question concisely in 1-2 sentences using ONLY the real facts provided. If information is not available/found, clearly state that it is not available yet rather than inventing any mock numbers.`,
+      language,
+      route: "/dashboard/welfare",
+      fallback: "You can review your PF balance, group insurance, claims, and welfare schemes in the Welfare & Insurance tab.",
+    });
+  },
+};
+
 // ─── NAVIGATION AGENT ───────────────────────────────────────
 export const navigationAgent = {
   async handle(route, language = "en", session) {

@@ -115,7 +115,10 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-navy-50 via-white to-orange-50/40 px-4 py-8 relative">
+        <div 
+            className="min-h-screen flex items-center justify-center px-4 py-8 relative"
+            style={{ background: "linear-gradient(135deg, #050A12 0%, #162238 50%, #050A12 100%)" }}
+        >
 
             {/* Top Navigation & Language Selector */}
             <div className="absolute top-4 left-4 z-10">

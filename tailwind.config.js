@@ -20,10 +20,10 @@ export default {
                     400: '#64748b',
                     500: '#1e293b',
                     600: '#111827',
-                    700: '#0f172a',
-                    800: '#0B1628',
-                    900: '#050B14',
-                    950: '#020408',
+                    700: '#162238',
+                    800: '#162238',
+                    900: '#050A12',
+                    950: '#020406',
                 },
                 // Accent — Orange (from logo)
                 orange: {
@@ -32,8 +32,8 @@ export default {
                     200: '#fdd8a8',
                     300: '#fbc071',
                     400: '#f9a03c',
-                    500: '#FF7A00',
-                    600: '#E66E00',
+                    500: '#FF7900',
+                    600: '#E66A00',
                     700: '#b8520b',
                     800: '#934110',
                     900: '#783711',
@@ -41,7 +41,7 @@ export default {
                 },
                 // Neutrals for backgrounds, borders, muted text
                 surface: '#F5F7FA',
-                border: '#E2E8F0',
+                border: '#D7DEE8',
                 muted: '#64748B',
             },
             borderRadius: {

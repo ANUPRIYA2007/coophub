@@ -1,66 +1,74 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { LANGUAGES } from '../constants';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { unifiedTranslations, getTranslation, SUPPORTED_LANGUAGES, LANGUAGES_MAP } from '../i18n/unifiedTranslations';
 
-const LanguageContext = createContext(null);
+export const LanguageContext = createContext(null);
 
-// Import translations
-import en from '../i18n/en.json';
-import ta from '../i18n/ta.json';
-import hi from '../i18n/hi.json';
-import te from '../i18n/te.json';
-import kn from '../i18n/kn.json';
-
-const translations = { en, ta, hi, te, kn };
+const LANGUAGE_STORAGE_KEY_1 = 'coophub_language';
+const LANGUAGE_STORAGE_KEY_2 = 'preferred_language';
 
 export function LanguageProvider({ children }) {
-    // Load from local storage or default to 'en'
-    const [language, setLanguage] = useState(() => {
-        const saved = localStorage.getItem('preferred_language');
-        return saved && LANGUAGES[saved] ? saved : 'en';
+    const [language, setLanguageState] = useState(() => {
+        const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY_1) || localStorage.getItem(LANGUAGE_STORAGE_KEY_2);
+        return saved && unifiedTranslations[saved] ? saved : 'en';
     });
 
+    const setLanguage = useCallback((newLang) => {
+        if (!newLang || !unifiedTranslations[newLang]) return;
+        
+        setLanguageState(newLang);
+        localStorage.setItem(LANGUAGE_STORAGE_KEY_1, newLang);
+        localStorage.setItem(LANGUAGE_STORAGE_KEY_2, newLang);
+        document.documentElement.lang = newLang;
+
+        // Broadcast cross-component synchronization event
+        window.dispatchEvent(new CustomEvent('coophub_language_changed', {
+            detail: { language: newLang }
+        }));
+    }, []);
+
+    // Sync across tabs & window event listeners
     useEffect(() => {
-        localStorage.setItem('preferred_language', language);
+        localStorage.setItem(LANGUAGE_STORAGE_KEY_1, language);
+        localStorage.setItem(LANGUAGE_STORAGE_KEY_2, language);
         document.documentElement.lang = language;
+
+        const handleSync = (e) => {
+            if (e.detail?.language && e.detail.language !== language && unifiedTranslations[e.detail.language]) {
+                setLanguageState(e.detail.language);
+            }
+        };
+
+        const handleStorage = (e) => {
+            if ((e.key === LANGUAGE_STORAGE_KEY_1 || e.key === LANGUAGE_STORAGE_KEY_2) && e.newValue) {
+                if (unifiedTranslations[e.newValue] && e.newValue !== language) {
+                    setLanguageState(e.newValue);
+                }
+            }
+        };
+
+        window.addEventListener('coophub_language_changed', handleSync);
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            window.removeEventListener('coophub_language_changed', handleSync);
+            window.removeEventListener('storage', handleStorage);
+        };
     }, [language]);
 
-    const t = (keyStr, params) => {
-        const keys = keyStr.split('.');
-        let result = translations[language];
-
-        for (const key of keys) {
-            if (result && result[key]) {
-                result = result[key];
-            } else {
-                // Fallback to English if key missing in current language
-                let fallback = translations['en'];
-                for (const k of keys) {
-                    if (fallback && fallback[k]) {
-                        fallback = fallback[k];
-                    } else {
-                        return keyStr; // Return key path if not found in fallback either
-                    }
-                }
-                result = fallback;
-                break;
-            }
-        }
-
-        // Replace dynamic variables if params object is provided
-        if (typeof result === 'string' && params) {
-            let finalStr = result;
-            Object.keys(params).forEach(paramName => {
-                finalStr = finalStr.replace(`{{${paramName}}}`, params[paramName]);
-                finalStr = finalStr.replace(`{${paramName}}`, params[paramName]);
-            });
-            return finalStr;
-        }
-
-        return result;
-    };
+    const t = useCallback((key, params) => {
+        return getTranslation(language, key, params);
+    }, [language]);
 
     return (
-        <LanguageContext.Provider value={{ language, setLanguage, t, languages: LANGUAGES }}>
+        <LanguageContext.Provider value={{
+            language,
+            setLanguage,
+            changeLanguage: setLanguage,
+            t,
+            languages: LANGUAGES_MAP,
+            supportedLanguages: SUPPORTED_LANGUAGES,
+            translations: unifiedTranslations[language]
+        }}>
             {children}
         </LanguageContext.Provider>
     );
@@ -73,3 +81,5 @@ export function useLanguage() {
     }
     return context;
 }
+
+export default LanguageContext;

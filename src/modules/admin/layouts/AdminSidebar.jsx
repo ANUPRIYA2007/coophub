@@ -28,7 +28,8 @@ import {
   MicOff,
   ChevronUp,
   ChevronDown,
-  Shield
+  Shield,
+  UserCheck
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
@@ -400,20 +401,21 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   };
 
   const navItems = [
-    { name: "Overview", path: "/admin", icon: LayoutDashboard },
-    { name: "Pillars", path: "/admin/pillars", icon: Users },
-    { name: "Services", path: "/admin/services", icon: Wrench },
-    { name: "Service Requests", path: "/admin/requests", icon: ClipboardList },
-    { name: "Live Tracking", path: "/admin/tracking", icon: Clock },
-    { name: "Financials & Payouts", path: "/admin/finance", icon: Wallet },
-    { name: "Customer Feedback", path: "/admin/feedback", icon: Star },
-    { name: "Broadcast Messages", path: "/admin/messages", icon: MessageSquare },
+    { name: t("admin.overview") || "Overview", path: "/admin", icon: LayoutDashboard },
+    { name: t("admin.pillars") || "Pillars", path: "/admin/pillars", icon: Users },
+    { name: t("admin.customers") || "Customers", path: "/admin/customers", icon: UserCheck },
+    { name: t("admin.services") || "Services", path: "/admin/services", icon: Wrench },
+    { name: t("admin.requests") || "Service Requests", path: "/admin/requests", icon: ClipboardList },
+    { name: t("admin.tracking") || "Live Tracking", path: "/admin/tracking", icon: Clock },
+    { name: t("admin.finance") || "Financials & Payouts", path: "/admin/finance", icon: Wallet },
+    { name: t("admin.feedback") || "Customer Feedback", path: "/admin/feedback", icon: Star },
+    { name: t("admin.messages") || "Broadcast Messages", path: "/admin/messages", icon: MessageSquare },
   ];
 
   const bottomNavItems = [
-    { name: "Support", path: "/admin/support", icon: HelpCircle },
-    { name: "Welfare & PF", path: "/admin/welfare", icon: Shield },
-    { name: "Settings", path: "/admin/settings", icon: Settings },
+    { name: t("admin.support") || "Support", path: "/admin/support", icon: HelpCircle },
+    { name: t("admin.welfare") || "Welfare & PF", path: "/admin/welfare", icon: Shield },
+    { name: t("admin.settings") || "Settings", path: "/admin/settings", icon: Settings },
   ];
 
   const handleLogout = async () => {
@@ -467,7 +469,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <img src="/assets/images/coophub-logo.jpg" alt="Logo" style={{ height: "32px", borderRadius: "4px" }} />
             <GradientText
-              colors={["#FF7A00","#FFFFFF","#FF7A00"]}
+              colors={["#FF7900","#FFFFFF","#FF7900"]}
               animationSpeed={8}
               showBorder={false}
               className="font-bold text-white"
@@ -481,6 +483,13 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           </button>
         </div>
 
+        {/* Portal Label */}
+        <div style={{ padding: "10px var(--space-4)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ fontWeight: "bold", color: "var(--color-secondary)", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "monospace" }}>
+            {t("admin.portal_label") || "ADMIN PORTAL"}
+          </div>
+        </div>
+
         {/* Profile Summary with Pillar ID */}
         <div style={{ padding: "var(--space-5) var(--space-4)", display: "flex", alignItems: "center", gap: "var(--space-3)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ 
@@ -489,14 +498,14 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             alignItems: "center", justifyContent: "center",
             fontWeight: "bold", fontSize: "1.2rem", flexShrink: 0
           }}>
-            {profile?.full_name?.charAt(0) || "S"}
+            {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "A"}
           </div>
           <div style={{ overflow: "hidden" }}>
             <div style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "14.5px" }}>
-              Cooperative Admin
+              {profile?.full_name || (user ? user.email?.split('@')[0] : (t("admin.cooperative_admin") || "Cooperative Admin"))}
             </div>
             <div style={{ fontSize: "11px", color: "var(--color-secondary)", fontWeight: "600", letterSpacing: "0.5px", marginTop: "1px" }}>
-              ID: ADMIN-001
+              {profile?.admin_code ? `ID: ${profile.admin_code}` : user?.id ? `ID: ADM-${user.id.slice(0, 6).toUpperCase()}` : "ID: ADMIN-001"}
             </div>
             <div style={{ marginTop: "4px" }}>
               <button
@@ -518,7 +527,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                 title="Click to toggle Admin Online / Offline status"
               >
                 <span className={`status-dot ${isOnline ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-                <span>{isOnline ? "Available (Online)" : "Offline (Paused)"}</span>
+                <span>{isOnline ? (t("admin.available_online") || "Available (Online)") : (t("admin.offline_paused") || "Offline (Paused)")}</span>
               </button>
             </div>
           </div>
@@ -545,7 +554,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           </ul>
 
           <div style={{ margin: "var(--space-4) var(--space-4) var(--space-2)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.5, fontWeight: "bold", fontFamily: "Geist Mono, monospace" }}>
-            Settings & Help
+            {t("admin.settings_group") || "Settings & Help"}
           </div>
 
           <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-4)" }}>

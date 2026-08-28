@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
-import { Sparkles, Bot, AlertCircle, CheckCircle2, MessageSquare, Send } from "lucide-react";
+import { Sparkles, Bot, AlertCircle, CheckCircle2, MessageSquare, Send, ShieldCheck, FileText, Lock } from "lucide-react";
 import { aiService } from "../../../services/pillar/aiService";
 
 export default function HeroInteractiveAgent({
@@ -9,6 +9,7 @@ export default function HeroInteractiveAgent({
   formError = null,
   formSuccess = false,
   mode = "login", // 'login' | 'register'
+  customData = null,
   onAskHero = null,
 }) {
   const { t, language } = useTranslation();
@@ -26,11 +27,15 @@ export default function HeroInteractiveAgent({
     return () => clearTimeout(timer);
   }, [mode]);
 
-  // Reactive state changes based on real user actions
+  // Reactive state changes based on real user actions and newly added steps
   useEffect(() => {
     if (formSuccess) {
       setHeroState("success");
-      setHeroMessage(language === "ta" ? "அருமை! படிவம் வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது!" : "Awesome! Your submission is successful!");
+      setHeroMessage(
+        language === "ta" 
+          ? "அருமை! உங்கள் ஆவணங்கள் சரிபார்ப்புக்கு வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது!" 
+          : "Awesome! Your registration and ID document are submitted for PaddleOCR verification!"
+      );
       return;
     }
 
@@ -45,31 +50,67 @@ export default function HeroInteractiveAgent({
       switch (activeField) {
         case "identifier":
         case "email":
-          setHeroMessage(language === "ta" 
-            ? "உங்கள் சரியான மின்னஞ்சல் அல்லது மொபைல் எண்ணை உள்ளிடவும். நான் உங்களுக்கு வழிகாட்டுகிறேன்!"
-            : "Enter your registered email or mobile number. I'll help you sign in!");
+          setHeroMessage(
+            language === "ta" 
+              ? "உங்கள் சரியான மின்னஞ்சல் அல்லது பதிவு செய்த பில்லர் ஐடியை உள்ளிடவும்!"
+              : "Enter your registered email or Unique Pillar ID. I'll guide your sign-in!"
+          );
+          break;
+        case "pillarId":
+          setHeroMessage(
+            language === "ta"
+              ? "நிர்வாகத்தால் ஒதுக்கப்பட்ட உங்கள் பில்லர் ஐடியை (எ.கா. PIL-CHE-042) உள்ளிடவும்."
+              : "Enter your unique Pillar ID (e.g. PIL-CHE-042) or mobile number to receive an OTP."
+          );
           break;
         case "password":
-          setHeroMessage(language === "ta"
-            ? "குறைந்தது 8 எழுத்துக்கள் கொண்ட பாதுகாப்பான கடவுச்சொல்லை உள்ளிடவும்."
-            : "Make sure your password is at least 8 characters long with numbers and letters.");
+          setHeroMessage(
+            language === "ta"
+              ? "குறைந்தது 8 எழுத்துக்கள் கொண்ட பாதுகாப்பான கடவுச்சொல்லை உள்ளிடவும்."
+              : "Make sure your password is at least 8 characters long with numbers and letters."
+          );
           break;
         case "otp":
-          setHeroMessage(language === "ta"
-            ? "உங்கள் மொபைலுக்கு அனுப்பப்பட்ட 6 இலக்க OTP எண்ணை உள்ளிடவும்."
-            : "Enter the 6-digit OTP code sent to your phone via SMS.");
+          setHeroMessage(
+            language === "ta"
+              ? "உங்கள் மொபைலுக்கு அனுப்பப்பட்ட 6 இலக்க OTP எண்ணை உள்ளிடவும்."
+              : "Enter the 6-digit OTP code sent to your phone via SMS."
+          );
           break;
         case "fullName":
-          setHeroMessage("Enter your full legal name as it appears on your ID documents.");
+          setHeroMessage(
+            language === "ta"
+              ? "உங்கள் அரசு அடையாள அட்டையில் உள்ளவாறு முழு சட்டப்பூர்வ பெயரை உள்ளிடவும்."
+              : "Enter your full legal name exactly as it appears on your Government ID."
+          );
           break;
         case "mainServices":
-          setHeroMessage("Select your primary professional trade (e.g. Electrician, Plumber, AC Repair).");
+          setHeroMessage(
+            language === "ta"
+              ? "உங்கள் முதன்மை தொழில் பிரிவைத் தேர்ந்தெடுக்கவும் (மின்சார வல்லுநர், பிளம்பர், ஏசி பழுது)."
+              : "Select your core trade specialization (Electrician, Plumber, AC Repair, etc.)."
+          );
+          break;
+        case "subServices":
+          setHeroMessage("Add comma-separated sub-skills (e.g. Wiring, DB Box, Pipe Fitting, Inverter).");
           break;
         case "experience":
-          setHeroMessage("Tell us how many years of experience you have in this service.");
+          setHeroMessage("Select your verified years of on-field technical trade experience.");
           break;
         case "serviceArea":
-          setHeroMessage("Enter the localities or pincodes where you want to receive service jobs.");
+          setHeroMessage("Specify your operating localities or pin codes across Chennai for job dispatch.");
+          break;
+        case "documentType":
+          setHeroMessage("Select your Government ID type: Aadhaar, PAN Card, Voter ID, or Driving Licence.");
+          break;
+        case "customDocumentType":
+          setHeroMessage("Specify your custom government identity document title.");
+          break;
+        case "documentNumber":
+          setHeroMessage("Enter your official document number. Sensitive digits are automatically masked for privacy.");
+          break;
+        case "dob":
+          setHeroMessage("Select your Date of Birth as printed on your uploaded identity document.");
           break;
         default:
           setHeroMessage("I'm watching your progress! Fill in the highlighted field.");
@@ -77,21 +118,33 @@ export default function HeroInteractiveAgent({
       return;
     }
 
-    // Default idle messages
+    // Default idle messages based on exact step lifecycle
     setHeroState("idle");
     if (mode === "login") {
-      setHeroMessage(language === "ta"
-        ? "வணக்கம்! உங்கள் COOP HUB பில்லர் கணக்கில் உள்நுழையவும். உங்களுக்கு உதவ நான் எப்போதும் தயார்!"
-        : "Welcome back! Enter your login details or switch to Mobile OTP. I'm right here to assist you.");
+      setHeroMessage(
+        language === "ta"
+          ? "வணக்கம்! உங்கள் COOP HUB பில்லர் கணக்கில் உள்நுழையவும். உங்களுக்கு உதவ நான் எப்போதும் தயார்!"
+          : "Welcome to COOP HUB Pillar Portal! Enter your assigned Pillar ID or login with Password/OTP."
+      );
     } else if (mode === "register") {
       if (currentStep === 1) {
-        setHeroMessage(language === "ta"
-          ? "படி 1: உங்கள் அடிப்படை தகவல்களை உள்ளிட்டு 'Next' பொத்தானை அழுத்தவும்!"
-          : "Step 1 of 2: Fill in your personal details to begin your Pillar registration!");
-      } else {
-        setHeroMessage(language === "ta"
-          ? "படி 2: உங்கள் தொழில் மற்றும் சேவை பகுதிகளைத் தேர்ந்தெடுத்து சமர்ப்பிக்கவும்!"
-          : "Step 2 of 2: Select your trade skills and service areas to finish onboarding!");
+        setHeroMessage(
+          language === "ta"
+            ? "படி 1/3: உங்கள் தனிப்பட்ட சுயவிவர தகவல்களை உள்ளிட்டு 'Next' பொத்தானை அழுத்தவும்!"
+            : "Step 1 of 3: Enter your personal profile details to begin your Pillar registration!"
+        );
+      } else if (currentStep === 2) {
+        setHeroMessage(
+          language === "ta"
+            ? "படி 2/3: உங்கள் முதன்மை தொழில் திறன் மற்றும் சேவை பகுதிகளைத் தேர்ந்தெடுக்கவும்!"
+            : "Step 2 of 3: Select your trade skills and operating service areas across Chennai!"
+        );
+      } else if (currentStep === 3) {
+        setHeroMessage(
+          language === "ta"
+            ? "படி 3/3: ஆதார், பான், வாக்காளர் அட்டை அல்லது ஓட்டுநர் உரிமத்தைப் பதிவேற்றி சரிபார்க்கவும்!"
+            : "Step 3 of 3: Upload your Government Identity Document for PaddleOCR administrative verification!"
+        );
       }
     }
   }, [activeField, formError, formSuccess, mode, currentStep, language]);
@@ -104,12 +157,12 @@ export default function HeroInteractiveAgent({
     setAskInput("");
     setIsAsking(true);
     setHeroState("thinking");
-    setHeroMessage("Thinking...");
+    setHeroMessage("Analyzing your question...");
 
     try {
       const res = await aiService.chatWithMascot({
         message: q,
-        context: { isAuthenticated: false, route: mode === "login" ? "/login" : "/register", language },
+        context: { isAuthenticated: false, route: mode === "login" ? "/pillar/login" : "/pillar/register", language },
       });
       setHeroState("speaking");
       setHeroMessage(res.reply);
@@ -119,7 +172,7 @@ export default function HeroInteractiveAgent({
       }, 4000);
     } catch (err) {
       setHeroState("error");
-      setHeroMessage("Sorry, I could not process your question. Please try again.");
+      setHeroMessage("Sorry, I could not process your question. Please ask again.");
     } finally {
       setIsAsking(false);
     }
@@ -142,11 +195,11 @@ export default function HeroInteractiveAgent({
       {/* Interactive Speech Bubble */}
       <div
         style={{
-          background: "white",
-          color: "var(--color-primary)",
+          background: "#FFFFFF",
+          color: "#0B1220",
           padding: "16px 20px",
           borderRadius: "20px",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15), 0 0 0 2px " + (heroState === "error" ? "var(--color-error)" : heroState === "success" ? "var(--color-success)" : "var(--color-secondary)"),
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25), 0 0 0 2px " + (heroState === "error" ? "#EF4444" : heroState === "success" ? "#10B981" : "#FF7900"),
           fontSize: "14px",
           lineHeight: "1.5",
           fontWeight: "600",
@@ -161,10 +214,14 @@ export default function HeroInteractiveAgent({
             {heroState === "error" ? "⚠️" : heroState === "success" ? "🎉" : heroState === "thinking" ? "🤔" : heroState === "speaking" ? "💬" : "🤖"}
           </span>
           <div style={{ flex: 1, textAlign: "left" }}>
-            <span style={{ display: "block", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: heroState === "error" ? "var(--color-error)" : heroState === "success" ? "var(--color-success)" : "var(--color-secondary)", fontWeight: "800", marginBottom: "2px" }}>
-              {heroState === "error" ? "CoopBot Alert" : heroState === "success" ? "CoopBot Success" : heroState === "thinking" ? "CoopBot Thinking" : "CoopBot Live Guidance"}
+            <span style={{ 
+              display: "block", fontSize: "11px", textTransform: "uppercase", 
+              letterSpacing: "1px", color: heroState === "error" ? "#EF4444" : heroState === "success" ? "#10B981" : "#FF7900", 
+              fontWeight: "800", marginBottom: "2px" 
+            }}>
+              {heroState === "error" ? "CoopBot Alert" : heroState === "success" ? "CoopBot Verified" : heroState === "thinking" ? "CoopBot Thinking" : "CoopBot Live Guidance"}
             </span>
-            <span style={{ color: "var(--color-text)", fontWeight: "500" }}>{heroMessage}</span>
+            <span style={{ color: "#0B1220", fontWeight: "600" }}>{heroMessage}</span>
           </div>
         </div>
 
@@ -179,17 +236,18 @@ export default function HeroInteractiveAgent({
             height: 0,
             borderLeft: "10px solid transparent",
             borderRight: "10px solid transparent",
-            borderTop: "10px solid white",
+            borderTop: "10px solid #FFFFFF",
           }}
-        ></div>
+        />
       </div>
 
-      {/* Expressive Hero Mascot Character with Eye Blink & State Classes */}
+      {/* Expressive Hero Mascot Character */}
       <div
         className={`hero-mascot-container hero-state-${heroState}`}
         style={{
           width: "280px",
           height: "360px",
+          position: "relative"
         }}
       >
         <img
@@ -202,32 +260,32 @@ export default function HeroInteractiveAgent({
           }}
         />
 
-        {/* Natural eye blink overlay positioned precisely over character screen eyes */}
+        {/* Natural eye blink overlay */}
         <div className="hero-blink-overlay" />
 
-        {/* Live Active Status Aura */}
+        {/* Live Active Status Aura with Global Dark Navy & Orange Styling */}
         <div
           style={{
             position: "absolute",
             bottom: "10px",
-            background: "rgba(27, 42, 74, 0.85)",
+            background: "rgba(5, 10, 18, 0.88)",
             color: "white",
-            padding: "4px 12px",
+            padding: "5px 14px",
             borderRadius: "9999px",
             fontSize: "11px",
             fontWeight: "700",
-            backdropFilter: "blur(6px)",
+            backdropFilter: "blur(8px)",
             display: "flex",
             alignItems: "center",
             gap: "6px",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
+            border: "1px solid rgba(255, 121, 0, 0.3)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
           }}
         >
-          <span className="status-dot available" style={{ width: "6px", height: "6px" }}></span>
-          <span style={{ textTransform: "capitalize" }}>CoopBot: {heroState}</span>
+          <span className="status-dot available" style={{ width: "7px", height: "7px", background: "#10B981", borderRadius: "50%" }}></span>
+          <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {heroState}</span>
         </div>
       </div>
-
 
     </div>
   );

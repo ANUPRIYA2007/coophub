@@ -31,6 +31,29 @@ export default function AdminFeedback() {
     return matchR && matchQ;
   });
 
+  const isDemo = localStorage.getItem("coophub_demo_admin") === "true";
+
+  // Dynamic KPI calculations from actual reviews
+  const totalReviews = reviews.length;
+  const totalRatingSum = reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0);
+  const avgRating = totalReviews > 0 
+    ? (totalRatingSum / totalReviews).toFixed(2) 
+    : (isDemo ? "4.92" : "0.00");
+
+  const fiveStarCount = reviews.filter(r => Number(r.rating) === 5).length;
+  const fiveStarShare = totalReviews > 0 
+    ? ((fiveStarCount / totalReviews) * 100).toFixed(1) + "%" 
+    : (isDemo ? "94.6%" : "0%");
+
+  const positiveCount = reviews.filter(r => Number(r.rating) >= 4).length;
+  const positivePercent = totalReviews > 0 
+    ? `↑ ${((positiveCount / totalReviews) * 100).toFixed(1)}% Positive Feedback`
+    : (isDemo ? "↑ 98.4% Positive Feedback" : "No reviews recorded yet");
+
+  const displayedTotalReviews = totalReviews > 0 
+    ? totalReviews.toLocaleString() 
+    : (isDemo ? "1,248" : "0");
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -50,13 +73,13 @@ export default function AdminFeedback() {
         <div style={{ background: "var(--color-surface)", padding: "var(--space-4)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-sm)" }}>
           <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)", fontWeight: "600" }}>Overall Satisfaction</span>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
-            <span style={{ fontSize: "2rem", fontWeight: "800", color: "var(--color-text)" }}>4.92</span>
+            <span style={{ fontSize: "2rem", fontWeight: "800", color: "var(--color-text)" }}>{avgRating}</span>
             <div style={{ display: "flex", color: "#F59E0B" }}>
-              {[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} fill="#F59E0B" />)}
+              {[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} fill={Number(avgRating) >= star ? "#F59E0B" : "none"} stroke="#F59E0B" />)}
             </div>
           </div>
-          <span style={{ fontSize: "0.75rem", color: "var(--color-success)", fontWeight: "700", marginTop: "4px", display: "block" }}>
-            ↑ 98.4% Positive Feedback
+          <span style={{ fontSize: "0.75rem", color: totalReviews > 0 || isDemo ? "var(--color-success)" : "var(--color-text-muted)", fontWeight: "700", marginTop: "4px", display: "block" }}>
+            {positivePercent}
           </span>
         </div>
 
@@ -64,10 +87,10 @@ export default function AdminFeedback() {
         <div style={{ background: "var(--color-surface)", padding: "var(--space-4)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-sm)" }}>
           <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)", fontWeight: "600" }}>5-Star Reviews Share</span>
           <div style={{ fontSize: "2rem", fontWeight: "800", color: "var(--color-secondary)", marginTop: "4px" }}>
-            94.6%
+            {fiveStarShare}
           </div>
           <span style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginTop: "4px", display: "block" }}>
-            Across all cooperative trades
+            {totalReviews > 0 ? `${fiveStarCount} of ${totalReviews} five-star ratings` : (isDemo ? "Across all cooperative trades" : "Across verified jobs")}
           </span>
         </div>
 
@@ -75,7 +98,7 @@ export default function AdminFeedback() {
         <div style={{ background: "var(--color-surface)", padding: "var(--space-4)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-sm)" }}>
           <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)", fontWeight: "600" }}>Total Verified Reviews</span>
           <div style={{ fontSize: "2rem", fontWeight: "800", color: "var(--color-primary)", marginTop: "4px" }}>
-            1,248
+            {displayedTotalReviews}
           </div>
           <span style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginTop: "4px", display: "block" }}>
             100% OTP Verified Bookings

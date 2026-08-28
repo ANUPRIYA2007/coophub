@@ -239,6 +239,72 @@ Rules:
     return;
   }
 
+  // AI Pillar Registration Summary Route
+  if (req.url === "/api/ai/summarize-pillar" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", async () => {
+      try {
+        const { pillar, ocrData, autoVerifyResult } = JSON.parse(body || "{}");
+        const systemPrompt = `You are the COOP HUB Central Administrative AI Verification Officer.
+Analyze this technician applicant's registration details, OCR extraction data, and trade credentials.
+Output ONLY a valid JSON object without code blocks:
+{
+  "executive_summary": "2 concise sentences summarizing applicant's trade skills, experience, and zone viability.",
+  "document_authenticity": {
+    "document_type": "string",
+    "status": "VERIFIED_ACCURATE or MANUAL_INSPECTION_RECOMMENDED",
+    "notes": "Evaluation of document format, OCR text matching, and name alignment."
+  },
+  "trade_competency": {
+    "rating": "Master Technician (X Yrs) or Skilled Technician or Apprentice",
+    "skills_coverage": "Specific trade capabilities",
+    "viability": "Local market demand evaluation for the selected zone"
+  },
+  "risk_assessment": {
+    "level": "LOW_RISK or MEDIUM_RISK or HIGH_RISK",
+    "color": "#10B981 for low, #F59E0B for medium, #EF4444 for high",
+    "flags": ["List of 2-3 specific audit check notes"]
+  },
+  "recommendation": {
+    "decision": "APPROVED_RECOMMENDED or REVIEW_REQUIRED or REJECT_RECOMMENDED",
+    "rationale": "Clear administrative reasoning for approval or further review."
+  }
+}`;
+        const userPrompt = JSON.stringify({ pillar, ocrData, autoVerifyResult });
+
+        let rawText = null;
+        let provider = "NVIDIA";
+        try {
+          rawText = await callNvidia(userPrompt, systemPrompt, "en");
+        } catch (e) {
+          try {
+            rawText = await callGemini(userPrompt, systemPrompt, "en");
+            provider = "Gemini";
+          } catch (ge) {
+            console.error("AI Summary generation failed:", ge);
+          }
+        }
+
+        if (rawText) {
+          const clean = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const analysis = JSON.parse(clean);
+          analysis.ai_provider = provider;
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, analysis }));
+          return;
+        }
+
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "AI summary generation failed" }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
   res.writeHead(404, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ error: "Not Found" }));
 });

@@ -87,7 +87,10 @@ export default function Register() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-bl from-navy-50 via-white to-orange-50/20 px-4 py-8">
+        <div 
+            className="min-h-screen flex items-center justify-center px-4 py-8"
+            style={{ background: "linear-gradient(135deg, #050A12 0%, #162238 50%, #050A12 100%)" }}
+        >
             <div className="card max-w-lg w-full p-8 shadow-xl shadow-navy-900/5">
 
                 <div className="text-center mb-6">

@@ -4,6 +4,7 @@
 // Email + Password & OTP authentication via Supabase
 
 import { supabase } from '../../lib/supabase';
+import { emailService } from '../email/emailService';
 
 /**
  * Sign up a new user with Email and Password
@@ -20,6 +21,18 @@ export async function signUp(email, password, metadata) {
         },
     });
     if (error) throw error;
+
+    // Trigger confirmation template integration
+    try {
+        await emailService.sendCustomerRegistrationEmail({
+            email,
+            customer_name: metadata?.full_name || 'Valued Customer',
+            confirmation_url: `${window.location.origin}/login`
+        });
+    } catch (e) {
+        console.warn('Registration email trigger notice:', e);
+    }
+
     return data;
 }
 
@@ -44,6 +57,18 @@ export async function signInWithPassword(email, password) {
 export async function sendOtp(email) {
     const { data, error } = await supabase.auth.signInWithOtp({ email });
     if (error) throw error;
+
+    // Trigger OTP login template integration
+    try {
+        await emailService.sendCustomerOtpEmail({
+            email,
+            customer_name: email.split('@')[0] || 'Valued Customer',
+            expiry_minutes: 10
+        });
+    } catch (e) {
+        console.warn('OTP email trigger notice:', e);
+    }
+
     return data;
 }
 
