@@ -105,34 +105,40 @@ export const pillarAuthService = {
       }
 
       // 3. Create Pillar Profile Record with PENDING_VERIFICATION status
-      const { error: profileError } = await supabase.from("pillar_profiles").insert([
-        {
-          id: userId,
-          full_name: pillarData.fullName,
-          email: pillarData.email,
-          mobile: pillarData.mobile,
-          main_services: pillarData.mainServices,
-          sub_services: pillarData.subServices,
-          experience_years: pillarData.experience,
-          service_area: Array.isArray(pillarData.serviceArea) ? pillarData.serviceArea : [pillarData.area || pillarData.serviceArea || "Chennai"],
-          area: pillarData.area || (Array.isArray(pillarData.serviceArea) ? pillarData.serviceArea[0] : pillarData.serviceArea) || null,
-          pincode: pillarData.pincode || null,
-          custom_role: pillarData.customRole || null,
-          location_sharing_enabled: pillarData.location_sharing_enabled ?? pillarData.locationSharingEnabled ?? true,
-          preferred_language: pillarData.preferredLanguage,
-          status: "pending_verification",
-          verification_status: "pending_verification",
-          rejection_reason: null,
-          document_type: pillarData.documentType || "aadhaar",
-          document_number: pillarData.documentNumber || ocrResult?.extracted_document_number || null,
-          dob: pillarData.dob || ocrResult?.extracted_dob || null,
-          ocr_data: ocrResult || null,
-          document_url: pillarData.documentPreviewUrl || null,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      const basePayload = {
+        id: userId,
+        full_name: pillarData.fullName,
+        email: pillarData.email,
+        mobile: pillarData.mobile,
+        main_services: pillarData.mainServices,
+        sub_services: pillarData.subServices,
+        experience_years: pillarData.experience,
+        service_area: Array.isArray(pillarData.serviceArea) ? pillarData.serviceArea : [pillarData.area || pillarData.serviceArea || "Chennai"],
+        area: pillarData.area || (Array.isArray(pillarData.serviceArea) ? pillarData.serviceArea[0] : pillarData.serviceArea) || null,
+        pincode: pillarData.pincode || null,
+        custom_role: pillarData.customRole || null,
+        location_sharing_enabled: pillarData.location_sharing_enabled ?? pillarData.locationSharingEnabled ?? true,
+        preferred_language: pillarData.preferredLanguage,
+        status: "pending_verification",
+        created_at: new Date().toISOString(),
+      };
 
-      if (profileError) throw profileError;
+      const fullPayload = {
+        ...basePayload,
+        verification_status: "pending_verification",
+        rejection_reason: null,
+        document_type: pillarData.documentType || "aadhaar",
+        document_number: pillarData.documentNumber || ocrResult?.extracted_document_number || null,
+        dob: pillarData.dob || ocrResult?.extracted_dob || null,
+        ocr_data: ocrResult || null,
+        document_url: pillarData.documentPreviewUrl || null,
+      };
+
+      let { error: profileError } = await supabase.from("pillar_profiles").insert([fullPayload]);
+      if (profileError) {
+        const { error: fallbackError } = await supabase.from("pillar_profiles").insert([basePayload]);
+        if (fallbackError) throw fallbackError;
+      }
 
       // 4. Record KYC Document entry
       try {
@@ -184,32 +190,49 @@ export const pillarAuthService = {
         updatedData
       );
 
-      const { data, error } = await supabase
+      const baseUpdate = {
+        full_name: updatedData.fullName,
+        mobile: updatedData.mobile,
+        main_services: updatedData.mainServices,
+        sub_services: updatedData.subServices,
+        experience_years: updatedData.experience,
+        service_area: Array.isArray(updatedData.serviceArea) ? updatedData.serviceArea : [updatedData.area || updatedData.serviceArea || "Chennai"],
+        area: updatedData.area || (Array.isArray(updatedData.serviceArea) ? updatedData.serviceArea[0] : updatedData.serviceArea) || null,
+        pincode: updatedData.pincode || null,
+        custom_role: updatedData.customRole || null,
+        location_sharing_enabled: updatedData.location_sharing_enabled ?? updatedData.locationSharingEnabled ?? true,
+        status: "pending_verification",
+        updated_at: new Date().toISOString()
+      };
+
+      const fullUpdate = {
+        ...baseUpdate,
+        verification_status: "pending_verification",
+        rejection_reason: null,
+        document_type: updatedData.documentType || "aadhaar",
+        document_number: updatedData.documentNumber || ocrResult?.extracted_document_number || null,
+        dob: updatedData.dob || ocrResult?.extracted_dob || null,
+        ocr_data: ocrResult || null,
+        document_url: updatedData.documentPreviewUrl || null,
+      };
+
+      let { data, error } = await supabase
         .from("pillar_profiles")
-        .update({
-          full_name: updatedData.fullName,
-          mobile: updatedData.mobile,
-          main_services: updatedData.mainServices,
-          sub_services: updatedData.subServices,
-          experience_years: updatedData.experience,
-          service_area: Array.isArray(updatedData.serviceArea) ? updatedData.serviceArea : [updatedData.area || updatedData.serviceArea || "Chennai"],
-          area: updatedData.area || (Array.isArray(updatedData.serviceArea) ? updatedData.serviceArea[0] : updatedData.serviceArea) || null,
-          pincode: updatedData.pincode || null,
-          custom_role: updatedData.customRole || null,
-          location_sharing_enabled: updatedData.location_sharing_enabled ?? updatedData.locationSharingEnabled ?? true,
-          status: "pending_verification",
-          verification_status: "pending_verification",
-          rejection_reason: null,
-          document_type: updatedData.documentType || "aadhaar",
-          document_number: updatedData.documentNumber || ocrResult?.extracted_document_number || null,
-          dob: updatedData.dob || ocrResult?.extracted_dob || null,
-          ocr_data: ocrResult || null,
-          document_url: updatedData.documentPreviewUrl || null,
-          updated_at: new Date().toISOString()
-        })
+        .update(fullUpdate)
         .eq("email", email)
         .select()
         .single();
+
+      if (error) {
+        const { data: baseData, error: baseErr } = await supabase
+          .from("pillar_profiles")
+          .update(baseUpdate)
+          .eq("email", email)
+          .select()
+          .single();
+        if (baseErr) throw baseErr;
+        data = baseData;
+      }
 
       if (error) throw error;
 
