@@ -9,7 +9,7 @@ import LiveTrackingMap from '../../components/maps/LiveTrackingMap';
 import { 
     Phone, MessageSquare, MapPin, Navigation, Clock, ShieldCheck, 
     CheckCircle2, AlertTriangle, FileText, Star, UserCheck, ChevronRight,
-    CreditCard, ArrowLeft
+    CreditCard, ArrowLeft, Sparkles
 } from 'lucide-react';
 
 export default function RequestDetails() {
@@ -30,6 +30,10 @@ export default function RequestDetails() {
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
     const [showReceiptModal, setShowReceiptModal] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
+
+    const handleInitiatePayment = () => {
+        setShowCheckoutModal(true);
+    };
 
     const handleConfirmPayment = async () => {
         setIsPaying(true);

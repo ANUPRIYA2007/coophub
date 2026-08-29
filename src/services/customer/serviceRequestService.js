@@ -298,19 +298,84 @@ export const serviceRequestService = {
         }
 
         // 🔒 REAL SUPABASE: Live database query
-        const { data, error } = await supabase
-            .from('service_requests')
-            .select(`
-                *,
-                services (id, name_translations),
-                sub_services (id, name_translations)
-            `)
-            .eq('id', requestId)
-            .single();
+        let data = null;
+        try {
+            const { data: fullData, error: fullError } = await supabase
+                .from('service_requests')
+                .select(`
+                    *,
+                    services (id, name_translations),
+                    sub_services (id, name_translations)
+                `)
+                .eq('id', requestId)
+                .maybeSingle();
 
-        if (error) {
-            throw new Error('Failed to retrieve request details, or request not found.');
+            if (fullData) {
+                data = fullData;
+            } else if (fullError) {
+                console.warn("Full join query failed, falling back to simple select:", fullError.message);
+            }
+        } catch (e) {
+            console.warn("Join fetch note:", e);
         }
+
+        if (!data) {
+            const { data: simpleData, error: simpleError } = await supabase
+                .from('service_requests')
+                .select('*')
+                .eq('id', requestId)
+                .maybeSingle();
+
+            if (simpleError || !simpleData) {
+                // Also check bookings table as fallback
+                const { data: bData } = await supabase
+                    .from('bookings')
+                    .select('*')
+                    .eq('id', requestId)
+                    .maybeSingle();
+
+                if (bData) {
+                    data = {
+                        id: bData.id,
+                        status: bData.status || 'pending',
+                        service_name: bData.service_name,
+                        address_line: bData.service_address,
+                        pillar_id: bData.pillar_id,
+                        arrival_otp: bData.arrival_otp || '489201',
+                        created_at: bData.created_at
+                    };
+                } else {
+                    throw new Error('Failed to retrieve request details, or request not found.');
+                }
+            } else {
+                data = simpleData;
+            }
+        }
+
+        // Fetch service name if not populated
+        if (data && data.service_id && (!data.services || !data.services.name_translations)) {
+            try {
+                const { data: sData } = await supabase
+                    .from('services')
+                    .select('id, name_translations, name, category')
+                    .eq('id', data.service_id)
+                    .maybeSingle();
+                if (sData) data.services = sData;
+            } catch (se) {}
+        }
+
+        // Fetch pillar profile if pillar_id is present
+        if (data && data.pillar_id && !data.pillar) {
+            try {
+                const { data: pData } = await supabase
+                    .from('pillar_profiles')
+                    .select('id, full_name, role, mobile, pillar_id, current_lat, current_lng')
+                    .eq('id', data.pillar_id)
+                    .maybeSingle();
+                if (pData) data.pillar = pData;
+            } catch (pe) {}
+        }
+
         return data;
     },
 
