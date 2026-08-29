@@ -29,7 +29,10 @@ import {
   ChevronUp,
   ChevronDown,
   Shield,
-  UserCheck
+  UserCheck,
+  TrendingUp,
+  Award,
+  Zap
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
@@ -402,6 +405,9 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const navItems = [
     { name: t("admin.overview") || "Overview", path: "/admin", icon: LayoutDashboard },
+    { name: t("admin.forecast") || "AI Demand Forecast", path: "/admin/forecast", icon: TrendingUp },
+    { name: t("admin.allocation") || "AI Workforce Allocation", path: "/admin/allocation", icon: Zap },
+    { name: t("admin.certifications") || "Skill Certifications", path: "/admin/certifications", icon: Award },
     { name: t("admin.pillars") || "Pillars", path: "/admin/pillars", icon: Users },
     { name: t("admin.customers") || "Customers", path: "/admin/customers", icon: UserCheck },
     { name: t("admin.services") || "Services", path: "/admin/services", icon: Wrench },

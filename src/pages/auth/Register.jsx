@@ -57,12 +57,21 @@ export default function Register() {
 
         setLoading(true);
         try {
-            await authService.signUp(formData.email, formData.password, {
+            const data = await authService.signUp(formData.email, formData.password, {
                 full_name: formData.fullName,
                 mobile_number: formData.mobile,
                 preferred_language: language,
                 role: 'customer' // Automatically registered as a customer
             });
+
+            if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+                const msg = "An account with this email already exists. Please log in.";
+                setError(msg);
+                window.dispatchEvent(new CustomEvent('coophub-hero-event', {
+                    detail: { type: 'error', message: msg }
+                }));
+                return;
+            }
 
             window.dispatchEvent(new CustomEvent('coophub-hero-event', {
                 detail: { type: 'success', message: 'Awesome! Account created. Let us verify your email OTP!' }
@@ -75,7 +84,9 @@ export default function Register() {
             if (err.message.includes('already registered') || err.message.includes('already exists')) {
                 msg = t('errors.email_exists');
             } else if (err.message.toLowerCase().includes('rate limit')) {
-                msg = "Email rate limit exceeded. Please wait a short while before requesting another confirmation email.";
+                msg = "Email rate limit reached. Please wait a moment before trying again or log in directly.";
+            } else if (err.message.toLowerCase().includes('timed out')) {
+                msg = "Connection timed out. If your account was created, please proceed to Login.";
             }
             setError(msg);
             window.dispatchEvent(new CustomEvent('coophub-hero-event', {

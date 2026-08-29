@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarNotificationService } from "../../../services/pillar/notificationService";
+import { supabase } from "../../../lib/supabase";
 import { Menu, Bell, Search, CheckCheck, Sun, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -12,26 +13,70 @@ export default function Header({ toggleSidebar }) {
 
   const [theme, setTheme] = useState(() => localStorage.getItem("coophub_theme") || "light");
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: "n-1",
-      title: "New Job Request Available",
-      message: "Electrician wiring inspection required in Guindy (₹850)",
-      created_at: "5m ago",
-      is_read: false,
-      type: "order",
-    },
-    {
-      id: "n-2",
-      title: "Weekly Payout Processed",
-      message: "₹4,250 has been credited to your linked bank account.",
-      created_at: "2h ago",
-      is_read: false,
-      type: "payout",
-    },
-  ]);
-  const [unreadCount, setUnreadCount] = useState(2);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
+
+  // Fetch Live Notifications from Supabase Realtime
+  useEffect(() => {
+    const fetchLiveNotifications = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (data && data.length > 0) {
+          const formatted = data.map(n => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            created_at: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            is_read: n.is_read ?? n.read ?? false,
+            type: n.type || 'system'
+          }));
+          setNotifications(formatted);
+          setUnreadCount(formatted.filter(n => !n.is_read).length);
+        } else {
+          setNotifications([
+            {
+              id: "n-1",
+              title: "System Ready",
+              message: "COOP HUB cooperative administration and live notifications active.",
+              created_at: "Just now",
+              is_read: false,
+              type: "system",
+            }
+          ]);
+          setUnreadCount(1);
+        }
+      } catch (err) {
+        console.warn('Notifications fetch note:', err);
+      }
+    };
+
+    fetchLiveNotifications();
+
+    const channel = supabase
+      .channel('header_notifications_live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        const newNotif = {
+          id: payload.new.id,
+          title: payload.new.title,
+          message: payload.new.message,
+          created_at: 'Just now',
+          is_read: false,
+          type: payload.new.type || 'system'
+        };
+        setNotifications(prev => [newNotif, ...prev.slice(0, 9)]);
+        setUnreadCount(prev => prev + 1);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Sync theme with document
   useEffect(() => {

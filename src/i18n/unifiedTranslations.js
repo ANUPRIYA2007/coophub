@@ -25,6 +25,8 @@ const extraTranslations = {
       available_online: "Available (Online)",
       offline_paused: "Offline (Paused)",
       overview: "Overview",
+      forecast: "AI Demand Forecast",
+      certifications: "Skill Certifications",
       pillars: "Pillars",
       customers: "Customers",
       services: "Services",
@@ -60,6 +62,8 @@ const extraTranslations = {
       available_online: "செயலில் (ஆன்லைன்)",
       offline_paused: "ஆஃப்லைன் (நிறுத்தப்பட்டது)",
       overview: "கண்ணோட்டம்",
+      forecast: "AI தேவை முன்கணிப்பு",
+      certifications: "திறன் சான்றிதழ்கள்",
       pillars: "பில்லர்கள்",
       customers: "வாடிக்கையாளர்கள்",
       services: "சேவைகள்",
@@ -95,6 +99,8 @@ const extraTranslations = {
       available_online: "उपलब्ध (ऑनलाइन)",
       offline_paused: "ऑफ़लाइन (रोका गया)",
       overview: "अवलोकन",
+      forecast: "एआई मांग पूर्वानुमान",
+      certifications: "कौशल प्रमाणन",
       pillars: "पिलर्स",
       customers: "ग्राहक",
       services: "सेवाएं",
@@ -130,6 +136,8 @@ const extraTranslations = {
       available_online: "అందుబాటులో ఉంది (ఆన్‌లైన్)",
       offline_paused: "ఆఫ్‌లైన్ (నిలిపివేయబడింది)",
       overview: "అవలోకనం",
+      forecast: "AI డిమాండ్ అంచనా",
+      certifications: "నైపుణ్య ధృవీకరణలు",
       pillars: "పిల్లర్లు",
       customers: "కస్టమర్లు",
       services: "సేవలు",
@@ -165,6 +173,8 @@ const extraTranslations = {
       available_online: "ಲಭ್ಯವಿದೆ (ಆನ್‌ಲೈನ್)",
       offline_paused: "ಆಫ್‌ಲೈನ್ (ವಿರಾಮಗೊಳಿಸಲಾಗಿದೆ)",
       overview: "ಅವಲೋಕನ",
+      forecast: "AI ಬೇಡಿಕೆ ಮುನ್ಸೂಚನೆ",
+      certifications: "ಕೌಶಲ್ಯ ಪ್ರಮಾಣಪತ್ರಗಳು",
       pillars: "ಪಿಲ್ಲರ್‌ಗಳು",
       customers: "ಗ್ರಾಹಕರು",
       services: "ಸೇವೆಗಳು",
@@ -218,13 +228,13 @@ function isObject(item) {
   return item && typeof item === 'object' && !Array.isArray(item);
 }
 
-// Unified multi-lingual dictionary
+// Construct merged translation tables
 export const unifiedTranslations = {
-  en: deepMerge(deepMerge(enJson, enJs), extraTranslations.en),
-  ta: deepMerge(deepMerge(taJson, taJs), extraTranslations.ta),
-  hi: deepMerge(deepMerge(hiJson, hiJs), extraTranslations.hi),
-  te: deepMerge(deepMerge(teJson, teJs), extraTranslations.te),
-  kn: deepMerge(deepMerge(knJson, knJs), extraTranslations.kn),
+  en: deepMerge(deepMerge(enJson || {}, enJs || {}), extraTranslations.en),
+  ta: deepMerge(deepMerge(taJson || {}, taJs || {}), extraTranslations.ta),
+  hi: deepMerge(deepMerge(hiJson || {}, hiJs || {}), extraTranslations.hi),
+  te: deepMerge(deepMerge(teJson || {}, teJs || {}), extraTranslations.te),
+  kn: deepMerge(deepMerge(knJson || {}, knJs || {}), extraTranslations.kn),
 };
 
 export const SUPPORTED_LANGUAGES = [
@@ -232,66 +242,51 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
   { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
   { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
-  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' }
 ];
 
 export const LANGUAGES_MAP = {
   en: 'English',
-  ta: 'தமிழ் (Tamil)',
-  hi: 'हिन्दी (Hindi)',
-  te: 'తెలుగు (Telugu)',
-  kn: 'ಕನ್ನಡ (Kannada)',
+  ta: 'தமிழ்',
+  hi: 'हिन्दी',
+  te: 'తెలుగు',
+  kn: 'ಕನ್ನಡ'
 };
 
-/**
- * Universal lookup helper
- */
-export function getTranslation(lang = 'en', keyPath = '', params = {}) {
-  if (!keyPath || typeof keyPath !== 'string') return '';
-  
-  const currentLangDict = unifiedTranslations[lang] || unifiedTranslations.en;
-  const fallbackDict = unifiedTranslations.en;
-
-  const keys = keyPath.split('.');
-
-  // 1. Try in target language
-  let val = currentLangDict;
-  let found = true;
+export function getTranslation(lang, key, params = {}) {
+  const dictionary = unifiedTranslations[lang] || unifiedTranslations.en || {};
+  const keys = key.split('.');
+  let val = dictionary;
   for (const k of keys) {
-    if (val && val[k] !== undefined) {
+    if (val && typeof val === 'object' && k in val) {
       val = val[k];
     } else {
-      found = false;
+      val = null;
       break;
     }
   }
 
-  // 2. Try in English fallback if missing
-  if (!found || val === undefined) {
-    val = fallbackDict;
+  // Fallback to English if not found
+  if (val === null || val === undefined) {
+    let fallback = unifiedTranslations.en;
     for (const k of keys) {
-      if (val && val[k] !== undefined) {
-        val = val[k];
+      if (fallback && typeof fallback === 'object' && k in fallback) {
+        fallback = fallback[k];
       } else {
-        val = keyPath;
+        fallback = key;
         break;
       }
     }
+    val = fallback;
   }
 
-  // 3. If value is still not a string, return keyPath or empty
-  if (typeof val !== 'string') {
-    return typeof val === 'number' ? String(val) : keyPath;
-  }
-
-  // 4. Parameter substitution
-  if (params && typeof params === 'object') {
-    Object.keys(params).forEach(param => {
-      const regex1 = new RegExp(`\\{\\{${param}\\}\\}`, 'g');
-      const regex2 = new RegExp(`\\{${param}\\}`, 'g');
-      val = val.replace(regex1, params[param]).replace(regex2, params[param]);
+  if (typeof val === 'string' && params && typeof params === 'object') {
+    Object.keys(params).forEach(p => {
+      val = val.replace(new RegExp(`{${p}}`, 'g'), params[p]);
     });
   }
 
-  return val;
+  return val || key;
 }
+
+export default unifiedTranslations;

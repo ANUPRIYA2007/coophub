@@ -22,9 +22,15 @@ export default function AdminCustomers() {
 
   const loadCustomers = async () => {
     setLoading(true);
-    const data = await adminService.getCustomers(activeTab);
-    setCustomers(data || []);
-    setLoading(false);
+    try {
+      const data = await adminService.getCustomers(activeTab);
+      setCustomers(data || []);
+    } catch (err) {
+      console.error("loadCustomers error:", err);
+      setCustomers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStatusChange = async (customerId, newStatus) => {
@@ -247,8 +253,16 @@ export default function AdminCustomers() {
                             {initials}
                           </div>
                           <div>
-                            <div style={{ fontWeight: "700", color: "var(--color-text)" }}>{customer.full_name}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>{customer.customer_code} • {customer.email}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: "800", color: "var(--color-text)" }}>{customer.full_name}</span>
+                              <span style={{ 
+                                background: "rgba(255, 121, 0, 0.1)", color: "#FF7900", border: "1px solid rgba(255, 121, 0, 0.25)",
+                                fontSize: "0.7rem", fontWeight: "800", padding: "1px 6px", borderRadius: "6px", fontFamily: "'Courier New', monospace"
+                              }}>
+                                {customer.customer_code || `CUST-CHE-${(customer.id || '0000').slice(0, 6).toUpperCase()}`}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>{customer.email}</div>
                           </div>
                         </div>
                       </td>

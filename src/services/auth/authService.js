@@ -20,7 +20,25 @@ export async function signUp(email, password, metadata) {
             data: metadata,
         },
     });
+
     if (error) throw error;
+
+    // Create or sync customer_profiles record if user was created
+    if (data?.user?.id) {
+        try {
+            await supabase.from('customer_profiles').upsert([
+                {
+                    user_id: data.user.id,
+                    full_name: metadata?.full_name || email.split('@')[0],
+                    email: email,
+                    mobile: metadata?.mobile_number || metadata?.mobile || '',
+                    updated_at: new Date().toISOString()
+                }
+            ], { onConflict: 'email' });
+        } catch (profileErr) {
+            console.warn('Customer profile sync note:', profileErr);
+        }
+    }
 
     // Trigger confirmation template integration
     try {
@@ -43,9 +61,10 @@ export async function signUp(email, password, metadata) {
  */
 export async function signInWithPassword(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
     });
+
     if (error) throw error;
     return data;
 }
@@ -55,36 +74,84 @@ export async function signInWithPassword(email, password) {
  * @param {string} email
  */
 export async function sendOtp(email) {
-    const { data, error } = await supabase.auth.signInWithOtp({ email });
-    if (error) throw error;
-
-    // Trigger OTP login template integration
     try {
-        await emailService.sendCustomerOtpEmail({
-            email,
-            customer_name: email.split('@')[0] || 'Valued Customer',
-            expiry_minutes: 10
+        const { data, error } = await supabase.auth.signInWithOtp({ 
+            email: email.trim(),
+            options: {
+                shouldCreateUser: false
+            }
         });
-    } catch (e) {
-        console.warn('OTP email trigger notice:', e);
-    }
 
-    return data;
+        if (error) {
+            if (error.message?.includes('security') || error.message?.includes('rate limit') || error.status === 429) {
+                throw new Error('Please wait 60 seconds before requesting another OTP code, or check your email for the recent code.');
+            }
+            if (error.message?.includes('Signups not allowed for otp') || error.message?.includes('User not found')) {
+                throw new Error('Account not found with this email. Please click Sign Up to register first.');
+            }
+            throw error;
+        }
+
+        // Trigger OTP login template notification integration
+        try {
+            await emailService.sendCustomerOtpEmail({
+                email,
+                customer_name: email.split('@')[0] || 'Valued Customer',
+                expiry_minutes: 10
+            });
+        } catch (e) {
+            console.warn('OTP email trigger notice:', e);
+        }
+
+        return data;
+    } catch (err) {
+        console.error('[COOP HUB Auth] sendOtp failed:', err);
+        throw err;
+    }
 }
 
 /**
  * Verify OTP entered by the user.
+ * Tries 'email' (login OTP) and falls back to 'signup' (registration OTP).
  * @param {string} email
  * @param {string} token - 6-digit OTP code
  */
 export async function verifyOtp(email, token) {
-    const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
-    });
-    if (error) throw error;
-    return data;
+    const trimmedEmail = email.trim();
+    const cleanToken = token.trim().replace(/\D/g, '');
+
+    try {
+        // Attempt 1: Verify as login email OTP
+        const { data, error } = await supabase.auth.verifyOtp({
+            email: trimmedEmail,
+            token: cleanToken,
+            type: 'email',
+        });
+
+        if (!error && data?.session) {
+            return data;
+        }
+
+        // Attempt 2: Verify as signup confirmation OTP
+        if (error) {
+            console.log('[COOP HUB Auth] Retrying verifyOtp as type: signup...');
+            const { data: signupData, error: signupError } = await supabase.auth.verifyOtp({
+                email: trimmedEmail,
+                token: cleanToken,
+                type: 'signup',
+            });
+
+            if (signupError) {
+                throw error; // Throw original or signup error
+            }
+            return signupData;
+        }
+
+        return data;
+    } catch (err) {
+        console.error('[COOP HUB Auth] verifyOtp failed:', err);
+        throw new Error(err.message || 'Invalid or expired 6-digit OTP. Please check your email or request a new code.');
+    }
 }
 
 /**

@@ -1,5 +1,5 @@
-import { supabase } from "../../../lib/supabase";
-import { callPillarAiApi } from "./aiApi";
+import { supabase } from "../../../lib/supabase.js";
+import { callPillarAiApi } from "./aiApi.js";
 
 // ============================================================
 // LIVE AI SUB-AGENTS — Every agent queries NVIDIA / Gemini API
@@ -42,14 +42,16 @@ export const orderAgent = {
       const pendingCount = (bookings || []).filter((b) => b.status === "pending").length;
       const activeCount = (bookings || []).filter((b) => ["accepted", "onTheWay", "arrived", "inProgress"].includes(b.status)).length;
       const completedCount = (bookings || []).filter((b) => b.status === "completed").length;
+      const emergencyBooking = (bookings || []).find((b) => b.is_emergency && ["pending", "assigned", "accepted"].includes(b.status));
       const totalBookings = (bookings || []).length;
 
       const latestBooking = (bookings || [])[0];
       const latestInfo = latestBooking
         ? `Latest: "${latestBooking.service_name}" for ${latestBooking.customer_name} (${latestBooking.status}, ₹${latestBooking.total_amount})`
         : "No recent bookings found";
+      const emergencyInfo = emergencyBooking ? `⚡ URGENT EMERGENCY BOOKING: ${emergencyBooking.service_name} at ${emergencyBooking.service_address || 'assigned locality'}` : "No active emergency alerts";
 
-      dataContext = `Technician: ${userName}. Total bookings: ${totalBookings}. Pending: ${pendingCount}. Active: ${activeCount}. Completed: ${completedCount}. ${latestInfo}.`;
+      dataContext = `Technician: ${userName}. Total bookings: ${totalBookings}. Pending: ${pendingCount}. Active: ${activeCount}. Completed: ${completedCount}. ${latestInfo}. ${emergencyInfo}.`;
     } catch (err) {
       dataContext = `Technician: ${userName}. Could not fetch live booking data.`;
     }
@@ -205,11 +207,19 @@ export const profileAgent = {
     try {
       const { data: profile } = await supabase
         .from("pillar_profiles")
-        .select("full_name, pillar_id, status, service_area, phone, skills")
+        .select("full_name, pillar_id, status, service_area, phone, skills, main_services")
         .eq("id", pillarId)
         .single();
 
-      dataContext = `Technician: ${profile?.full_name || userName}. Pillar ID: ${profile?.pillar_id || "N/A"}. Verification: ${profile?.status || "Pending"}. Service Area: ${profile?.service_area || "Not set"}. Skills: ${profile?.skills || "Not listed"}.`;
+      const { data: certs } = await supabase
+        .from("pillar_certificates")
+        .select("skill_name")
+        .eq("pillar_id", pillarId)
+        .eq("verification_status", "approved");
+
+      const certList = certs && certs.length > 0 ? certs.map(c => c.skill_name).join(', ') : "None uploaded yet";
+
+      dataContext = `Technician: ${profile?.full_name || userName}. Pillar ID: ${profile?.pillar_id || "N/A"}. Verification: ${profile?.status || "Pending"}. Service Area: ${profile?.service_area || "Not set"}. Skills: ${profile?.skills || profile?.main_services || "Not listed"}. Approved Certifications: ${certList}.`;
     } catch (err) {
       dataContext = `Technician: ${userName}. Could not fetch live profile data.`;
     }
@@ -242,7 +252,9 @@ export const welfareAgent = {
   async handle(query, { session, language = "en" }) {
     const pillarId = session?.user?.id;
     const userName = session?.user?.user_metadata?.full_name || "Pillar";
-    const isDemo = localStorage.getItem("coophub_demo_user") === "true" || localStorage.getItem("coophub_demo_pillar") === "true";
+    const isDemo = typeof localStorage !== 'undefined' 
+      ? (localStorage.getItem("coophub_demo_user") === "true" || localStorage.getItem("coophub_demo_pillar") === "true") 
+      : false;
     let dataContext = "";
 
     if (isDemo) {
@@ -296,6 +308,19 @@ export const welfareAgent = {
       language,
       route: "/dashboard/welfare",
       fallback: "You can review your PF balance, group insurance, claims, and welfare schemes in the Welfare & Insurance tab.",
+    });
+  },
+};
+
+// ─── GENERAL TECHNICAL & TRADE ASSISTANT AGENT ──────────────
+export const generalPillarAssistantAgent = {
+  async handle(query, { session, language = "en", route = "/dashboard" }) {
+    const userName = session?.user?.user_metadata?.full_name || "Pillar";
+    return getLiveAiReply({
+      prompt: `Technician question: "${query}". You are speaking with technician ${userName}. Provide a comprehensive, actionable, and structured technical answer with clear steps, tools needed, and safety recommendations.`,
+      language,
+      route,
+      fallback: "I am your 24/7 technical assistant. Please ask any question regarding tools, repairs, electrical, plumbing, AC, carpentry, or safety procedures.",
     });
   },
 };

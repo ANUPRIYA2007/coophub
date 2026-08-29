@@ -12,7 +12,7 @@
  * - Enforces append-only semantics.
  */
 
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../lib/supabase.js';
 
 const isAdminDemo = () => localStorage.getItem("coophub_demo_admin") === "true";
 

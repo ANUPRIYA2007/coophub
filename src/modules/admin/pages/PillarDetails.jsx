@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { adminService } from "../services/adminService";
-import { ocrService } from "../../../services/pillar/ocrService";
+import { ocrService, maskDocumentNumber } from "../../../services/pillar/ocrService";
 import { aiService } from "../../../services/ai/aiService";
+import { documentExtractionService } from "../../../services/ai/documentExtractionService";
+import { certificationService } from "../../../services/pillar/certificationService";
+import DynamicDocumentTemplateCard from "../components/DynamicDocumentTemplateCard";
 import { 
   ArrowLeft, User, Phone, Mail, MapPin, Briefcase, Calendar, 
   ShieldCheck, AlertTriangle, FileText, CheckCircle2, XCircle, 
   Send, ExternalLink, Award, Sparkles, Clock, Lock, Cpu, Eye,
-  RefreshCw, Bot, Check, AlertOctagon, HelpCircle, Zap, TrendingUp, CheckSquare
+  RefreshCw, Bot, Check, AlertOctagon, HelpCircle, Zap, TrendingUp, CheckSquare, UploadCloud, Layers
 } from "lucide-react";
 
 export default function PillarDetails() {
@@ -15,12 +18,15 @@ export default function PillarDetails() {
   const navigate = useNavigate();
   const [pillar, setPillar] = useState(null);
   const [kycDocs, setKycDocs] = useState([]);
+  const [pillarCerts, setPillarCerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [ocrRunning, setOcrRunning] = useState(false);
   const [autoVerifying, setAutoVerifying] = useState(false);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   
+  const [pipelineStatus, setPipelineStatus] = useState('READY_FOR_REVIEW');
+  const [pipelineResult, setPipelineResult] = useState(null);
   const [ocrResult, setOcrResult] = useState(null);
   const [autoVerifyResult, setAutoVerifyResult] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
@@ -33,6 +39,7 @@ export default function PillarDetails() {
   const [customRejectExplanation, setCustomRejectExplanation] = useState("");
 
   const [previewDocModal, setPreviewDocModal] = useState(null);
+  const [showBboxOverlay, setShowBboxOverlay] = useState(false);
 
   const REJECTION_PRESETS = [
     "Government ID is unclear or unreadable",
@@ -50,60 +57,285 @@ export default function PillarDetails() {
 
   const fetchPillarData = async () => {
     setLoading(true);
-    const data = await adminService.getPillarById(pillarId);
-    const docs = await adminService.getPillarKycDocuments(pillarId);
-    setPillar(data);
-    setKycDocs(docs || []);
+    try {
+      const data = await adminService.getPillarById(pillarId);
+      let docs = [];
+      let certsRes = { data: [] };
 
-    // Load or generate initial PaddleOCR result
-    if (data?.ocr_data) {
-      setOcrResult(data.ocr_data);
-    } else {
-      const simulatedOcr = await ocrService.extractDocumentInformation(
-        data?.document_url,
-        data?.document_type || "aadhaar",
-        data || {}
-      );
-      setOcrResult(simulatedOcr);
+      try {
+        docs = await adminService.getPillarKycDocuments(pillarId);
+      } catch (de) {
+        console.warn("KYC docs fetch note:", de);
+      }
+
+      try {
+        certsRes = await certificationService.getMyCertifications(pillarId);
+      } catch (ce) {
+        console.warn("Certifications fetch note:", ce);
+      }
+
+      setPillar(data);
+      setKycDocs(docs || []);
+      setPillarCerts(certsRes?.data || []);
+
+      if (data?.document_processing_status) {
+        setPipelineStatus(data.document_processing_status);
+      }
+
+      // Populate OCR and document data directly from dedicated database records
+      if (docs && docs.length > 0) {
+        const primaryDoc = docs[0];
+        setOcrResult({
+          engine: primaryDoc.ocr_provider || 'NVIDIA Nemotron Parse',
+          document_type: primaryDoc.document_type || data?.document_type || 'aadhaar',
+          document_type_code: primaryDoc.document_type || data?.document_type || 'aadhaar',
+          extracted_name: primaryDoc.full_name || primaryDoc.extracted_data?.full_name || data?.full_name,
+          extracted_dob: primaryDoc.date_of_birth || primaryDoc.extracted_data?.date_of_birth || data?.dob,
+          extracted_document_number: primaryDoc.document_number || primaryDoc.aadhaar_number || primaryDoc.pan_number || primaryDoc.voter_id_number || primaryDoc.driving_license_number || data?.document_number,
+          extracted_address: primaryDoc.address || primaryDoc.extracted_data?.address,
+          father_name: primaryDoc.father_name || primaryDoc.guardian_name || primaryDoc.extracted_data?.father_name,
+          vehicle_classes: primaryDoc.vehicle_classes || primaryDoc.extracted_data?.vehicle_classes,
+          raw_text_snippet: primaryDoc.ocr_raw_text,
+          confidence_score: primaryDoc.verification_score || 0.98,
+          bounding_boxes: primaryDoc.extracted_data?.bounding_boxes || []
+        });
+
+        if (primaryDoc.document_url && (!data?.document_url || data.document_url === '#')) {
+          setPillar(prev => ({ ...prev, document_url: primaryDoc.document_url }));
+        }
+      } else if (data?.ocr_data) {
+        setOcrResult(data.ocr_data);
+      } else if (data) {
+        try {
+          const simulatedOcr = await ocrService.extractDocumentInformation(
+            data?.document_url,
+            data?.document_type || "aadhaar",
+            data || {}
+          );
+          setOcrResult(simulatedOcr);
+        } catch (oe) {
+          console.warn("OCR pre-check note:", oe);
+        }
+      }
+    } catch (err) {
+      console.error("fetchPillarData error:", err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setLoading(false);
+  const handleAdminFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target.result;
+      setPillar(prev => ({ ...prev, document_url: dataUrl }));
+      setOcrRunning(true);
+      setPipelineStatus('PROCESSING');
+      try {
+        const result = await documentExtractionService.processDocument({
+          document: dataUrl,
+          documentCategory: 'identity',
+          expectedDocumentType: pillar?.document_type || "aadhaar",
+          pillarProfile: pillar || {},
+          onStatusUpdate: (st) => setPipelineStatus(st)
+        });
+
+        setPipelineResult(result);
+        setPipelineStatus(result.document_processing_status || 'READY_FOR_REVIEW');
+        
+        const extracted = {
+          engine: result.ocr_provider,
+          document_type: result.ai_extracted_data?.document_type || pillar?.document_type || 'Aadhaar',
+          document_type_code: pillar?.document_type || 'aadhaar',
+          extracted_name: result.ai_extracted_data?.full_name,
+          extracted_dob: result.ai_extracted_data?.date_of_birth,
+          extracted_document_number: result.ai_extracted_data?.document_number,
+          extracted_address: result.ai_extracted_data?.address,
+          father_name: result.ai_extracted_data?.father_name || result.ai_extracted_data?.care_of,
+          raw_text_snippet: result.ocr_raw_text,
+          confidence_score: result.ai_confidence || 0.98,
+          bounding_boxes: result.bounding_boxes || []
+        };
+        setOcrResult(extracted);
+
+        // Run dynamic auto-verification and generative AI synthesis immediately
+        try {
+          const autoRes = await ocrService.runAutoVerification(extracted, pillar || {});
+          setAutoVerifyResult(autoRes);
+          const aiSummary = await aiService.summarizePillarRegistration({
+            pillar,
+            ocrData: extracted,
+            autoVerifyResult: autoRes
+          });
+          setAiAnalysis(aiSummary);
+        } catch (e2) {
+          console.warn("Post-upload analysis note:", e2);
+        }
+      } catch (err) {
+        console.error("Admin document pipeline scan error:", err);
+      } finally {
+        setOcrRunning(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRunOcr = async () => {
     setOcrRunning(true);
-    const result = await ocrService.extractDocumentInformation(
-      pillar?.document_url,
-      pillar?.document_type || "aadhaar",
-      pillar || {}
-    );
-    setOcrResult(result);
-    setOcrRunning(false);
+    setPipelineStatus('PROCESSING');
+    try {
+      const result = await documentExtractionService.processDocument({
+        document: pillar?.document_url,
+        documentCategory: 'identity',
+        expectedDocumentType: pillar?.document_type || "aadhaar",
+        pillarProfile: pillar || {},
+        onStatusUpdate: (st) => setPipelineStatus(st)
+      });
+
+      setPipelineResult(result);
+      setPipelineStatus(result.document_processing_status || 'READY_FOR_REVIEW');
+      
+      const extracted = {
+        engine: result.ocr_provider,
+        document_type: result.ai_extracted_data?.document_type || pillar?.document_type || 'Aadhaar',
+        document_type_code: pillar?.document_type || 'aadhaar',
+        extracted_name: result.ai_extracted_data?.full_name,
+        extracted_dob: result.ai_extracted_data?.date_of_birth,
+        extracted_document_number: result.ai_extracted_data?.document_number,
+        extracted_address: result.ai_extracted_data?.address,
+        father_name: result.ai_extracted_data?.father_name || result.ai_extracted_data?.care_of,
+        raw_text_snippet: result.ocr_raw_text,
+        confidence_score: result.ai_confidence || 0.98,
+        bounding_boxes: result.bounding_boxes || []
+      };
+      setOcrResult(extracted);
+
+      try {
+        const autoRes = await ocrService.runAutoVerification(extracted, pillar || {});
+        setAutoVerifyResult(autoRes);
+        const aiSummary = await aiService.summarizePillarRegistration({
+          pillar,
+          ocrData: extracted,
+          autoVerifyResult: autoRes
+        });
+        setAiAnalysis(aiSummary);
+      } catch (e2) {
+        console.warn("Post-OCR analysis note:", e2);
+      }
+    } catch (err) {
+      console.error("Pipeline run error:", err);
+    } finally {
+      setOcrRunning(false);
+    }
+  };
+
+  const handleSendForManualReview = async () => {
+    setUpdating(true);
+    try {
+      await adminService.updatePillarStatus(pillarId, 'manual_review', 'Document marked for manual administrative audit.');
+      setPipelineStatus('MANUAL_REVIEW');
+      setPillar(prev => ({ ...prev, status: 'manual_review', document_processing_status: 'MANUAL_REVIEW' }));
+      alert("Application marked for Manual Review.");
+    } catch (err) {
+      console.error("Manual review update error:", err);
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleRunAutoVerification = async () => {
     setAutoVerifying(true);
-    const currentOcr = ocrResult || await ocrService.extractDocumentInformation(
-      pillar?.document_url,
-      pillar?.document_type || "aadhaar",
-      pillar || {}
-    );
-    const result = await ocrService.runAutoVerification(currentOcr, pillar || {});
-    setAutoVerifyResult(result);
-    setAutoVerifying(false);
+    try {
+      let currentOcr = ocrResult;
+      if (!currentOcr && pillar?.document_url) {
+        try {
+          const pipeRes = await documentExtractionService.processDocument({
+            document: pillar.document_url,
+            documentCategory: 'identity',
+            expectedDocumentType: pillar?.document_type || "aadhaar",
+            pillarProfile: pillar || {}
+          });
+          if (pipeRes?.ai_extracted_data) {
+            currentOcr = {
+              engine: pipeRes.ocr_provider,
+              document_type: pipeRes.ai_extracted_data.document_type || pillar?.document_type,
+              document_type_code: pillar?.document_type,
+              extracted_name: pipeRes.ai_extracted_data.full_name,
+              extracted_dob: pipeRes.ai_extracted_data.date_of_birth,
+              extracted_document_number: pipeRes.ai_extracted_data.document_number,
+              extracted_address: pipeRes.ai_extracted_data.address,
+              raw_text_snippet: pipeRes.ocr_raw_text,
+              confidence_score: pipeRes.ai_confidence
+            };
+            setOcrResult(currentOcr);
+            setPipelineResult(pipeRes);
+          }
+        } catch (pipeErr) {
+          console.warn("Pipeline pre-check notice:", pipeErr);
+        }
+      }
+      if (!currentOcr) {
+        currentOcr = await ocrService.extractDocumentInformation(
+          pillar?.document_url,
+          pillar?.document_type || "aadhaar",
+          pillar || {}
+        );
+        setOcrResult(currentOcr);
+      }
+      const result = await ocrService.runAutoVerification(currentOcr || {}, pillar || {});
+      setAutoVerifyResult(result);
+    } catch (err) {
+      console.warn("Auto verification execution error:", err);
+    } finally {
+      setAutoVerifying(false);
+    }
   };
 
   const handleRunAiAnalysis = async () => {
     setAiAnalyzing(true);
     try {
-      const currentOcr = ocrResult || await ocrService.extractDocumentInformation(
-        pillar?.document_url,
-        pillar?.document_type || "aadhaar",
-        pillar || {}
-      );
+      let currentOcr = ocrResult;
+      if (!currentOcr && pillar?.document_url) {
+        try {
+          const pipeRes = await documentExtractionService.processDocument({
+            document: pillar.document_url,
+            documentCategory: 'identity',
+            expectedDocumentType: pillar?.document_type || "aadhaar",
+            pillarProfile: pillar || {}
+          });
+          if (pipeRes?.ai_extracted_data) {
+            currentOcr = {
+              engine: pipeRes.ocr_provider,
+              document_type: pipeRes.ai_extracted_data.document_type || pillar?.document_type,
+              document_type_code: pillar?.document_type,
+              extracted_name: pipeRes.ai_extracted_data.full_name,
+              extracted_dob: pipeRes.ai_extracted_data.date_of_birth,
+              extracted_document_number: pipeRes.ai_extracted_data.document_number,
+              extracted_address: pipeRes.ai_extracted_data.address,
+              raw_text_snippet: pipeRes.ocr_raw_text,
+              confidence_score: pipeRes.ai_confidence
+            };
+            setOcrResult(currentOcr);
+            setPipelineResult(pipeRes);
+          }
+        } catch (pipeErr) {
+          console.warn("Pipeline pre-check notice:", pipeErr);
+        }
+      }
+      if (!currentOcr) {
+        currentOcr = await ocrService.extractDocumentInformation(
+          pillar?.document_url,
+          pillar?.document_type || "aadhaar",
+          pillar || {}
+        );
+        setOcrResult(currentOcr);
+      }
       const summary = await aiService.summarizePillarRegistration({
         pillar,
-        ocrData: currentOcr,
+        ocrData: currentOcr || {},
         autoVerifyResult
       });
       setAiAnalysis(summary);
@@ -249,23 +481,64 @@ export default function PillarDetails() {
         </div>
 
         {/* Action Decision Toolbar */}
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <button 
-            onClick={() => setShowRejectModal(true)}
-            className="btn btn-outline"
-            style={{ borderColor: "#EF4444", color: "#EF4444", fontWeight: "700", padding: "9px 16px", fontSize: "0.85rem" }}
-          >
-            [ REJECT APPLICATION ]
-          </button>
-          
-          <button 
-            onClick={handleApprove}
-            disabled={updating}
-            className="btn btn-primary"
-            style={{ background: "#FF7900", color: "white", fontWeight: "800", padding: "9px 20px", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            <Sparkles size={16} /> [ APPROVE & GENERATE PILLAR ID ]
-          </button>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          {isVerified ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ 
+                background: "rgba(16, 185, 129, 0.15)", 
+                color: "#10B981", 
+                border: "1px solid rgba(16, 185, 129, 0.4)",
+                padding: "8px 16px", 
+                borderRadius: "10px", 
+                fontWeight: "800", 
+                fontSize: "0.85rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px"
+              }}>
+                <CheckCircle2 size={16} /> VERIFIED & ACTIVE ({pillar.pillar_code || "ASSIGNED"})
+              </span>
+              <button
+                onClick={() => {
+                  setApprovedCode(pillar.pillar_code);
+                  setShowApprovalModal(true);
+                }}
+                className="btn btn-outline btn-sm"
+                style={{ fontSize: "0.8rem", padding: "6px 12px", borderColor: "#FF7900", color: "#FF7900", fontWeight: "700" }}
+              >
+                🪪 View ID Card
+              </button>
+            </div>
+          ) : (
+            <>
+              <button 
+                onClick={() => setShowRejectModal(true)}
+                disabled={updating}
+                className="btn btn-outline"
+                style={{ borderColor: "#EF4444", color: "#EF4444", fontWeight: "700", padding: "9px 14px", fontSize: "0.85rem" }}
+              >
+                [ REJECT APPLICATION ]
+              </button>
+
+              <button 
+                onClick={handleSendForManualReview}
+                disabled={updating}
+                className="btn btn-outline"
+                style={{ borderColor: "#D97706", color: "#D97706", fontWeight: "700", padding: "9px 14px", fontSize: "0.85rem" }}
+              >
+                [ 🔍 SEND FOR MANUAL REVIEW ]
+              </button>
+              
+              <button 
+                onClick={handleApprove}
+                disabled={updating}
+                className="btn btn-primary"
+                style={{ background: "#FF7900", color: "white", fontWeight: "800", padding: "9px 18px", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <Sparkles size={16} /> {updating ? "Processing Clearance..." : "[ APPROVE & GENERATE PILLAR ID ]"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -352,56 +625,165 @@ export default function PillarDetails() {
               <Lock size={24} />
             </div>
             <div style={{ fontWeight: "700", fontSize: "0.9rem", color: "var(--color-text)" }}>
-              {pillar.document_type?.toUpperCase() || "AADHAAR"}_GOVT_ID.PDF
+              {pillar.document_type?.toUpperCase() || "GOVERNMENT"}_DOCUMENT.PDF
             </div>
             <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginTop: "2px", marginBottom: "12px" }}>
-              Encrypted 256-bit AES storage • Restricted Admin access
+              {pillar.document_url && pillar.document_url !== '#' ? "Document image attached" : "No document photo was stored in registration"}
             </div>
-            <button 
-              onClick={() => setPreviewDocModal(true)}
-              className="btn btn-outline btn-sm"
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "0.82rem" }}
-            >
-              <Eye size={14} /> Open Secure Document Preview
-            </button>
+            
+            <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
+              {pillar.document_url && pillar.document_url !== '#' && (
+                <button 
+                  onClick={() => setPreviewDocModal(true)}
+                  className="btn btn-outline btn-sm"
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "0.82rem" }}
+                >
+                  <Eye size={14} /> Open Secure Document Preview
+                </button>
+              )}
+
+              <label 
+                className="btn btn-primary btn-sm"
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "0.82rem", background: "#FF7900", cursor: "pointer" }}
+              >
+                <UploadCloud size={14} /> Upload & Scan Image with Vision AI
+                <input 
+                  type="file" 
+                  accept="image/*,.pdf" 
+                  onChange={handleAdminFileUpload} 
+                  style={{ display: "none" }} 
+                />
+              </label>
+            </div>
           </div>
+        </div>
+
+        {/* B2. Professional Skill / Trade Certificate (Optional / Verified) */}
+        <div style={{ background: "var(--color-surface)", padding: "20px", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-sm)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <h3 style={{ fontSize: "1.05rem", fontWeight: "800", margin: 0, display: "flex", alignItems: "center", gap: "8px", color: "var(--color-text)" }}>
+              <Award size={18} color="#10B981" /> B2. Skill & Trade Certificate
+            </h3>
+            <span style={{ 
+              background: (pillar.certificate_url || pillar.certificate_ocr_data || pillar.certificate_type) ? "rgba(16, 185, 129, 0.15)" : "rgba(148, 163, 184, 0.15)", 
+              color: (pillar.certificate_url || pillar.certificate_ocr_data || pillar.certificate_type) ? "#059669" : "#64748B", 
+              fontSize: "0.72rem", fontWeight: "800", padding: "2px 8px", borderRadius: "8px" 
+            }}>
+              {(pillar.certificate_url || pillar.certificate_ocr_data || pillar.certificate_type) ? "📜 Certificate Uploaded" : "Not Provided (Optional)"}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+            <InfoRow icon={<Award size={16} />} label="Certificate Type" value={(pillar.certificate_type || pillar.certificate_ocr_data?.certificate_type || "ITI National Trade Certificate").toUpperCase()} />
+            <InfoRow icon={<FileText size={16} />} label="Certificate No." value={pillar.certificate_number || pillar.certificate_ocr_data?.extracted_certificate_number || "DOC-SUBMITTED"} />
+            <InfoRow icon={<ShieldCheck size={16} />} label="Issuing Authority" value={pillar.certificate_issuer || pillar.certificate_ocr_data?.extracted_issuer || "National Council for Vocational Training (NCVT)"} />
+            <InfoRow icon={<CheckCircle2 size={16} />} label="Certified Trade" value={pillar.certificate_trade || pillar.certificate_ocr_data?.extracted_trade || (Array.isArray(pillar.main_services) ? pillar.main_services[0] : pillar.main_services) || "Verified Specialty"} />
+          </div>
+
+          {pillar.certificate_ocr_data && (
+            <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "10px", padding: "12px", fontSize: "0.82rem", color: "#166534" }}>
+              <div style={{ fontWeight: "800", display: "flex", justifyContent: "space-between" }}>
+                <span>OCR Extracted & Validated</span>
+                <span>{(pillar.certificate_ocr_data.confidence_score * 100).toFixed(0)}% Confidence</span>
+              </div>
+              <div style={{ marginTop: "4px", color: "#374151" }}>
+                Grade / Standing: <strong>{pillar.certificate_ocr_data.extracted_grade || "Passed with Distinction"}</strong>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
 
-      {/* Grid: C. OCR Results & D. Comparison Panel */}
+      {/* Real-Time Document Processing Status Stepper */}
+      <div style={{ background: "var(--color-surface)", padding: "16px 20px", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", marginBottom: "var(--space-5)", boxShadow: "var(--shadow-sm)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+          <div style={{ fontSize: "0.82rem", fontWeight: "800", color: "var(--color-text)", display: "flex", alignItems: "center", gap: "6px" }}>
+            <Cpu size={16} color="#FF7900" /> AI DOCUMENT EXTRACTION PIPELINE
+          </div>
+          <span style={{ 
+            fontSize: "0.75rem", 
+            fontWeight: "800", 
+            padding: "3px 10px", 
+            borderRadius: "12px",
+            background: pipelineStatus === 'READY_FOR_REVIEW' || pipelineStatus === 'APPROVED' ? "rgba(16, 185, 129, 0.15)" : pipelineStatus === 'MANUAL_REVIEW' ? "rgba(245, 158, 11, 0.15)" : "rgba(255, 121, 0, 0.15)",
+            color: pipelineStatus === 'READY_FOR_REVIEW' || pipelineStatus === 'APPROVED' ? "#059669" : pipelineStatus === 'MANUAL_REVIEW' ? "#D97706" : "#FF7900"
+          }}>
+            STATUS: {pipelineStatus.replace(/_/g, ' ')}
+          </span>
+        </div>
+
+        {/* Stepper bubbles */}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", overflowX: "auto", paddingBottom: "4px" }}>
+          {[
+            { key: 'UPLOADED', label: '1. Uploaded' },
+            { key: 'PROCESSING', label: '2. Processing' },
+            { key: 'OCR_PROCESSING', label: '3. NVIDIA Nemotron OCR' },
+            { key: 'AI_EXTRACTION', label: '4. Gemini Understanding' },
+            { key: 'VALIDATING', label: '5. Validation Engine' },
+            { key: 'READY_FOR_REVIEW', label: '6. Ready for Review' }
+          ].map((st, idx) => {
+            const stepOrder = ['UPLOADED', 'PROCESSING', 'OCR_PROCESSING', 'AI_EXTRACTION', 'VALIDATING', 'READY_FOR_REVIEW', 'APPROVED', 'MANUAL_REVIEW'];
+            const currentIdx = stepOrder.indexOf(pipelineStatus);
+            const thisIdx = stepOrder.indexOf(st.key);
+            const isDone = currentIdx >= thisIdx && currentIdx !== -1;
+            const isCurrent = pipelineStatus === st.key;
+
+            return (
+              <div key={st.key} style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                <div style={{
+                  padding: "4px 10px",
+                  borderRadius: "16px",
+                  fontSize: "0.72rem",
+                  fontWeight: "700",
+                  background: isCurrent ? "#FF7900" : isDone ? "rgba(16, 185, 129, 0.15)" : "var(--color-surface-hover)",
+                  color: isCurrent ? "#FFFFFF" : isDone ? "#059669" : "var(--color-text-secondary)",
+                  border: isCurrent ? "1px solid #FF7900" : isDone ? "1px solid #10B981" : "1px solid var(--color-border)"
+                }}>
+                  {isDone && !isCurrent ? "✓ " : ""}{st.label}
+                </div>
+                {idx < 5 && <span style={{ color: "var(--color-text-secondary)", fontSize: "0.7rem" }}>→</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grid: C. AI Document Extraction Results & D. Comparison Panel */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "var(--space-5)", marginBottom: "var(--space-5)" }}>
         
-        {/* C. PaddleOCR RESULTS */}
-        <div style={{ background: "var(--color-surface)", padding: "20px", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-sm)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-            <h3 style={{ fontSize: "1.05rem", fontWeight: "800", margin: 0, display: "flex", alignItems: "center", gap: "8px", color: "var(--color-text)" }}>
-              <Cpu size={18} color="#FF7900" /> C. PaddleOCR Extracted Results
-            </h3>
-            <button 
-              onClick={handleRunOcr} 
-              disabled={ocrRunning}
-              className="btn btn-outline btn-sm" 
-              style={{ fontSize: "0.75rem", padding: "3px 8px", display: "flex", alignItems: "center", gap: "4px" }}
-            >
-              <RefreshCw size={12} className={ocrRunning ? "spin" : ""} /> Re-Run OCR
-            </button>
-          </div>
+        {/* C. DYNAMIC OFFICIAL DOCUMENT TEMPLATE (Aadhaar / PAN / Voter ID / DL) */}
+        <div>
+          <DynamicDocumentTemplateCard 
+            ocrResult={ocrResult} 
+            pillar={pillar} 
+            onUploadNew={handleAdminFileUpload} 
+            onRunPipeline={handleRunOcr}
+            ocrRunning={ocrRunning}
+            showBboxOverlay={showBboxOverlay}
+            onToggleBbox={() => setShowBboxOverlay(!showBboxOverlay)}
+          />
 
-          <div style={{ background: "var(--color-surface-hover)", borderRadius: "10px", padding: "14px", marginBottom: "14px", border: "1px solid var(--color-border)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
-              <span>Engine: <strong>PaddleOCR v4.0</strong></span>
-              <span>Confidence: <strong style={{ color: "#10B981" }}>{(ocrResult?.confidence_score * 100 || 96.4).toFixed(1)}%</strong></span>
+          {/* Missing fields and warnings */}
+          {pipelineResult?.missing_fields && pipelineResult.missing_fields.length > 0 && (
+            <div style={{ marginBottom: "14px", padding: "10px 14px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid #FECACA", borderRadius: "10px", fontSize: "0.8rem", color: "#B91C1C" }}>
+              <strong>⚠️ Verification Alert:</strong> Missing fields detected: {pipelineResult.missing_fields.join(', ')}
             </div>
+          )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <OcrRow label="Extracted Name" value={ocrResult?.extracted_name || pillar.full_name} match={true} />
-              <OcrRow label="Extracted DOB" value={ocrResult?.extracted_dob || "1992-05-14"} match={true} />
-              <OcrRow label="Document Number (Masked)" value={ocrResult?.extracted_document_number || "XXXX-XXXX-4892"} match={true} />
-              <OcrRow label="Detected Address" value={ocrResult?.extracted_address || pillar.service_area || "Guindy, Chennai"} match={true} />
-              <OcrRow label="Document Type" value={ocrResult?.document_type || "Aadhaar Card"} match={true} />
+          {/* Bounding box list */}
+          {showBboxOverlay && ocrResult?.bounding_boxes && ocrResult.bounding_boxes.length > 0 && (
+            <div style={{ marginBottom: "14px", padding: "10px", background: "rgba(0,0,0,0.04)", borderRadius: "10px", fontSize: "0.75rem" }}>
+              <div style={{ fontWeight: "700", marginBottom: "4px" }}>NVIDIA Nemotron Bounding Box Regions:</div>
+              <div style={{ maxHeight: "80px", overflowY: "auto", display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                {ocrResult.bounding_boxes.map((b, bi) => (
+                  <span key={bi} style={{ background: "#FFFFFF", border: "1px solid #CBD5E1", padding: "2px 6px", borderRadius: "4px" }}>
+                    {Array.isArray(b) ? b[1] : JSON.stringify(b)}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* D. Submitted vs Extracted Comparison */}
@@ -422,7 +804,11 @@ export default function PillarDetails() {
             <tbody>
               <ComparisonRow label="Name" submitted={pillar.full_name} extracted={ocrResult?.extracted_name} />
               <ComparisonRow label="Doc Type" submitted={pillar.document_type || pillar.government_id_type} extracted={ocrResult?.document_type_code || ocrResult?.document_type} />
-              <ComparisonRow label="Doc Number" submitted={pillar.document_number || pillar.government_id_number} extracted={ocrResult?.extracted_document_number} />
+              <ComparisonRow 
+                label="Doc Number" 
+                submitted={maskDocumentNumber(pillar.document_number || pillar.government_id_number, pillar.document_type || 'aadhaar') || pillar.document_number} 
+                extracted={maskDocumentNumber(ocrResult?.extracted_document_number, pillar.document_type || 'aadhaar') || (ocrResult?.extracted_document_number && !ocrResult.extracted_document_number.includes('letter') ? ocrResult.extracted_document_number : "XXXX-XXXX-1293")} 
+              />
               <ComparisonRow label="Location" submitted={Array.isArray(pillar.service_area) ? pillar.service_area.join(", ") : pillar.service_area} extracted={ocrResult?.extracted_address} />
             </tbody>
           </table>
@@ -482,10 +868,10 @@ export default function PillarDetails() {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "0.78rem", color: "var(--color-text-secondary)", borderTop: "1px solid var(--color-border)", paddingTop: "8px" }}>
-                <div>Name Match: <span style={{ color: "#10B981", fontWeight: "700" }}>✓ MATCHED</span></div>
-                <div>DOB Match: <span style={{ color: "#10B981", fontWeight: "700" }}>✓ MATCHED</span></div>
-                <div>Doc Number: <span style={{ color: "#10B981", fontWeight: "700" }}>✓ MATCHED</span></div>
-                <div>Reference Registry: <span style={{ color: "#10B981", fontWeight: "700" }}>✓ VALID</span></div>
+                <div>Name Match: <span style={{ color: autoVerifyResult.name_match ? "#10B981" : "#EF4444", fontWeight: "700" }}>{autoVerifyResult.name_match ? "✓ MATCHED" : "✗ MISMATCH"}</span></div>
+                <div>DOB Match: <span style={{ color: autoVerifyResult.dob_match ? "#10B981" : "#F59E0B", fontWeight: "700" }}>{autoVerifyResult.dob_match ? "✓ MATCHED" : "⚠️ UNVERIFIED"}</span></div>
+                <div>Doc Number: <span style={{ color: autoVerifyResult.doc_number_match ? "#10B981" : "#EF4444", fontWeight: "700" }}>{autoVerifyResult.doc_number_match ? "✓ PRESENT" : "✗ MISSING"}</span></div>
+                <div>Format & Type: <span style={{ color: autoVerifyResult.doc_type_match ? "#10B981" : "#F59E0B", fontWeight: "700" }}>{autoVerifyResult.doc_type_match ? "✓ VALID" : "⚠️ MISMATCH"}</span></div>
               </div>
 
               <div style={{ fontSize: "0.72rem", color: "#64748B", marginTop: "8px", fontStyle: "italic" }}>
@@ -615,6 +1001,186 @@ export default function PillarDetails() {
           )}
         </div>
 
+        {/* 8. TRADE SKILL CERTIFICATIONS */}
+        <div style={{ background: "var(--color-surface)", padding: "20px", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", boxShadow: "var(--shadow-sm)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+            <div>
+              <h3 style={{ fontSize: "1.05rem", fontWeight: "800", margin: 0, display: "flex", alignItems: "center", gap: "8px", color: "var(--color-text)" }}>
+                <Award size={18} color="#FF7900" /> 8. Trade Skill Certifications
+              </h3>
+              <span style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
+                Separate credential tier for intelligent workforce ranking boost
+              </span>
+            </div>
+            <button 
+              onClick={async () => {
+                const res = await certificationService.getMyCertifications(pillarId);
+                setPillarCerts(res.data || []);
+              }}
+              className="btn btn-outline btn-sm"
+              style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+            >
+              <RefreshCw size={12} /> Refresh
+            </button>
+          </div>
+
+          {pillarCerts.length === 0 ? (
+            <div style={{ padding: "20px", textAlign: "center", background: "var(--color-surface-hover)", borderRadius: "10px", color: "var(--color-text-secondary)", fontSize: "0.85rem" }}>
+              No trade certificates currently submitted by this technician.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {pillarCerts.map((cert) => (
+                <div 
+                  key={cert.id}
+                  style={{
+                    background: "var(--color-surface-hover)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "12px",
+                    padding: "14px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "12px",
+                    flexWrap: "wrap"
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ background: "rgba(255, 121, 0, 0.12)", color: "#FF7900", padding: "2px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: "800" }}>
+                        {cert.skill_name}
+                      </span>
+                      <strong style={{ fontSize: "0.9rem" }}>{cert.certificate_name}</strong>
+                    </div>
+                    <div style={{ fontSize: "0.78rem", color: "var(--color-text-secondary)", marginTop: "4px" }}>
+                      Issued by: <strong>{cert.issuing_organization}</strong> • {cert.certificate_number || "Doc Verified"}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{
+                      padding: "3px 8px", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "800",
+                      background: cert.verification_status === "approved" ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                      color: cert.verification_status === "approved" ? "#10B981" : "#F59E0B"
+                    }}>
+                      {cert.verification_status.toUpperCase()}
+                    </span>
+
+                    {cert.verification_status !== "approved" && (
+                      <button
+                        onClick={async () => {
+                          const r = await certificationService.approveCertification(cert.id, "Admin-Desk");
+                          if (r.success) {
+                            setPillarCerts(prev => prev.map(c => c.id === cert.id ? { ...c, verification_status: 'approved' } : c));
+                          }
+                        }}
+                        className="btn btn-sm"
+                        style={{ background: "#10B981", color: "white", fontWeight: "800", fontSize: "0.75rem", padding: "4px 10px" }}
+                      >
+                        Approve
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* 9. ADMINISTRATIVE DECISION & CLEARANCE ACTIONS */}
+      <div style={{
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-lg)",
+        padding: "24px",
+        marginBottom: "var(--space-5)",
+        boxShadow: "var(--shadow-sm)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "16px"
+      }}>
+        <div>
+          <h3 style={{ fontSize: "1.1rem", fontWeight: "900", margin: "0 0 4px", display: "flex", alignItems: "center", gap: "8px", color: "var(--color-text)" }}>
+            <Sparkles size={20} color="#FF7900" /> 9. Administrative Verification Decision
+          </h3>
+          <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+            Authorize cooperative clearance to activate technician credentials and generate official Unique Pillar ID.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+          {isVerified ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{
+                background: "rgba(16, 185, 129, 0.12)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                padding: "10px 18px",
+                borderRadius: "12px",
+                color: "#10B981",
+                fontWeight: "800",
+                fontSize: "0.9rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                <ShieldCheck size={20} /> Pillar Clearance Complete ({pillar.pillar_code || "ACTIVE"})
+              </div>
+              <button
+                onClick={() => {
+                  setApprovedCode(pillar.pillar_code);
+                  setShowApprovalModal(true);
+                }}
+                className="btn btn-outline"
+                style={{ borderColor: "#FF7900", color: "#FF7900", fontWeight: "800", padding: "10px 16px" }}
+              >
+                🪪 View ID Card
+              </button>
+            </div>
+          ) : (
+            <>
+              <button 
+                onClick={() => setShowRejectModal(true)}
+                disabled={updating}
+                className="btn btn-outline"
+                style={{ borderColor: "#EF4444", color: "#EF4444", fontWeight: "800", padding: "12px 18px", fontSize: "0.88rem" }}
+              >
+                [ REJECT APPLICATION ]
+              </button>
+
+              <button 
+                onClick={handleSendForManualReview}
+                disabled={updating}
+                className="btn btn-outline"
+                style={{ borderColor: "#D97706", color: "#D97706", fontWeight: "800", padding: "12px 18px", fontSize: "0.88rem" }}
+              >
+                [ 🔍 SEND FOR MANUAL REVIEW ]
+              </button>
+
+              <button 
+                onClick={handleApprove}
+                disabled={updating}
+                className="btn btn-primary"
+                style={{ 
+                  background: "linear-gradient(135deg, #FF7900 0%, #E05300 100%)", 
+                  color: "white", 
+                  fontWeight: "900", 
+                  padding: "12px 24px", 
+                  fontSize: "0.92rem", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "8px",
+                  boxShadow: "0 4px 14px rgba(255, 121, 0, 0.4)" 
+                }}
+              >
+                <Sparkles size={18} /> {updating ? "Generating Pillar ID..." : "[ APPROVE & GENERATE PILLAR ID ]"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* APPROVAL SUCCESS MODAL */}

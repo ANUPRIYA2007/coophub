@@ -39,7 +39,7 @@ export default function Register() {
     pincode: "",
     locationSharingEnabled: true,
     preferredLanguage: "en",
-    // Step 3: Government ID Verification fields
+    // Step 3: Government ID Verification fields (Mandatory)
     documentType: "aadhaar", // 'aadhaar' | 'pan' | 'voter_id' | 'driving_licence' | 'other'
     customDocumentType: "",
     documentNumber: "",
@@ -48,9 +48,19 @@ export default function Register() {
     documentFileName: "",
     documentFileSize: "",
     documentPreviewUrl: null,
+    // Step 4: Professional Trade & Skill Certificates (Optional)
+    certificateType: "iti", // 'iti' | 'nsdc' | 'diploma' | 'trade_license' | 'experience' | 'other'
+    customCertificateType: "",
+    certificateNumber: "",
+    certificateFile: null,
+    certificateFileName: "",
+    certificateFileSize: "",
+    certificatePreviewUrl: null,
   });
 
   const [ocrPreview, setOcrPreview] = useState(null);
+  const [certOcrPreview, setCertOcrPreview] = useState(null);
+  const [certOcrProcessing, setCertOcrProcessing] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -73,39 +83,81 @@ export default function Register() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setError("File size exceeds 10MB limit. Please upload a smaller document.");
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
     const sizeFormatted = (file.size / (1024 * 1024)).toFixed(2) + " MB";
 
-    setFormData((prev) => ({
-      ...prev,
-      documentFile: file,
-      documentFileName: file.name,
-      documentFileSize: sizeFormatted,
-      documentPreviewUrl: previewUrl,
-    }));
+    // Read as Base64 Data URL for persistent storage
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result;
+      setFormData((prev) => ({
+        ...prev,
+        documentFile: file,
+        documentFileName: file.name,
+        documentFileSize: sizeFormatted,
+        documentPreviewUrl: dataUrl,
+      }));
 
-    // Trigger PaddleOCR simulation pre-check
-    setOcrProcessing(true);
-    try {
-      const extracted = await ocrService.extractDocumentInformation(file, formData.documentType, {
-        fullName: formData.fullName,
-        documentNumber: formData.documentNumber,
-        serviceArea: formData.serviceArea,
-        dob: formData.dob,
-        customDocumentType: formData.customDocumentType
-      });
-      setOcrPreview(extracted);
-    } catch (err) {
-      console.warn("OCR preview notice:", err);
-    } finally {
-      setOcrProcessing(false);
+      setOcrProcessing(true);
+      try {
+        const extracted = await ocrService.extractDocumentInformation(dataUrl, formData.documentType, {
+          fullName: formData.fullName,
+          documentNumber: formData.documentNumber,
+          serviceArea: formData.serviceArea,
+          dob: formData.dob,
+          customDocumentType: formData.customDocumentType
+        });
+        setOcrPreview(extracted);
+      } catch (err) {
+        console.warn("OCR extraction note:", err);
+      } finally {
+        setOcrProcessing(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCertificateUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Certificate file size exceeds 10MB limit.");
+      return;
     }
+
+    const sizeFormatted = (file.size / (1024 * 1024)).toFixed(2) + " MB";
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result;
+      setFormData((prev) => ({
+        ...prev,
+        certificateFile: file,
+        certificateFileName: file.name,
+        certificateFileSize: sizeFormatted,
+        certificatePreviewUrl: dataUrl,
+      }));
+
+      setCertOcrProcessing(true);
+      try {
+        const extracted = await ocrService.extractCertificateInformation(dataUrl, formData.certificateType, {
+          fullName: formData.fullName,
+          mainServices: [formData.mainServices],
+          certificateNumber: formData.certificateNumber
+        });
+        setCertOcrPreview(extracted);
+      } catch (err) {
+        console.warn("Certificate OCR extraction note:", err);
+      } finally {
+        setCertOcrProcessing(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const nextToStep2 = () => {
@@ -172,11 +224,22 @@ export default function Register() {
     setStep(3);
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const nextToStep4 = () => {
+    if (!formData.documentFileName && !formData.documentPreviewUrl) {
+      setError("Please upload your Government Identity Document for mandatory KYC verification");
+      return;
+    }
+    setError(null);
+    setActiveField(null);
+    setStep(4);
+  };
+
+  const handleRegister = async (e, skipCertificate = false) => {
+    if (e) e.preventDefault();
 
     if (!formData.documentFileName && !formData.documentPreviewUrl) {
-      setError("Please upload your Government Identity Document for verification");
+      setError("Please upload your Government Identity Document for KYC verification");
+      setStep(3);
       return;
     }
 
@@ -191,6 +254,11 @@ export default function Register() {
       pincode: formData.pincode.trim(),
       location_sharing_enabled: formData.locationSharingEnabled !== false,
       subServices: formData.subServices ? formData.subServices.split(",").map((s) => s.trim()).filter(Boolean) : [],
+      // If user clicked skip, clear certificate
+      certificateFile: skipCertificate ? null : formData.certificateFile,
+      certificatePreviewUrl: skipCertificate ? null : formData.certificatePreviewUrl,
+      certificateType: skipCertificate ? null : formData.certificateType,
+      certificateNumber: skipCertificate ? null : formData.certificateNumber,
     };
 
     if (isResubmitting) {
@@ -214,6 +282,8 @@ export default function Register() {
       setSuccess(true);
     }
   };
+
+  const [submittedAppId, setSubmittedAppId] = useState("");
 
   if (success) {
     return (
@@ -243,8 +313,19 @@ export default function Register() {
             Status: PENDING_VERIFICATION
           </div>
 
+          {/* Official Application ID Card */}
+          <div style={{ background: "#F8FAFC", border: "1.5px solid #FFEDD5", borderRadius: "14px", padding: "16px", marginBottom: "20px", textAlign: "center" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: "800", color: "#64748B", textTransform: "uppercase", letterSpacing: "1px" }}>Official Application ID</div>
+            <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "#FF7900", fontFamily: "'Courier New', monospace", marginTop: "4px" }}>
+              {submittedAppId || `APP-2026-${Math.floor(1000 + Math.random() * 9000)}`}
+            </div>
+            <div style={{ fontSize: "0.78rem", color: "#64748B", marginTop: "4px" }}>
+              Quote this Application ID when inquiring about your verification status.
+            </div>
+          </div>
+
           <p style={{ color: "#475569", marginTop: "4px", marginBottom: "24px", lineHeight: "1.6", fontSize: "0.95rem" }}>
-            Your application details and government identity document have been submitted for PaddleOCR inspection and administrative clearance. Once verified by Cooperative Administration, your unique Pillar ID will be activated and sent to your email.
+            Your application details and government identity document have been submitted for verification and administrative clearance. Once verified by Cooperative Administration, your unique Pillar ID will be activated and sent to your email.
           </p>
 
           <Link to="/pillar/login" className="btn btn-primary btn-lg" style={{ width: "100%", background: "#FF7900", color: "white", padding: "14px", fontWeight: "800", borderRadius: "10px" }}>
@@ -342,17 +423,17 @@ export default function Register() {
             <div style={{ marginBottom: "24px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <span style={{ fontSize: "12px", fontWeight: "800", color: "#FF7900", textTransform: "uppercase", letterSpacing: "1px" }}>
-                  {isResubmitting ? "Verification Resubmission" : `Step ${step} of 3`}
+                  {isResubmitting ? "Verification Resubmission" : `Step ${step} of 4`}
                 </span>
                 <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", fontWeight: "600" }}>
-                  {step === 1 ? "Personal Profile" : step === 2 ? "Trade & Competency" : "Government ID Verification"}
+                  {step === 1 ? "1. Personal Profile" : step === 2 ? "2. Trade & Area" : step === 3 ? "3. Government KYC" : "4. Skill Certificate (Optional)"}
                 </span>
               </div>
               <div style={{ height: "6px", background: "#E2E8F0", borderRadius: "9999px", overflow: "hidden" }}>
                 <div
                   style={{
                     height: "100%",
-                    width: `${(step / 3) * 100}%`,
+                    width: `${(step / 4) * 100}%`,
                     background: "linear-gradient(90deg, #FF7900 0%, #E66A00 100%)",
                     transition: "width 0.3s ease",
                   }}
@@ -363,14 +444,22 @@ export default function Register() {
             {/* Title */}
             <div style={{ marginBottom: "20px" }}>
               <h2 style={{ fontSize: "1.6rem", fontWeight: "900", color: "var(--color-text)", margin: 0 }}>
-                {step === 1 ? "Join the Cooperative Workforce" : step === 2 ? "Professional Trade & Area" : "Government ID Verification"}
+                {step === 1 
+                  ? "Join the Cooperative Workforce" 
+                  : step === 2 
+                  ? "Professional Trade & Area" 
+                  : step === 3 
+                  ? "Government ID Verification" 
+                  : "Trade & Skill Certificates"}
               </h2>
               <p style={{ color: "var(--color-text-secondary)", fontSize: "13.5px", marginTop: "4px", margin: 0 }}>
                 {step === 1
                   ? "Create your technician account to receive bookings."
                   : step === 2
                   ? "Select your core skill trade and operating zones."
-                  : "Upload government identity document for KYC verification."}
+                  : step === 3
+                  ? "Upload mandatory government identity document for KYC verification."
+                  : "Upload ITI, NSDC, Diploma or Trade License for priority dispatch (Optional)."}
               </p>
             </div>
 
@@ -454,7 +543,7 @@ export default function Register() {
                         type="password"
                         name="password"
                         className="form-input"
-                        placeholder="Minimum 8 chars"
+                        placeholder="••••••••"
                         value={formData.password}
                         onChange={handleInputChange}
                         onFocus={() => setActiveField("password")}
@@ -468,7 +557,7 @@ export default function Register() {
                         type="password"
                         name="confirmPassword"
                         className="form-input"
-                        placeholder="Confirm password"
+                        placeholder="••••••••"
                         value={formData.confirmPassword}
                         onChange={handleInputChange}
                         onFocus={() => setActiveField("confirmPassword")}
@@ -490,98 +579,91 @@ export default function Register() {
                   </select>
                 </div>
 
-                <button type="button" className="btn btn-primary btn-lg" style={{ width: "100%", marginTop: "6px", background: "#FF7900" }} onClick={nextToStep2}>
+                <button type="button" className="btn btn-primary btn-lg" style={{ marginTop: "8px", background: "#FF7900" }} onClick={nextToStep2}>
                   Next: Trade & Skills <ArrowRight size={18} />
                 </button>
               </div>
             )}
 
-            {/* STEP 2: Trade & Competency */}
+            {/* STEP 2: Trade & Area */}
             {step === 2 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div className="form-group">
-                  <label className="form-label">{t("auth.mainServices")} <span className="required">*</span></label>
+                  <label className="form-label">Primary Skilled Trade <span className="required">*</span></label>
                   <select
                     name="mainServices"
                     className="form-input"
                     value={formData.mainServices}
                     onChange={handleInputChange}
-                    onFocus={() => setActiveField("mainServices")}
-                    onBlur={() => setActiveField(null)}
                     required
                   >
                     <option value="">Select your core trade...</option>
-                    <option value="Electrician">Electrician (Home & Industrial)</option>
-                    <option value="Plumber">Plumber (Piping & Sanitary)</option>
-                    <option value="Carpenter">Carpenter & Woodwork</option>
-                    <option value="AC Repair">AC & HVAC Technician</option>
-                    <option value="Painter">Painter & Waterproofing</option>
-                    <option value="Cleaner">Deep Cleaning Specialist</option>
-                    <option value="Driver">Professional Driver (Personal & Commercial)</option>
-                    <option value="Others">Others (Custom Trade / Specialty)</option>
+                    <option value="Electrician">⚡ Electrician & Wiring</option>
+                    <option value="Plumber">🚰 Plumber & Pipe Fitting</option>
+                    <option value="AC Technician">❄️ AC & Refrigeration</option>
+                    <option value="Carpenter">🪚 Carpenter & Woodwork</option>
+                    <option value="Appliance Repair">🔧 Home Appliance Repair</option>
+                    <option value="Home Cleaning">✨ Deep Home Cleaning</option>
+                    <option value="Painter">🎨 Professional Painter</option>
+                    <option value="Others">🛠️ Others (Specify below)</option>
                   </select>
                 </div>
 
                 {formData.mainServices === "Others" && (
-                  <div className="form-group" style={{ animation: "fadeIn 0.3s ease" }}>
-                    <label className="form-label">Custom Job Role / Specialty <span className="required">*</span></label>
+                  <div className="form-group">
+                    <label className="form-label">Specify Custom Job Role / Trade <span className="required">*</span></label>
                     <input
                       type="text"
                       name="customRole"
                       className="form-input"
-                      placeholder="e.g. CCTV Installation Technician, Welder, Mason"
+                      placeholder="e.g. Solar Panel Installer, CCTV Specialist"
                       value={formData.customRole}
                       onChange={handleInputChange}
-                      onFocus={() => setActiveField("customRole")}
-                      onBlur={() => setActiveField(null)}
                       required
                     />
-                    <span className="form-hint">Specify your exact vocational trade</span>
                   </div>
                 )}
 
-                <div className="form-group">
-                  <label className="form-label">{t("auth.subServices")}</label>
-                  <input
-                    type="text"
-                    name="subServices"
-                    className="form-input"
-                    placeholder="e.g. Wiring, DB Box, Fan Repair, Inverter"
-                    value={formData.subServices}
-                    onChange={handleInputChange}
-                    onFocus={() => setActiveField("subServices")}
-                    onBlur={() => setActiveField(null)}
-                  />
-                  <span className="form-hint">Comma separated list of specific trade skills</span>
-                </div>
-
-                <div className="grid grid-3" style={{ gap: "16px" }}>
+                <div className="grid grid-2" style={{ gap: "16px" }}>
                   <div className="form-group">
-                    <label className="form-label">{t("auth.experience")} <span className="required">*</span></label>
+                    <label className="form-label">Years of Experience <span className="required">*</span></label>
                     <select
                       name="experience"
                       className="form-input"
                       value={formData.experience}
                       onChange={handleInputChange}
-                      onFocus={() => setActiveField("experience")}
-                      onBlur={() => setActiveField(null)}
                       required
                     >
-                      <option value="">Select years...</option>
-                      <option value="1-2">1-2 Years</option>
-                      <option value="3-5">3-5 Years</option>
-                      <option value="5-10">5-10 Years</option>
-                      <option value="10+">10+ Years (Senior Master)</option>
+                      <option value="">Select experience...</option>
+                      <option value="1">1 Year</option>
+                      <option value="2">2 Years</option>
+                      <option value="3">3-5 Years</option>
+                      <option value="6">6-10 Years</option>
+                      <option value="10">10+ Years (Senior Master)</option>
                     </select>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Area / Locality <span className="required">*</span></label>
+                    <label className="form-label">Sub-Skills (Optional)</label>
+                    <input
+                      type="text"
+                      name="subServices"
+                      className="form-input"
+                      placeholder="e.g. Inverter, MCB, 3-Phase"
+                      value={formData.subServices}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-2" style={{ gap: "16px" }}>
+                  <div className="form-group">
+                    <label className="form-label">Operating Area / Locality <span className="required">*</span></label>
                     <input
                       type="text"
                       name="area"
                       className="form-input"
-                      placeholder="e.g. Guindy, Velachery, Adyar"
+                      placeholder="e.g. Guindy, Adyar"
                       value={formData.area}
                       onChange={handleInputChange}
                       onFocus={() => setActiveField("area")}
@@ -589,7 +671,6 @@ export default function Register() {
                       required
                     />
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">Pincode <span className="required">*</span></label>
                     <input
@@ -600,26 +681,9 @@ export default function Register() {
                       placeholder="600032"
                       value={formData.pincode}
                       onChange={handleInputChange}
-                      onFocus={() => setActiveField("pincode")}
-                      onBlur={() => setActiveField(null)}
                       required
                     />
                   </div>
-                </div>
-
-                <div className="form-group" style={{ background: "rgba(255, 121, 0, 0.05)", padding: "12px 14px", borderRadius: "12px", border: "1px solid rgba(255, 121, 0, 0.18)", marginTop: "4px" }}>
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "0.85rem", cursor: "pointer", color: "var(--color-text)", fontWeight: "600", userSelect: "none" }}>
-                    <input
-                      type="checkbox"
-                      name="locationSharingEnabled"
-                      checked={formData.locationSharingEnabled}
-                      onChange={(e) => setFormData({ ...formData, locationSharingEnabled: e.target.checked })}
-                      style={{ accentColor: "#FF7900", width: "18px", height: "18px", marginTop: "2px", cursor: "pointer" }}
-                    />
-                    <span>
-                      Allow live GPS location sharing for customer dispatch radar and approach navigation when Available/Online
-                    </span>
-                  </label>
                 </div>
 
                 <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
@@ -633,11 +697,11 @@ export default function Register() {
               </div>
             )}
 
-            {/* STEP 3: Government ID Verification */}
+            {/* STEP 3: Government ID Verification (Mandatory KYC) */}
             {step === 3 && (
-              <form onSubmit={handleRegister} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div className="form-group">
-                  <label className="form-label">Select Government Document <span className="required">*</span></label>
+                  <label className="form-label">Select Government Document / Record <span className="required">*</span></label>
                   <select
                     name="documentType"
                     className="form-input"
@@ -645,11 +709,14 @@ export default function Register() {
                     onChange={handleInputChange}
                     required
                   >
-                    <option value="aadhaar">🪪 Aadhaar Card</option>
-                    <option value="pan">💳 PAN Card</option>
-                    <option value="voter_id">🗳️ Voter ID</option>
-                    <option value="driving_licence">🚗 Driving Licence</option>
-                    <option value="other">📑 Other Government ID</option>
+                    <option value="aadhaar">🪪 Aadhaar Card (UIDAI)</option>
+                    <option value="pan">💳 PAN Card (Income Tax Department)</option>
+                    <option value="voter_id">🗳️ Voter Identity Card (EPIC / Election Commission)</option>
+                    <option value="driving_licence">🚗 Motor Driving Licence (Transport Dept / RTO)</option>
+                    <option value="passport">🛂 Indian Passport (Republic of India)</option>
+                    <option value="ration_card">🌾 Smart Ration Card / TNEPDS Family Card</option>
+                    <option value="labour_card">🏗️ Construction / Labour Welfare Board Card</option>
+                    <option value="other">📑 Other Official Government ID</option>
                   </select>
                 </div>
 
@@ -660,7 +727,7 @@ export default function Register() {
                       type="text"
                       name="customDocumentType"
                       className="form-input"
-                      placeholder="e.g. Passport, State Trade ID"
+                      placeholder="e.g. State Trade ID, Government Employee Card"
                       value={formData.customDocumentType}
                       onChange={handleInputChange}
                       required
@@ -668,33 +735,9 @@ export default function Register() {
                   </div>
                 )}
 
-                <div className="grid grid-2" style={{ gap: "16px" }}>
-                  <div className="form-group">
-                    <label className="form-label">Document Number</label>
-                    <input
-                      type="text"
-                      name="documentNumber"
-                      className="form-input"
-                      placeholder={formData.documentType === 'pan' ? 'ABCDE1234F' : 'e.g. 4892 1234 5678'}
-                      value={formData.documentNumber}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Date of Birth</label>
-                    <input
-                      type="date"
-                      name="dob"
-                      className="form-input"
-                      value={formData.dob}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-
                 {/* Secure File Upload Zone */}
                 <div className="form-group">
-                  <label className="form-label">Upload Identity Document (Photo / PDF) <span className="required">*</span></label>
+                  <label className="form-label">Upload Government Document (Photo / PDF) <span className="required">*</span></label>
                   <div
                     style={{
                       border: "2px dashed #CBD5E1",
@@ -704,6 +747,238 @@ export default function Register() {
                       background: formData.documentFileName ? "rgba(16, 185, 129, 0.05)" : "#F8FAFC",
                       borderColor: formData.documentFileName ? "#10B981" : "#CBD5E1",
                       position: "relative",
+                      cursor: formData.documentFileName ? "default" : "pointer",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    {!formData.documentFileName && (
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleFileUpload}
+                        style={{
+                          position: "absolute",
+                          top: 0, left: 0, right: 0, bottom: 0,
+                          opacity: 0,
+                          cursor: "pointer",
+                          width: "100%",
+                          height: "100%"
+                        }}
+                      />
+                    )}
+
+                    {formData.documentFileName ? (
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", color: "#059669", marginBottom: "12px" }}>
+                          <CheckCircle2 size={24} />
+                          <div style={{ textAlign: "left" }}>
+                            <div style={{ fontWeight: "700", fontSize: "0.9rem" }}>{formData.documentFileName}</div>
+                            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Size: {formData.documentFileSize} • Scanned with OCR</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                          {formData.documentPreviewUrl && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(formData.documentPreviewUrl, '_blank')}
+                              style={{
+                                padding: "6px 14px",
+                                borderRadius: "8px",
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                color: "#334155",
+                                fontSize: "0.78rem",
+                                fontWeight: "700",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "5px"
+                              }}
+                            >
+                              👁️ Preview Document
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                documentFile: null,
+                                documentFileName: "",
+                                documentFileSize: "",
+                                documentPreviewUrl: null,
+                              }));
+                              setOcrPreview(null);
+                            }}
+                            style={{
+                              padding: "6px 14px",
+                              borderRadius: "8px",
+                              border: "1px solid #FECACA",
+                              background: "rgba(239, 68, 68, 0.05)",
+                              color: "#DC2626",
+                              fontSize: "0.78rem",
+                              fontWeight: "700",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px"
+                            }}
+                          >
+                            ✕ Remove & Re-upload
+                          </button>
+                          <label
+                            style={{
+                              padding: "6px 14px",
+                              borderRadius: "8px",
+                              border: "1px solid #FF7900",
+                              background: "rgba(255, 121, 0, 0.05)",
+                              color: "#FF7900",
+                              fontSize: "0.78rem",
+                              fontWeight: "700",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px"
+                            }}
+                          >
+                            🔄 Replace File
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={handleFileUpload}
+                              style={{ display: "none" }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <UploadCloud size={32} color="#FF7900" style={{ margin: "0 auto 8px" }} />
+                        <div style={{ fontSize: "0.9rem", fontWeight: "700", color: "#0B1220" }}>
+                          Click to browse or drag & drop document
+                        </div>
+                        <div style={{ fontSize: "0.78rem", color: "#64748B", marginTop: "4px" }}>
+                          Supports Aadhaar, PAN, Voter ID, Driving Licence, Passport, Ration Card (JPG, PNG, PDF)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {ocrProcessing && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#FF7900", fontSize: "0.85rem", fontWeight: "600" }}>
+                    <Sparkles size={16} className="spin" />
+                    <span>Extracting document details with Optical Character Recognition...</span>
+                  </div>
+                )}
+
+                {/* Live Government ID OCR Preview — uses dropdown-selected type, not auto-detected */}
+                {ocrPreview && (
+                  <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "12px", padding: "14px", animation: "slideInRight 0.2s ease" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "#166534", textTransform: "uppercase" }}>
+                        🪪 Live OCR Extraction Preview
+                      </span>
+                      <span style={{ background: "#DCFCE7", color: "#15803D", fontSize: "0.7rem", fontWeight: "700", padding: "2px 8px", borderRadius: "8px" }}>
+                        {((ocrPreview.confidence_score || 0) * 100).toFixed(0)}% Confidence
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "0.88rem", fontWeight: "800", color: "#14532D" }}>
+                      {formData.documentType === 'pan' ? '💳 PAN Card (Income Tax Department)' :
+                       formData.documentType === 'voter_id' ? '🗳️ Voter Identity Card (EPIC)' :
+                       formData.documentType === 'driving_licence' ? '🚗 Motor Driving Licence' :
+                       formData.documentType === 'passport' ? '🛂 Indian Passport' :
+                       formData.documentType === 'ration_card' ? '🌾 Smart Ration Card' :
+                       formData.documentType === 'labour_card' ? '🏗️ Labour Welfare Card' :
+                       ocrPreview.document_type || '🪪 UIDAI Aadhaar Card'}
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "#374151", marginTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                      {ocrPreview.extracted_name && (
+                        <div>Name: <strong>{ocrPreview.extracted_name}</strong></div>
+                      )}
+                      {ocrPreview.extracted_document_number && (
+                        <div>
+                          {formData.documentType === 'pan' ? 'PAN' : formData.documentType === 'voter_id' ? 'EPIC' : 'Doc'} Number: <strong style={{ fontFamily: "monospace" }}>{ocrPreview.extracted_document_number}</strong>
+                        </div>
+                      )}
+                      {ocrPreview.extracted_dob && (
+                        <div>DOB: <strong>{ocrPreview.extracted_dob}</strong></div>
+                      )}
+                      {ocrPreview.extracted_address && (
+                        <div>Address: <strong>{ocrPreview.extracted_address}</strong></div>
+                      )}
+                      {!ocrPreview.extracted_name && !ocrPreview.extracted_document_number && !ocrPreview.extracted_dob && (
+                        <div style={{ color: "#92400E" }}>⚠️ OCR could not extract fields clearly. Your document will still be submitted for admin Vision AI review.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
+                  <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setStep(2)}>
+                    <ArrowLeft size={16} /> Back
+                  </button>
+                  <button type="button" className="btn btn-primary btn-lg" style={{ flex: 2, background: "#FF7900" }} onClick={nextToStep4}>
+                    Next: Skill Certificates <ArrowRight size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: Professional & Skill Certificates (Optional) */}
+            {step === 4 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div style={{ background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: "12px", padding: "12px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#059669", fontWeight: "800", fontSize: "0.85rem", marginBottom: "2px" }}>
+                    <ShieldCheck size={18} />
+                    <span>Optional Step • Boosts Verification & Priority Bookings</span>
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#475569", lineHeight: "1.4" }}>
+                    Uploading trade credentials (ITI, NSDC Skill India, Polytechnic Diploma or Experience Certificate) awards you a Certified Badge on customer portals.
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Select Certificate / Credential Type</label>
+                  <select
+                    name="certificateType"
+                    className="form-input"
+                    value={formData.certificateType}
+                    onChange={handleInputChange}
+                  >
+                    <option value="iti">📜 ITI National Trade Certificate (NTC / NCVT)</option>
+                    <option value="nsdc">🌟 Skill India / NSDC Certified Professional</option>
+                    <option value="diploma">🎓 Polytechnic Diploma / State Technical Board</option>
+                    <option value="trade_license">🛡️ Government Electrical / Trade License</option>
+                    <option value="experience">📄 Experience Proof / Service Letter</option>
+                    <option value="other">📑 Other Technical Certification</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Certificate / Registration Number (Optional)</label>
+                  <input
+                    type="text"
+                    name="certificateNumber"
+                    className="form-input"
+                    placeholder="e.g. NTC-2023-TN-8821 or NSDC-ELE-9410"
+                    value={formData.certificateNumber}
+                    onChange={handleInputChange}
+                  />
+                </div>
+
+                {/* Secure Certificate Upload Zone */}
+                <div className="form-group">
+                  <label className="form-label">Upload Certificate Document (Photo / PDF)</label>
+                  <div
+                    style={{
+                      border: "2px dashed #CBD5E1",
+                      borderRadius: "12px",
+                      padding: "20px",
+                      textAlign: "center",
+                      background: formData.certificateFileName ? "rgba(16, 185, 129, 0.05)" : "#F8FAFC",
+                      borderColor: formData.certificateFileName ? "#10B981" : "#CBD5E1",
+                      position: "relative",
                       cursor: "pointer",
                       transition: "all 0.2s ease"
                     }}
@@ -711,7 +986,7 @@ export default function Register() {
                     <input
                       type="file"
                       accept="image/*,.pdf"
-                      onChange={handleFileUpload}
+                      onChange={handleCertificateUpload}
                       style={{
                         position: "absolute",
                         top: 0, left: 0, right: 0, bottom: 0,
@@ -722,50 +997,77 @@ export default function Register() {
                       }}
                     />
 
-                    {formData.documentFileName ? (
+                    {formData.certificateFileName ? (
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", color: "#059669" }}>
                         <CheckCircle2 size={24} />
                         <div style={{ textAlign: "left" }}>
-                          <div style={{ fontWeight: "700", fontSize: "0.9rem" }}>{formData.documentFileName}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Size: {formData.documentFileSize} • Ready for OCR inspection</div>
+                          <div style={{ fontWeight: "700", fontSize: "0.9rem" }}>{formData.certificateFileName}</div>
+                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Size: {formData.certificateFileSize} • OCR Extracted</div>
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <UploadCloud size={32} color="#FF7900" style={{ margin: "0 auto 8px" }} />
+                        <UploadCloud size={32} color="#10B981" style={{ margin: "0 auto 8px" }} />
                         <div style={{ fontSize: "0.9rem", fontWeight: "700", color: "#0B1220" }}>
-                          Click to browse or drag & drop document
+                          Click to browse or drag & drop certificate
                         </div>
                         <div style={{ fontSize: "0.78rem", color: "#64748B", marginTop: "4px" }}>
-                          Supports JPG, PNG, PDF up to 10MB
+                          Supports ITI, NSDC, Diploma or Trade License (JPG, PNG, PDF)
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Privacy & OCR Processing Info */}
-                <div style={{ background: "#F1F5F9", borderRadius: "8px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "8px", fontSize: "0.78rem", color: "#475569" }}>
-                  <Lock size={14} color="#059669" />
-                  <span>Your document is stored in a private, encrypted storage accessible exclusively to Cooperative Central Administration.</span>
-                </div>
-
-                {ocrProcessing && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#FF7900", fontSize: "0.85rem", fontWeight: "600" }}>
+                {certOcrProcessing && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#10B981", fontSize: "0.85rem", fontWeight: "600" }}>
                     <Sparkles size={16} className="spin" />
-                    <span>PaddleOCR analyzing document text...</span>
+                    <span>Extracting certificate credentials with OCR...</span>
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
-                  <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setStep(2)} disabled={loading}>
+                {/* Certificate OCR Extraction Live Card */}
+                {certOcrPreview && (
+                  <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "12px", padding: "14px", animation: "slideInRight 0.2s ease" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "#166534", textTransform: "uppercase" }}>
+                        📜 OCR Certificate Extraction Preview
+                      </span>
+                      <span style={{ background: "#DCFCE7", color: "#15803D", fontSize: "0.7rem", fontWeight: "700", padding: "2px 8px", borderRadius: "8px" }}>
+                        {(certOcrPreview.confidence_score * 100).toFixed(0)}% Confidence
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "0.88rem", fontWeight: "800", color: "#14532D" }}>{certOcrPreview.certificate_type}</div>
+                    <div style={{ fontSize: "0.8rem", color: "#374151", marginTop: "4px" }}>
+                      Number: <strong style={{ fontFamily: "monospace" }}>{certOcrPreview.extracted_certificate_number}</strong> • Issuer: <strong>{certOcrPreview.extracted_issuer}</strong>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                  <button type="button" className="btn btn-outline" style={{ flex: 0.8 }} onClick={() => setStep(3)} disabled={loading}>
                     <ArrowLeft size={16} /> Back
                   </button>
-                  <button type="submit" className="btn btn-primary btn-lg" style={{ flex: 2, background: "#FF7900" }} disabled={loading}>
-                    {loading ? <Loader2 size={18} className="spinner" /> : isResubmitting ? "Resubmit Application" : "Submit for Verification"}
+                  <button 
+                    type="button" 
+                    className="btn btn-outline" 
+                    style={{ flex: 1.2, borderColor: "#94A3B8", color: "#475569" }} 
+                    onClick={(e) => handleRegister(e, true)} 
+                    disabled={loading}
+                  >
+                    Skip Certificate
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary btn-lg" 
+                    style={{ flex: 1.5, background: "#FF7900" }} 
+                    onClick={(e) => handleRegister(e, false)} 
+                    disabled={loading}
+                  >
+                    {loading ? <Loader2 size={18} className="spinner" /> : isResubmitting ? "Resubmit App" : "Submit Application"}
                   </button>
                 </div>
-              </form>
+              </div>
             )}
 
             {/* Footer */}

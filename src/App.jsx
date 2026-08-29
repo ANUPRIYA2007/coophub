@@ -17,6 +17,7 @@ import SettingsPage from './pages/pillar/settings/SettingsPage';
 import SupportPage from './pages/pillar/support/SupportPage';
 import WelfarePage from './pages/pillar/support/WelfarePage';
 import InsurancePage from './pages/pillar/support/InsurancePage';
+import CertificationsPage from './pages/pillar/dashboard/CertificationsPage';
 
 // Layout & Global Hero AI Mascot for Pillar
 import PillarLayout from './components/pillar/layout/PillarLayout';
@@ -38,6 +39,9 @@ import AdminFinance from './modules/admin/pages/AdminFinance';
 import AdminWelfare from './modules/admin/pages/AdminWelfare';
 import AdminCustomers from './modules/admin/pages/AdminCustomers';
 import AdminLogin from './modules/admin/pages/AdminLogin';
+import AdminForecast from './modules/admin/pages/AdminForecast';
+import AdminCertifications from './modules/admin/pages/AdminCertifications';
+import AdminAllocation from './modules/admin/pages/AdminAllocation';
 
 // --- CUSTOMER PORTAL PAGES & AGENTS ---
 import AppRoutes from './routes/AppRoutes';
@@ -99,6 +103,7 @@ export default function App() {
                     <Route path="/history" element={<HistoryPage />} />
                     <Route path="/chat" element={<CustomerChat />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/certifications" element={<CertificationsPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/support" element={<SupportPage />} />
@@ -120,6 +125,9 @@ export default function App() {
                 <AdminLayout>
                   <Routes>
                     <Route path="/" element={<AdminOverview />} />
+                    <Route path="/forecast" element={<AdminForecast />} />
+                    <Route path="/allocation" element={<AdminAllocation />} />
+                    <Route path="/certifications" element={<AdminCertifications />} />
                     <Route path="/pillars" element={<PillarsList />} />
                     <Route path="/pillars/:pillarId" element={<PillarDetails />} />
                     <Route path="/customers" element={<AdminCustomers />} />

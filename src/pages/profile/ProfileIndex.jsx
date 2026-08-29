@@ -6,7 +6,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 
 export default function ProfileIndex() {
     const navigate = useNavigate();
-    const { profile: authProfile } = useAuth();
+    const { user, profile: authProfile } = useAuth();
     const { t } = useTranslation();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -22,13 +22,13 @@ export default function ProfileIndex() {
             if (localStorage.getItem('coophub_demo_customer') === 'true') {
                 const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
                 const demoP = {
-                    id: 'demo-cust-001',
+                    id: 'CUST-CHE-DEMO01',
                     full_name: savedDemo.full_name || authProfile?.full_name || 'Anupriya',
                     email: savedDemo.email || authProfile?.email || 'customer@coophub.in',
                     phone: savedDemo.phone || '+91 98401 23456',
                     role: 'customer',
                     preferred_language: 'en',
-                    created_at: savedDemo.created_at || '2024-01-15T10:00:00.000Z'
+                    created_at: savedDemo.created_at || '2026-01-15T10:00:00.000Z'
                 };
                 setProfile(demoP);
                 setFullName(demoP.full_name);
@@ -37,29 +37,61 @@ export default function ProfileIndex() {
                 return;
             }
 
-            if (!authProfile?.user_id) {
-                setLoading(false);
-                return;
-            }
-            try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', authProfile.user_id)
-                    .single();
+            const currentUserId = user?.id || authProfile?.user_id || authProfile?.id;
+            const currentUserEmail = user?.email || authProfile?.email;
 
-                if (error) throw error;
-                setProfile(data);
-                setFullName(data?.full_name || '');
-                setPhone(data?.phone || '');
-            } catch (err) {
-                console.error("Failed to load profile", err);
-            } finally {
-                setLoading(false);
+            let resolvedProfile = null;
+
+            if (currentUserId || currentUserEmail) {
+                try {
+                    // Try customer_profiles first
+                    let query = supabase.from('customer_profiles').select('*');
+                    if (currentUserId) query = query.eq('user_id', currentUserId);
+                    else query = query.eq('email', currentUserEmail);
+                    
+                    const { data: custData } = await query.maybeSingle();
+                    if (custData) {
+                        resolvedProfile = custData;
+                    }
+                } catch (err) {
+                    console.warn('customer_profiles query note:', err);
+                }
+
+                // Fallback to profiles table if customer_profiles had no match
+                if (!resolvedProfile && currentUserId) {
+                    try {
+                        const { data: baseData } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', currentUserId)
+                            .maybeSingle();
+                        if (baseData) {
+                            resolvedProfile = baseData;
+                        }
+                    } catch (err) {
+                        console.warn('profiles query note:', err);
+                    }
+                }
             }
+
+            // If no DB row yet, build cleanly from auth session metadata
+            const finalProfile = {
+                id: resolvedProfile?.id || currentUserId || 'CUST-CHE-0001',
+                user_id: currentUserId,
+                full_name: resolvedProfile?.full_name || user?.user_metadata?.full_name || authProfile?.full_name || currentUserEmail?.split('@')[0] || 'Valued Customer',
+                email: resolvedProfile?.email || currentUserEmail || '',
+                phone: resolvedProfile?.mobile || resolvedProfile?.phone || user?.user_metadata?.mobile_number || user?.user_metadata?.mobile || '',
+                role: 'Customer',
+                created_at: resolvedProfile?.created_at || user?.created_at || new Date().toISOString()
+            };
+
+            setProfile(finalProfile);
+            setFullName(finalProfile.full_name);
+            setPhone(finalProfile.phone);
+            setLoading(false);
         };
         fetchProfile();
-    }, [authProfile]);
+    }, [user, authProfile]);
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -77,17 +109,31 @@ export default function ProfileIndex() {
                 return;
             }
 
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    full_name: fullName.trim(),
-                    phone: phone.trim()
-                })
-                .eq('id', profile.id);
+            const currentUserId = user?.id || profile?.user_id;
 
-            if (error) throw error;
+            if (currentUserId) {
+                // Upsert to customer_profiles
+                await supabase.from('customer_profiles').upsert([
+                    {
+                        user_id: currentUserId,
+                        full_name: fullName.trim(),
+                        mobile: phone.trim(),
+                        email: profile.email,
+                        updated_at: new Date().toISOString()
+                    }
+                ], { onConflict: 'email' });
+
+                // Also update user metadata
+                await supabase.auth.updateUser({
+                    data: {
+                        full_name: fullName.trim(),
+                        mobile_number: phone.trim()
+                    }
+                });
+            }
+
+            setProfile(prev => ({ ...prev, full_name: fullName.trim(), phone: phone.trim() }));
             setIsEditing(false);
-            setProfile({ ...profile, full_name: fullName.trim(), phone: phone.trim() });
         } catch (err) {
             console.error('Update profile error:', err);
             alert('Failed to update profile.');
@@ -99,6 +145,15 @@ export default function ProfileIndex() {
     if (loading) {
         return <div className="min-h-screen bg-surface p-10 flex justify-center animate-pulse"><div className="w-24 h-24 bg-gray-200 rounded-full"></div></div>;
     }
+
+    // Generate formatted Unique Member ID
+    const memberId = profile?.user_id 
+        ? `CUST-CHE-${profile.user_id.slice(0, 6).toUpperCase()}`
+        : (profile?.id?.startsWith('CUST-') ? profile.id : `CUST-CHE-${(profile?.id || '0000').slice(0, 6).toUpperCase()}`);
+
+    const memberSinceDate = profile?.created_at
+        ? new Date(profile.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
     return (
         <div className="min-h-screen bg-surface pb-24 pt-6 px-4">
@@ -115,7 +170,7 @@ export default function ProfileIndex() {
 
                 <div className="bg-white border border-navy-100 rounded-3xl p-8 text-center shadow-sm relative mb-8">
                     {/* Visual Role Indicator */}
-                    <div className="absolute top-4 right-4 bg-navy-50 text-navy-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-navy-100">
+                    <div className="absolute top-4 right-4 bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border border-orange-200">
                         {profile?.role || 'Customer'}
                     </div>
 
@@ -125,8 +180,8 @@ export default function ProfileIndex() {
 
                     {!isEditing ? (
                         <>
-                            <h2 className="text-2xl font-bold text-navy-900">{profile?.full_name || 'Loading Name...'}</h2>
-                            <p className="text-navy-500 mt-1">{profile?.phone || 'No Phone Recorded'}</p>
+                            <h2 className="text-2xl font-bold text-navy-900">{profile?.full_name || 'Valued Customer'}</h2>
+                            <p className="text-navy-500 mt-1">{profile?.phone || profile?.email || 'No Phone Recorded'}</p>
 
                             <button
                                 onClick={() => setIsEditing(true)}
@@ -155,6 +210,7 @@ export default function ProfileIndex() {
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
                                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-surface"
+                                    placeholder="+91 98401 23456"
                                     required
                                 />
                             </div>
@@ -171,13 +227,15 @@ export default function ProfileIndex() {
                 {/* Additional Non-editable fields (Module Requirements) */}
                 <div className="bg-white border border-navy-100 rounded-2xl overflow-hidden shadow-sm">
                     <div className="px-6 py-4 border-b border-navy-50 flex justify-between items-center">
-                        <span className="text-navy-600 text-sm font-medium">Account ID</span>
-                        <span className="text-navy-900 font-mono text-xs">{profile?.id}</span>
+                        <span className="text-navy-600 text-sm font-medium">Member ID</span>
+                        <span className="text-orange-600 font-mono font-bold text-xs bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
+                            {memberId}
+                        </span>
                     </div>
                     <div className="px-6 py-4 flex justify-between items-center bg-navy-50/50">
                         <span className="text-navy-600 text-sm font-medium">Member Since</span>
-                        <span className="text-navy-900 font-medium text-sm">
-                            {new Date(profile?.created_at).toLocaleDateString()}
+                        <span className="text-navy-900 font-semibold text-sm">
+                            {memberSinceDate}
                         </span>
                     </div>
                 </div>

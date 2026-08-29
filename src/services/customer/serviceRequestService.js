@@ -204,8 +204,8 @@ export const serviceRequestService = {
 
                 // Trigger confirmation email template
                 await emailService.sendServiceRequestConfirmationEmail({
-                    email: profile?.email || 'customer@coophub.in',
-                    customer_name: profile?.full_name || 'Valued Customer',
+                    email: requestData.email || 'customer@coophub.in',
+                    customer_name: requestData.customer_name || 'Valued Customer',
                     service_name: requestData.service_name || 'Home Service',
                     request_id: newId,
                     service_date: requestData.preferred_date || new Date().toISOString().split('T')[0],

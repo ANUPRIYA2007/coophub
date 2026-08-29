@@ -1,5 +1,5 @@
 // Public Sub-Agents: Live AI-powered (NVIDIA / Gemini) for pre-auth users
-import { callPillarAiApi } from "./aiApi";
+import { callPillarAiApi } from "./aiApi.js";
 
 async function getLivePublicReply({ prompt, language, route, fallback }) {
   try {

@@ -187,6 +187,93 @@ export function renderCustomerRegistrationTemplate({ customer_name = 'Customer',
 }
 
 // ============================================================================
+// 1b. PILLAR REGISTRATION CONFIRMATION EMAIL (Application Under Review)
+// ============================================================================
+export function renderPillarApplicationReceivedTemplate({ pillar_name = 'Technician', application_id = 'APP-2026-PENDING', confirmation_url = '#' }) {
+  const portalUrl = typeof window !== 'undefined' ? `${window.location.origin}/pillar/login` : 'https://coophub.in/pillar/login';
+  const actionUrl = confirmation_url && confirmation_url !== '#' ? confirmation_url : portalUrl;
+
+  const contentHtml = `
+    <div style="font-size: 16px; color: #64748B; margin-bottom: 6px;">
+      Hi <strong style="color: #0B1220;">${pillar_name}</strong>,
+    </div>
+
+    <h1 style="font-size: 24px; font-weight: 800; color: #0B1220; margin: 0 0 16px 0; line-height: 1.3;">
+      Pillar Application Received! 🛠️
+    </h1>
+
+    <p style="font-size: 15px; color: #334155; line-height: 1.6; margin: 0 0 16px 0;">
+      Thank you for applying to join the <strong>COOP HUB Cooperative Skilled Workforce</strong>. Your registration details and government identity document have been safely recorded.
+    </p>
+
+    <!-- Official Application ID Card -->
+    <div style="background-color: #050A12; border: 2px solid #FF7900; border-radius: 14px; padding: 22px 20px; text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 11px; font-weight: 800; color: #FF7900; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
+        YOUR OFFICIAL APPLICATION ID
+      </div>
+      <div style="font-size: 28px; font-weight: 900; color: #FFFFFF; letter-spacing: 3px; font-family: 'Courier New', Courier, monospace;">
+        ${application_id}
+      </div>
+      <div style="font-size: 12px; color: #94A3B8; margin-top: 6px;">
+        Use this Application ID to track your KYC and verification progress.
+      </div>
+    </div>
+
+    <!-- Application Lifecycle Table -->
+    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px 24px; margin-bottom: 28px;">
+      <div style="font-size: 13px; font-weight: 800; color: #0B1220; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+        WHAT HAPPENS NEXT?
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size: 13.5px; color: #334155; line-height: 1.8;">
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; width: 28px;">
+            <span style="background-color: #FF7900; color: #FFFFFF; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 50%;">1</span>
+          </td>
+          <td style="padding: 6px 0;">
+            <strong>Document Verification:</strong> Cooperative Administration audits your uploaded Aadhaar / Government ID.
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; width: 28px;">
+            <span style="background-color: #FF7900; color: #FFFFFF; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 50%;">2</span>
+          </td>
+          <td style="padding: 6px 0;">
+            <strong>Application Clearance:</strong> Once verified against your Application ID, an official <strong>Unique Pillar ID</strong> (e.g. <code>PIL-CHE-042</code>) will be generated.
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; width: 28px;">
+            <span style="background-color: #FF7900; color: #FFFFFF; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 50%;">3</span>
+          </td>
+          <td style="padding: 6px 0;">
+            <strong>Workforce Activation:</strong> You will receive an approval email with your Pillar ID to log in and start receiving service bookings.
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Action Button -->
+    <div style="text-align: center; margin: 24px 0 28px 0;">
+      <a href="${actionUrl}" class="btn-primary" style="background-color: #FF7900; color: #FFFFFF; text-decoration: none; padding: 14px 36px; font-size: 15px; font-weight: 700; border-radius: 8px; display: inline-block;">
+        TRACK APPLICATION STATUS
+      </a>
+    </div>
+
+    <!-- Security Note -->
+    <div style="border-top: 1px solid #E2E8F0; padding-top: 20px; font-size: 12px; color: #64748B; line-height: 1.6;">
+      <strong style="color: #0B1220;">COOPERATIVE ASSISTANCE</strong><br />
+      Need assistance? Contact the Cooperative Pillar Desk with your Application ID for priority support.
+    </div>
+  `;
+
+  return baseEmailWrapper({
+    title: 'COOP HUB — Pillar Application Received',
+    portalBadge: 'Cooperative Skilled Workforce Registry',
+    contentHtml
+  });
+}
+
+// ============================================================================
 // 2. CUSTOMER OTP LOGIN EMAIL
 // ============================================================================
 export function renderCustomerOtpTemplate({ customer_name = 'Valued Customer', otp = '------', expiry_minutes = 10 }) {
@@ -599,7 +686,7 @@ export function renderClaimApprovalTemplate({
   claim_type = 'Health & Medical',
   decision_date = new Date().toLocaleDateString()
 }) {
-  const portal_url = `${window?.location?.origin || 'https://coophub.in'}/dashboard/welfare`;
+  const portal_url = typeof window !== 'undefined' ? `${window.location.origin}/dashboard/welfare` : 'https://coophub.in/dashboard/welfare';
   const contentHtml = `
     <div style="font-size: 16px; color: #64748B; margin-bottom: 6px;">
       Dear <strong style="color: #0B1220;">${pillar_name}</strong>,
@@ -625,7 +712,7 @@ export function renderClaimApprovalTemplate({
       </tr>
       <tr>
         <td style="padding: 14px 20px; border-bottom: 1px solid #E2E8F0; font-size: 13px; color: #64748B;">Approved Payout Amount</td>
-        <td style="padding: 14px 20px; border-bottom: 1px solid #E2E8F0; font-size: 16px; font-weight: 900; color: #10B981;">₹${Number(approved_amount).toLocaleString()}</td>
+        <td style="padding: 14px 20px; border-bottom: 1px solid #E2E8F0; font-size: 16px; font-weight: 900; color: #10B981;">₹${Number(String(approved_amount).replace(/[^0-9.]/g, '') || 0).toLocaleString()}</td>
       </tr>
       <tr>
         <td style="padding: 14px 20px; font-size: 13px; color: #64748B;">Approval Date</td>
@@ -667,7 +754,7 @@ export function renderClaimRejectionTemplate({
   decision_date = new Date().toLocaleDateString(),
   rejection_reason = 'Submitted medical bills or documentation did not meet policy coverage terms.'
 }) {
-  const portal_url = `${window?.location?.origin || 'https://coophub.in'}/dashboard/welfare`;
+  const portal_url = typeof window !== 'undefined' ? `${window.location.origin}/dashboard/welfare` : 'https://coophub.in/dashboard/welfare';
   const contentHtml = `
     <div style="font-size: 16px; color: #64748B; margin-bottom: 6px;">
       Dear <strong style="color: #0B1220;">${pillar_name}</strong>,

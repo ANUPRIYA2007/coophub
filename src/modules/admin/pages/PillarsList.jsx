@@ -312,16 +312,28 @@ export default function PillarsList() {
                     <tr key={pillar.id} style={{ borderBottom: "1px solid var(--color-border)", transition: "background 0.2s" }} className="hover-row">
                       <td style={{ padding: "12px 16px" }}>
                         {pillar.pillar_code ? (
-                          <span style={{ fontWeight: "700", color: "var(--color-secondary)", fontFamily: "monospace", fontSize: "0.9rem" }}>
-                            {pillar.pillar_code}
-                          </span>
+                          <div>
+                            <span style={{ fontWeight: "800", color: "#10B981", fontFamily: "'Courier New', monospace", fontSize: "0.9rem" }}>
+                              {pillar.pillar_code}
+                            </span>
+                            {pillar.application_id && (
+                              <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", fontFamily: "monospace" }}>
+                                App: {pillar.application_id}
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <span style={{ 
-                            background: "rgba(245, 124, 32, 0.15)", color: "var(--color-secondary)", 
-                            fontSize: "0.72rem", fontWeight: "800", padding: "2px 8px", borderRadius: "8px" 
-                          }}>
-                            NEW APPLICANT
-                          </span>
+                          <div>
+                            <span style={{ 
+                              background: "rgba(245, 124, 32, 0.12)", color: "#FF7900", border: "1px solid rgba(245, 124, 32, 0.3)",
+                              fontSize: "0.75rem", fontWeight: "800", padding: "3px 8px", borderRadius: "8px", fontFamily: "'Courier New', monospace"
+                            }}>
+                              {pillar.application_id || `APP-2026-${pillar.id.slice(0, 6).toUpperCase()}`}
+                            </span>
+                            <div style={{ fontSize: "0.68rem", color: "#D97706", fontWeight: "700", marginTop: "2px", textTransform: "uppercase" }}>
+                              Pending Approval
+                            </div>
+                          </div>
                         )}
                       </td>
 

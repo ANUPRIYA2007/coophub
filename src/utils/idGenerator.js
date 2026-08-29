@@ -8,7 +8,7 @@
  * - Customer ID: CUS-{ZONE}-{SEQUENCE} (e.g. CUS-CHE-101)
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js';
 
 // Category prefix map for Cooperative Services
 const CATEGORY_CODE_MAP = {

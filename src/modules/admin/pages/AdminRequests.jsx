@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { adminService } from "../services/adminService";
+import { matchingService } from "../../../services/ai/matchingService";
 import { 
   ClipboardList, Search, Filter, Eye, CheckCircle, Clock, 
-  AlertCircle, XCircle, User, MapPin, Phone, RefreshCw 
+  AlertCircle, XCircle, User, MapPin, Phone, RefreshCw, Sparkles, Award, Zap, Check
 } from "lucide-react";
 
 export default function AdminRequests() {
@@ -11,6 +12,8 @@ export default function AdminRequests() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [matchingResults, setMatchingResults] = useState(null);
+  const [matchingLoading, setMatchingLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
   useEffect(() => {
@@ -27,10 +30,25 @@ export default function AdminRequests() {
     };
   }, [filterStatus]);
 
+  useEffect(() => {
+    if (selectedRequest) {
+      loadWorkforceMatches(selectedRequest);
+    } else {
+      setMatchingResults(null);
+    }
+  }, [selectedRequest]);
+
   const fetchRequests = async () => {
     const data = await adminService.getServiceRequests(filterStatus);
     setRequests(data);
     setLoading(false);
+  };
+
+  const loadWorkforceMatches = async (req) => {
+    setMatchingLoading(true);
+    const res = await matchingService.matchWorkforceForRequest(req);
+    setMatchingResults(res);
+    setMatchingLoading(false);
   };
 
   const handleStatusChange = async (requestId, newStatus) => {
@@ -43,6 +61,20 @@ export default function AdminRequests() {
       }
     } else {
       alert("Failed to update status: " + res.error);
+    }
+    setStatusUpdating(false);
+  };
+
+  const handleAssignPillar = async (requestId, pillarId) => {
+    setStatusUpdating(true);
+    const res = await adminService.assignPillarToRequest(requestId, pillarId);
+    if (res.success) {
+      await fetchRequests();
+      const updatedReq = { ...selectedRequest, pillar_id: pillarId, status: 'assigned' };
+      setSelectedRequest(updatedReq);
+      alert("Technician successfully matched and dispatched!");
+    } else {
+      alert("Failed to assign technician: " + res.error);
     }
     setStatusUpdating(false);
   };
@@ -82,7 +114,7 @@ export default function AdminRequests() {
             Service Requests Management
           </h1>
           <p style={{ color: "var(--color-text-secondary)" }}>
-            Real-time control tower for all consumer bookings, technician assignments, and job lifecycles.
+            Real-time control tower for consumer bookings, AI intelligent worker matching, and automated dispatch.
           </p>
         </div>
         <button 
@@ -201,15 +233,23 @@ export default function AdminRequests() {
                         </div>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
-                        <div style={{ fontWeight: "600" }}>{req.customer_name || "Guest Customer"}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span style={{ fontWeight: "700", color: "var(--color-text)" }}>{req.customer_name || "Customer"}</span>
+                          <span style={{ 
+                            background: "rgba(255, 121, 0, 0.1)", color: "#FF7900", border: "1px solid rgba(255, 121, 0, 0.2)",
+                            fontSize: "0.68rem", fontWeight: "800", padding: "1px 5px", borderRadius: "5px", fontFamily: "'Courier New', monospace"
+                          }}>
+                            {req.customer_code || (req.customer_id ? `CUST-CHE-${req.customer_id.slice(0, 6).toUpperCase()}` : 'CUST-CHE-001')}
+                          </span>
+                        </div>
                         <div style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>{req.customer_phone || req.customer_mobile || "—"}</div>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         {req.pillar ? (
                           <div>
                             <span style={{ fontWeight: "600", color: "var(--color-text)" }}>{req.pillar.full_name}</span>
-                            <div style={{ fontSize: "0.75rem", color: "var(--color-secondary)", fontWeight: "700" }}>
-                              {req.pillar.pillar_code || "Pillar"}
+                            <div style={{ fontSize: "0.75rem", color: "var(--color-secondary)", fontWeight: "700", fontFamily: "monospace" }}>
+                              {req.pillar.pillar_code || req.pillar.application_id || "PIL-CHE-042"}
                             </div>
                           </div>
                         ) : (
@@ -230,7 +270,7 @@ export default function AdminRequests() {
                           borderRadius: "12px", 
                           fontSize: "0.75rem", 
                           fontWeight: "700",
-                          background: badge.bg,
+                          background: badge.bg, 
                           color: badge.color
                         }}>
                           <BadgeIcon size={12} />
@@ -243,7 +283,7 @@ export default function AdminRequests() {
                           className="btn btn-outline btn-sm"
                           style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                         >
-                          <Eye size={13} /> View & Manage
+                          <Eye size={13} /> View & Match
                         </button>
                       </td>
                     </tr>
@@ -255,7 +295,7 @@ export default function AdminRequests() {
         </div>
       </div>
 
-      {/* Request Details & Actions Modal */}
+      {/* Request Details & AI Intelligent Matching Modal */}
       {selectedRequest && (
         <div style={{
           position: "fixed",
@@ -271,7 +311,7 @@ export default function AdminRequests() {
             background: "var(--color-surface)",
             borderRadius: "var(--radius-lg)",
             width: "100%",
-            maxWidth: "580px",
+            maxWidth: "680px",
             maxHeight: "90vh",
             overflowY: "auto",
             padding: "var(--space-5)",
@@ -281,7 +321,7 @@ export default function AdminRequests() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-4)" }}>
               <div>
                 <span style={{ fontSize: "0.8rem", color: "var(--color-secondary)", fontWeight: "700" }}>
-                  SERVICE REQUEST
+                  SERVICE REQUEST & WORKFORCE MATCHING
                 </span>
                 <h2 style={{ fontSize: "1.3rem", fontWeight: "800", color: "var(--color-text)", marginTop: "2px" }}>
                   {selectedRequest.service_name || "General Service"}
@@ -311,30 +351,83 @@ export default function AdminRequests() {
               </div>
             </div>
 
-            {/* Assignment & Reassignment */}
-            <div style={{ marginBottom: "var(--space-4)", background: "var(--color-surface-hover)", padding: "var(--space-3)", borderRadius: "var(--radius-md)" }}>
-              <label style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "8px" }}>
-                Assigned Pillar:
-              </label>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Enter Pillar UUID..." 
-                  style={{ flex: 1 }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleStatusChange(selectedRequest.id, 'assigned');
-                      // In a real app we'd update pillar_id in DB here.
-                      alert("Assignment updated (Requires Pillar ID logic implementation).");
-                    }
-                  }}
-                />
-                <button className="btn btn-primary" onClick={() => alert("Assigned")}>Assign</button>
+            {/* AI WORKFORCE MATCHING RECOMMENDATION PANEL */}
+            <div style={{ background: "var(--color-surface-hover)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: "16px", marginBottom: "var(--space-4)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                <Sparkles size={16} color="#FF7900" />
+                <span style={{ fontSize: "0.85rem", fontWeight: "800", color: "var(--color-text)" }}>
+                  AI Intelligent Workforce Allocation Candidates
+                </span>
               </div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "4px" }}>
-                Current: {selectedRequest.pillar ? `${selectedRequest.pillar.full_name} (${selectedRequest.pillar.pillar_code})` : "None"}
-              </div>
+
+              {matchingLoading ? (
+                <div style={{ padding: "16px", textAlign: "center", fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+                  <div className="spinner spinner-sm" style={{ margin: "0 auto 8px" }}></div>
+                  Evaluating skill match, certifications, GPS distance, and technician availability...
+                </div>
+              ) : matchingResults?.rankedCandidates?.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {matchingResults.rankedCandidates.slice(0, 3).map((candidate, idx) => (
+                    <div 
+                      key={candidate.pillarId}
+                      style={{
+                        background: "var(--color-surface)",
+                        border: idx === 0 ? "1.5px solid #FF7900" : "1px solid var(--color-border)",
+                        borderRadius: "10px",
+                        padding: "12px 14px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "10px"
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          {idx === 0 && (
+                            <span style={{ background: "#FF7900", color: "white", fontSize: "0.7rem", fontWeight: "800", padding: "2px 6px", borderRadius: "4px" }}>
+                              TOP MATCH
+                            </span>
+                          )}
+                          <strong style={{ fontSize: "0.95rem" }}>{candidate.fullName}</strong>
+                          <span style={{ fontSize: "0.75rem", color: "var(--color-secondary)", fontWeight: "700" }}>({candidate.pillarCode})</span>
+                          {candidate.isCertified && (
+                            <span style={{ background: "rgba(16, 185, 129, 0.12)", color: "#10B981", fontSize: "0.7rem", fontWeight: "800", padding: "2px 6px", borderRadius: "4px", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                              <Award size={10} /> Certified
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-secondary)", marginTop: "4px" }}>
+                          Distance: <strong>{candidate.distanceKm} km</strong> • Rating: <strong>{candidate.rating}★</strong> • Exp: <strong>{candidate.experience}</strong>
+                        </div>
+
+                        <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                          Match Score: <strong style={{ color: "#FF7900" }}>{candidate.matchScore}/100</strong> ({candidate.reasons?.[0]})
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleAssignPillar(selectedRequest.id, candidate.pillarId)}
+                        disabled={statusUpdating || selectedRequest.pillar_id === candidate.pillarId}
+                        className="btn btn-sm"
+                        style={{
+                          background: selectedRequest.pillar_id === candidate.pillarId ? "#10B981" : "#FF7900",
+                          color: "white",
+                          fontWeight: "800",
+                          fontSize: "0.78rem",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {selectedRequest.pillar_id === candidate.pillarId ? "✓ Assigned" : "Dispatch Job"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+                  No available technicians currently found matching this zone.
+                </div>
+              )}
             </div>
 
             {/* Status Transition Buttons */}

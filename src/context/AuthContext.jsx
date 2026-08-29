@@ -157,7 +157,20 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (credentials) => {
-    return await pillarAuthService.login(credentials);
+    const res = await pillarAuthService.login(credentials);
+    if (res?.user) {
+      setUser(res.user);
+      if (res.profile) {
+        setProfile({ ...res.profile, role: "pillar" });
+        if (res.profile.is_available !== undefined) {
+          setIsAvailable(res.profile.is_available);
+          localStorage.setItem("coophub_pillar_available", res.profile.is_available ? "true" : "false");
+        }
+      } else {
+        await loadProfile(res.user.id);
+      }
+    }
+    return res;
   };
 
   const loginCustomerDemo = () => {

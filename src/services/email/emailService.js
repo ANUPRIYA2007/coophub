@@ -9,9 +9,10 @@
  * 5. Customer Service Request Confirmation
  */
 
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase.js';
 import {
   renderCustomerRegistrationTemplate,
+  renderPillarApplicationReceivedTemplate,
   renderCustomerOtpTemplate,
   renderPillarApprovalTemplate,
   renderPillarOtpTemplate,
@@ -19,11 +20,11 @@ import {
   renderPillarRejectionTemplate,
   renderClaimApprovalTemplate,
   renderClaimRejectionTemplate
-} from './emailTemplates';
+} from './emailTemplates.js';
 
 export const emailService = {
   /**
-   * 1. Customer Registration Confirmation Email
+   * 1a. Customer Registration Confirmation Email
    * Dispatched during customer registration / confirmation flow.
    */
   async sendCustomerRegistrationEmail({ email, customer_name, confirmation_url }) {
@@ -36,12 +37,33 @@ export const emailService = {
 
     console.log(`[COOP HUB Mailer] ✉️ Registration confirmation email prepared for ${email}`);
     
-    // In production with custom SMTP/Edge functions, this posts to the email gateway.
-    // Supabase Auth natively dispatches confirmation emails using the template format.
     return {
       success: true,
       recipient: email,
       subject: 'Welcome to COOP HUB — Confirm Your Email',
+      html: htmlContent
+    };
+  },
+
+  /**
+   * 1b. Pillar Registration Confirmation Email
+   * Dispatched during pillar technician application flow.
+   */
+  async sendPillarApplicationReceivedEmail({ email, pillar_name, application_id, confirmation_url }) {
+    if (!email) return { success: false, error: 'Email address is required' };
+
+    const htmlContent = renderPillarApplicationReceivedTemplate({
+      pillar_name: pillar_name || 'Technician',
+      application_id: application_id || `APP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      confirmation_url: confirmation_url || `${window.location.origin}/pillar/login`
+    });
+
+    console.log(`[COOP HUB Mailer] ✉️ Pillar Application Received email prepared for ${email}`);
+    
+    return {
+      success: true,
+      recipient: email,
+      subject: 'COOP HUB — Confirm Your Pillar Email & Application',
       html: htmlContent
     };
   },
@@ -87,13 +109,29 @@ export const emailService = {
 
     console.log(`[COOP HUB Mailer] ✉️ Pillar Approval & Welcome email dispatched to ${email || pillar_id} (ID: ${pillar_id})`);
 
-    // Record notification log in database
+    // Dispatch live email to recipient inbox
     try {
-      if (pillar_id) {
-        // Log to broadcast or notifications if needed
+      if (email && email.includes('@')) {
+        await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(email)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            _subject: `🎉 Official COOP HUB Activation: Unique Pillar ID ${pillar_id} Approved`,
+            _template: 'table',
+            _captcha: 'false',
+            Technician_Name: pillar_name || 'Technician',
+            Recipient_Email: email,
+            Assigned_Pillar_ID: pillar_id || 'PIL-CHE-044',
+            Certified_Trade: service_category || 'Plumber',
+            Operating_Zone: service_location || 'Guindy (600032), Chennai',
+            Status: 'VERIFIED & ACTIVE',
+            Portal_Login_URL: portal_url,
+            Welcome_Message: `Dear ${pillar_name || 'Technician'}, your Pillar application has been verified! Your Unique Pillar ID is ${pillar_id}. Please log in at ${portal_url}`
+          })
+        });
       }
-    } catch (e) {
-      console.warn('Pillar email db log error:', e);
+    } catch (relayErr) {
+      console.warn("External mail relay dispatch notice:", relayErr);
     }
 
     return {

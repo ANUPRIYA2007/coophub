@@ -10,9 +10,9 @@
 // 6. Supabase Realtime Synchronization
 // ==============================================================================
 
-import { supabase } from "../../../lib/supabase";
-import { emailService } from "../../../services/email/emailService";
-import { auditLogService } from "./auditLogService";
+import { supabase } from "../../../lib/supabase.js";
+import { emailService } from "../../../services/email/emailService.js";
+import { auditLogService } from "./auditLogService.js";
 
 const isAdminDemo = () => localStorage.getItem("coophub_demo_admin") === "true";
 const isPillarDemo = () => localStorage.getItem("coophub_demo_user") === "true" || localStorage.getItem("coophub_demo_pillar") === "true";

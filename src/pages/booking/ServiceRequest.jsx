@@ -1,24 +1,29 @@
 import { useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
-import { useServices } from '../../hooks/useServices';
-import { locationService } from '../../services/customer/locationService';
-import { attachmentService } from '../../services/customer/attachmentService';
-import { serviceRequestService } from '../../services/customer/serviceRequestService';
 import { useAuth } from '../../context/AuthContext';
+import { useServices } from '../../hooks/useServices';
+import { serviceRequestService } from '../../services/customer/serviceRequestService';
+import { attachmentService } from '../../services/customer/attachmentService';
+import { locationService } from '../../services/customer/locationService';
+import LocationPickerModal from '../../components/maps/LocationPickerModal';
+import { MapPin, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 export default function ServiceRequest() {
-    const { id: serviceId } = useParams();
+    const params = useParams();
     const [searchParams] = useSearchParams();
-    const subServiceId = searchParams.get('sub');
-
-    const { t } = useTranslation();
     const navigate = useNavigate();
     const { profile } = useAuth();
     const { services, subServices, loading: catLoading } = useServices();
+    const { t } = useTranslation();
 
-    const serviceInfo = services.find(s => s.id === serviceId);
-    const subServiceInfo = subServices.find(s => s.id === subServiceId);
+    const targetServiceId = params.id || params.serviceId;
+    const targetSubServiceId = params.subServiceId || searchParams.get('sub');
+
+    const serviceInfo = services.find(s => s.id === targetServiceId || s.category?.toLowerCase() === targetServiceId?.toLowerCase()) || services[0];
+    const subServiceInfo = subServices.find(s => s.id === targetSubServiceId) ||
+                           subServices.find(s => s.service_id === serviceInfo?.id) ||
+                           subServices[0];
 
     // Form States
     const [step, setStep] = useState(1);
@@ -27,10 +32,12 @@ export default function ServiceRequest() {
         address_line: '', area: '', city: '', state: '', postal_code: '',
         latitude: null, longitude: null,
         preferred_date: '', preferred_time: '', flexible_timing: false,
+        is_emergency: false,
         customer_description: '',
         attachments: []
     });
     const [selectedFile, setSelectedFile] = useState(null);
+    const [showMapPicker, setShowMapPicker] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
@@ -44,6 +51,20 @@ export default function ServiceRequest() {
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
+    const handleMapLocationConfirmed = (loc) => {
+        setFormData(prev => ({
+            ...prev,
+            location_type: 'google_map',
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            address_line: loc.address_line,
+            area: loc.area || prev.area,
+            city: loc.city || prev.city,
+            state: loc.state || prev.state,
+            postal_code: loc.postal_code || prev.postal_code
+        }));
+    };
+
     const handleGetLocation = async () => {
         setIsLocating(true);
         setError(null);
@@ -55,7 +76,7 @@ export default function ServiceRequest() {
                 latitude: coords.latitude,
                 longitude: coords.longitude
             }));
-            alert('Location successfully pinpointed.');
+            setShowMapPicker(true);
         } catch (err) {
             setError(err.message);
             setFormData(prev => ({ ...prev, location_type: 'manual' }));
@@ -79,15 +100,12 @@ export default function ServiceRequest() {
     const nextStep = () => {
         setError(null);
         if (step === 1) { // Validate Location
-            if (formData.location_type === 'manual' && (!formData.address_line || !formData.city)) {
-                setError('Address line and city are required.'); return;
-            }
-            if (formData.location_type === 'geolocation' && (!formData.latitude)) {
-                setError('Location coordinates missing. Please try again.'); return;
+            if (!formData.address_line && !formData.latitude) {
+                setError('Please choose your service location on Google Map or enter your address.'); return;
             }
         }
         if (step === 2) { // Validate Schedule
-            if (!formData.flexible_timing && (!formData.preferred_date || !formData.preferred_time)) {
+            if (!formData.is_emergency && !formData.flexible_timing && (!formData.preferred_date || !formData.preferred_time)) {
                 setError('Please provide preferred date and time, or check flexible timing.'); return;
             }
         }
@@ -101,13 +119,12 @@ export default function ServiceRequest() {
             let uploadedAttachments = [];
             if (selectedFile) {
                 const path = await attachmentService.uploadAttachment(selectedFile, profile.user_id);
-                // The prompt allows storing the db relative path mapping
                 uploadedAttachments.push(path);
             }
 
             const payload = {
-                service_id: serviceId,
-                sub_service_id: subServiceId || null,
+                service_id: serviceInfo?.id || targetServiceId,
+                sub_service_id: subServiceInfo?.id || targetSubServiceId || null,
                 ...formData,
                 attachments: uploadedAttachments
             };
@@ -124,7 +141,6 @@ export default function ServiceRequest() {
     return (
         <div className="min-h-screen bg-surface pb-20 px-4 pt-6">
             <div className="max-w-2xl mx-auto">
-                {/* Unified Sticky Header */}
                 <header className="bg-white sticky top-0 z-40 border-b border-navy-100/50 shadow-sm px-4 py-3 flex items-center -mx-4 -mt-6 mb-6">
                     <button onClick={() => navigate(-1)} className="mr-3 text-navy-500 hover:text-orange-500 transition-colors">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,47 +157,80 @@ export default function ServiceRequest() {
 
                 {error && (
                     <div className="mb-6 p-4 rounded-xl bg-danger-50 text-danger-600 text-sm font-medium border border-danger-100 flex items-start">
-                        <svg className="w-5 h-5 mr-2 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        <AlertTriangle className="w-5 h-5 mr-2 shrink-0" />
                         <span>{error}</span>
                     </div>
                 )}
 
                 <div className="card p-6 shadow-lg shadow-navy-900/5">
-                    {/* Step 1: Location */}
                     {step === 1 && (
                         <div className="space-y-5 animate-fade-in">
                             <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2">{t('booking.location')}</h2>
 
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <button
-                                    onClick={handleGetLocation}
-                                    disabled={isLocating}
-                                    className={`flex-1 py-3 px-4 rounded-xl border flex items-center justify-center transition-colors ${formData.location_type === 'geolocation' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-navy-200 hover:bg-navy-50 text-navy-700'}`}
-                                >
-                                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                    {isLocating ? 'Locating...' : formData.latitude ? 'Location Saved' : t('booking.use_current_location')}
-                                </button>
-                                <button
-                                    onClick={() => setFormData(prev => ({ ...prev, location_type: 'manual', latitude: null, longitude: null }))}
-                                    className={`flex-1 py-3 px-4 rounded-xl border flex items-center justify-center transition-colors ${formData.location_type === 'manual' ? 'border-navy-500 bg-navy-50 text-navy-800' : 'border-navy-200 hover:bg-navy-50 text-navy-700'}`}
-                                >
-                                    {t('booking.enter_manual')}
-                                </button>
+                            <div
+                                onClick={() => setShowMapPicker(true)}
+                                className="border-2 border-dashed border-orange-300 hover:border-orange-500 bg-orange-50/40 hover:bg-orange-50 p-5 rounded-2xl cursor-pointer transition-all text-center space-y-2 group"
+                            >
+                                <div className="w-12 h-12 rounded-full bg-orange-500 text-white flex items-center justify-center mx-auto shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
+                                    <MapPin size={24} />
+                                </div>
+                                <h3 className="font-bold text-navy-900 text-sm">
+                                    {formData.latitude ? "Change Location on Google Map" : "Pin Location on Google Map & Places Search"}
+                                </h3>
+                                <p className="text-xs text-navy-500 max-w-sm mx-auto">
+                                    Search landmarks, use live GPS, or drag the map pin to ensure your technician arrives at the exact spot.
+                                </p>
                             </div>
 
-                            {formData.location_type === 'manual' && (
-                                <div className="space-y-4 pt-4">
-                                    <input type="text" name="address_line" value={formData.address_line} onChange={handleFormChange} placeholder={t('booking.address_line')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all outline-none" required />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input type="text" name="area" value={formData.area} onChange={handleFormChange} placeholder={t('booking.area')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none" />
-                                        <input type="text" name="city" value={formData.city} onChange={handleFormChange} placeholder={t('booking.city')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none" required />
+                            {formData.latitude && (
+                                <div className="bg-white border border-emerald-200 rounded-2xl p-4 shadow-xs space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
+                                            <CheckCircle2 size={14} /> Confirmed Google Coordinates
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowMapPicker(true)}
+                                            className="text-xs font-bold text-orange-600 hover:underline"
+                                        >
+                                            Edit Pin
+                                        </button>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input type="text" name="state" value={formData.state} onChange={handleFormChange} placeholder="State" className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none" />
-                                        <input type="text" name="postal_code" value={formData.postal_code} onChange={handleFormChange} placeholder="Postal Code" className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none" />
+                                    <p className="font-bold text-navy-900 text-sm">
+                                        {formData.address_line || "Selected Map Location"}
+                                    </p>
+                                    <div className="flex flex-wrap gap-3 text-xs text-navy-600 pt-1 border-t border-navy-100">
+                                        <span>Area: <strong>{formData.area || "-"}</strong></span>
+                                        <span>City: <strong>{formData.city || "-"}</strong></span>
+                                        <span className="text-navy-400 font-mono text-[11px]">
+                                            GPS: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                                        </span>
                                     </div>
                                 </div>
                             )}
+
+                            <div className="space-y-4 pt-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-navy-700">Detailed Address / Building / Flat:</span>
+                                </div>
+                                <input type="text" name="address_line" value={formData.address_line} onChange={handleFormChange} placeholder="Door No, Building Name, Street..." className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all outline-none text-xs" required />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input type="text" name="area" value={formData.area} onChange={handleFormChange} placeholder={t('booking.area')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
+                                    <input type="text" name="city" value={formData.city} onChange={handleFormChange} placeholder={t('booking.city')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" required />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input type="text" name="state" value={formData.state} onChange={handleFormChange} placeholder="State" className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
+                                    <input type="text" name="postal_code" value={formData.postal_code} onChange={handleFormChange} placeholder="Postal Code" className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
+                                </div>
+                            </div>
+
+                            <LocationPickerModal
+                                isOpen={showMapPicker}
+                                onClose={() => setShowMapPicker(false)}
+                                onConfirmLocation={handleMapLocationConfirmed}
+                                initialCoords={formData.latitude ? { lat: formData.latitude, lng: formData.longitude } : null}
+                                initialAddress={formData.address_line}
+                            />
 
                             <div className="mt-8 pt-4">
                                 <button onClick={nextStep} className="btn-primary w-full shadow-lg shadow-orange-500/20 py-3.5">Continue</button>
@@ -197,17 +246,38 @@ export default function ServiceRequest() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
                                     <div>
                                         <label className="block text-xs font-medium text-muted mb-1">{t('booking.preferred_date')}</label>
-                                        <input type="date" name="preferred_date" value={formData.preferred_date} onChange={handleFormChange} disabled={formData.flexible_timing} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" min={new Date().toISOString().split('T')[0]} />
+                                        <input type="date" name="preferred_date" value={formData.preferred_date} onChange={handleFormChange} disabled={formData.flexible_timing || formData.is_emergency} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" min={new Date().toISOString().split('T')[0]} />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-muted mb-1">{t('booking.preferred_time')}</label>
-                                        <input type="time" name="preferred_time" value={formData.preferred_time} onChange={handleFormChange} disabled={formData.flexible_timing} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" />
+                                        <input type="time" name="preferred_time" value={formData.preferred_time} onChange={handleFormChange} disabled={formData.flexible_timing || formData.is_emergency} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" />
                                     </div>
                                 </div>
-                                <label className="flex items-center space-x-2 cursor-pointer">
-                                    <input type="checkbox" name="flexible_timing" checked={formData.flexible_timing} onChange={handleFormChange} className="w-5 h-5 rounded border-navy-200 text-orange-500 focus:ring-orange-500" />
-                                    <span className="text-sm text-navy-700 font-medium">{t('booking.flexible_timing')}</span>
-                                </label>
+                                <div className="space-y-2">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="flexible_timing" checked={formData.flexible_timing} onChange={handleFormChange} disabled={formData.is_emergency} className="w-5 h-5 rounded border-navy-200 text-orange-500 focus:ring-orange-500" />
+                                        <span className="text-sm text-navy-700 font-medium">{t('booking.flexible_timing')}</span>
+                                    </label>
+
+                                    {/* Emergency On-Demand Priority Toggle */}
+                                    <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-xl bg-red-50 border border-red-200">
+                                        <input
+                                            type="checkbox"
+                                            name="is_emergency"
+                                            checked={formData.is_emergency}
+                                            onChange={handleFormChange}
+                                            className="w-5 h-5 rounded border-red-300 text-red-600 focus:ring-red-500"
+                                        />
+                                        <div>
+                                            <span className="text-xs font-black text-red-700 uppercase tracking-wider block">
+                                                🚨 Emergency Priority Dispatch (&lt; 30 Mins)
+                                            </span>
+                                            <span className="text-[11px] text-red-600">
+                                                Pings nearest on-duty technicians with instant dispatch override.
+                                            </span>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
 
                             <div>
@@ -239,6 +309,13 @@ export default function ServiceRequest() {
                             <h2 className="font-semibold text-xl text-navy-800 border-b border-navy-100 pb-3">{t('booking.confirm_title')}</h2>
 
                             <div className="space-y-4">
+                                {formData.is_emergency && (
+                                    <div className="p-3 bg-red-100 border border-red-300 rounded-xl text-center">
+                                        <span className="text-xs font-black text-red-700 tracking-wider uppercase">
+                                            🚨 HIGH PRIORITY EMERGENCY SERVICE DISPATCH
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="bg-navy-50 p-4 rounded-xl">
                                     <p className="text-xs text-muted mb-1">Service Requested</p>
                                     <p className="font-medium text-navy-800">{serviceInfo.name}{subServiceInfo ? ` - ${subServiceInfo.name}` : ''}</p>
@@ -254,7 +331,7 @@ export default function ServiceRequest() {
                                 <div className="bg-navy-50 p-4 rounded-xl">
                                     <p className="text-xs text-muted mb-1">Schedule</p>
                                     <p className="font-medium text-navy-800">
-                                        {formData.flexible_timing ? 'Flexible Timing' : `${formData.preferred_date} at ${formData.preferred_time}`}
+                                        {formData.is_emergency ? '⚡ Immediate Emergency Dispatch' : (formData.flexible_timing ? 'Flexible Timing' : `${formData.preferred_date} at ${formData.preferred_time}`)}
                                     </p>
                                 </div>
                                 {formData.customer_description && (

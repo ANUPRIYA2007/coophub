@@ -4,6 +4,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { pillarOrderService } from "../../../services/pillar/orderService";
 import ArrivalOTPModal from "../../../components/pillar/orders/ArrivalOTPModal";
 import ExtraChargeModal from "../../../components/pillar/orders/ExtraChargeModal";
+import LiveTrackingMap from "../../../components/maps/LiveTrackingMap";
 import {
   Clock,
   MapPin,
@@ -17,6 +18,8 @@ import {
   ClipboardList,
   User,
   Loader2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -30,6 +33,7 @@ export default function OrdersList() {
   const [loading, setLoading] = useState(true);
   const [selectedBookingForOtp, setSelectedBookingForOtp] = useState(null);
   const [selectedBookingForExtra, setSelectedBookingForExtra] = useState(null);
+  const [expandedMapOrderId, setExpandedMapOrderId] = useState(null);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -174,6 +178,51 @@ export default function OrdersList() {
                     )}
                   </div>
                 </div>
+
+                {/* Collapsible Google Maps Route Preview */}
+                {(order.status === "accepted" || order.status === "onTheWay" || order.status === "arrived") && (
+                  <div style={{ marginTop: "var(--space-3)", paddingTop: "var(--space-2)", borderTop: "1px dashed var(--color-border-light)" }}>
+                    <button
+                      onClick={() => setExpandedMapOrderId(expandedMapOrderId === order.id ? null : order.id)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--color-primary)",
+                        fontSize: "0.8rem",
+                        fontWeight: "700",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: 0
+                      }}
+                    >
+                      🗺️ {expandedMapOrderId === order.id ? "Hide Live Navigation Map" : "Preview Live Route & GPS"}
+                      {expandedMapOrderId === order.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+
+                    {expandedMapOrderId === order.id && (
+                      <div style={{ marginTop: "10px" }}>
+                        <LiveTrackingMap
+                          customerLocation={{
+                            lat: order.latitude || order.lat,
+                            lng: order.longitude || order.lng
+                          }}
+                          pillarLocation={(user?.current_lat != null && user?.current_lng != null) ? {
+                            lat: Number(user.current_lat),
+                            lng: Number(user.current_lng)
+                          } : (user?.lat != null && user?.lng != null) ? {
+                            lat: Number(user.lat),
+                            lng: Number(user.lng)
+                          } : null}
+                          pillarName={user?.full_name || "You (Technician)"}
+                          pillarRole="Technician"
+                          height="220px"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
