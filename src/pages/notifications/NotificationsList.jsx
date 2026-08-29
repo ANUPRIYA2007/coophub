@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useTranslation } from '../../hooks/useTranslation';
-import { Bell, ArrowLeft, CheckCheck, Clock, ShieldCheck, Wrench, FileText, CheckCircle2, Navigation, AlertCircle } from 'lucide-react';
+import { Bell, ArrowLeft, CheckCheck, Clock, ShieldCheck, Wrench, FileText, CheckCircle2, Navigation, AlertCircle, Trash2, X } from 'lucide-react';
 
 export default function NotificationsList() {
     const { profile, user } = useAuth();
@@ -14,11 +14,32 @@ export default function NotificationsList() {
 
     const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
+    const getDismissedIds = () => {
+        try {
+            return JSON.parse(localStorage.getItem('coophub_dismissed_notifs') || '[]');
+        } catch {
+            return [];
+        }
+    };
+
+    const addDismissedId = (id) => {
+        try {
+            const current = getDismissedIds();
+            if (!current.includes(id)) {
+                current.push(id);
+                localStorage.setItem('coophub_dismissed_notifs', JSON.stringify(current));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     useEffect(() => {
         const fetchNotifications = async () => {
             setLoading(true);
             try {
                 const customerId = profile?.user_id || user?.id;
+                const dismissedIds = new Set(getDismissedIds());
                 let notifList = [];
 
                 // 1. Fetch from Supabase notifications table if available
@@ -52,7 +73,7 @@ export default function NotificationsList() {
                         const sName = r.services?.name || r.service_name || 'Home Service';
                         const reqCode = 'REQ-' + r.id.substring(0, 6).toUpperCase();
 
-                        // Notification 1: Current Status Lifecycle Alert
+                        // Current Status Lifecycle Alert
                         let statusTitle = `Service Request ${reqCode} Updated`;
                         let statusMsg = `Your ${sName} is currently in progress.`;
                         let iconType = 'order';
@@ -85,7 +106,7 @@ export default function NotificationsList() {
                             created_at: r.updated_at || r.created_at
                         });
 
-                        // Notification 2: Order Booking Confirmation
+                        // Order Booking Confirmation
                         notifList.push({
                             id: `req-created-${r.id}`,
                             request_id: r.id,
@@ -98,10 +119,12 @@ export default function NotificationsList() {
                     });
                 }
 
-                // Deduplicate by ID and sort newest first
+                // Deduplicate by ID, filter out dismissed, and sort newest first
                 const uniqueMap = new Map();
                 notifList.forEach(n => {
-                    if (!uniqueMap.has(n.id)) uniqueMap.set(n.id, n);
+                    if (!uniqueMap.has(n.id) && !dismissedIds.has(n.id)) {
+                        uniqueMap.set(n.id, n);
+                    }
                 });
 
                 const sorted = Array.from(uniqueMap.values()).sort(
@@ -131,6 +154,37 @@ export default function NotificationsList() {
     const markAsRead = (id, e) => {
         e?.stopPropagation();
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    };
+
+    const handleRemoveNotification = async (id, e) => {
+        e?.stopPropagation();
+        addDismissedId(id);
+        setNotifications(prev => prev.filter(n => n.id !== id));
+
+        // If UUID format from Supabase notifications table, delete directly
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+            try {
+                await supabase.from('notifications').delete().eq('id', id);
+            } catch (err) {
+                console.warn("Delete notif note:", err.message);
+            }
+        }
+    };
+
+    const handleClearAll = async () => {
+        if (!window.confirm("Are you sure you want to clear all notifications?")) return;
+        
+        notifications.forEach(n => addDismissedId(n.id));
+        setNotifications([]);
+
+        const customerId = profile?.user_id || user?.id;
+        if (customerId) {
+            try {
+                await supabase.from('notifications').delete().or(`customer_id.eq.${customerId},user_id.eq.${customerId}`);
+            } catch (err) {
+                console.warn("Clear all note:", err.message);
+            }
+        }
     };
 
     const handleNotificationClick = (notif) => {
@@ -179,12 +233,23 @@ export default function NotificationsList() {
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))}
-                        className="text-xs font-bold text-orange-600 hover:text-orange-700 transition-colors"
-                    >
-                        Mark all as read
-                    </button>
+                    {notifications.length > 0 && (
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))}
+                                className="text-xs font-bold text-navy-600 hover:text-navy-800 transition-colors px-2 py-1 rounded-lg hover:bg-navy-50"
+                            >
+                                Mark read
+                            </button>
+                            <button
+                                onClick={handleClearAll}
+                                className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-red-50"
+                            >
+                                <Trash2 size={13} />
+                                Clear all
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {notifications.length === 0 ? (
@@ -193,7 +258,7 @@ export default function NotificationsList() {
                             <Bell size={28} />
                         </div>
                         <h3 className="font-bold text-navy-800 text-base">All caught up!</h3>
-                        <p className="text-navy-400 text-xs mt-1">You don't have any unread notifications.</p>
+                        <p className="text-navy-400 text-xs mt-1">You don't have any notifications.</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -201,15 +266,24 @@ export default function NotificationsList() {
                             <div
                                 key={notif.id}
                                 onClick={() => handleNotificationClick(notif)}
-                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start space-x-3.5 relative overflow-hidden ${
+                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start space-x-3.5 relative overflow-hidden group ${
                                     notif.is_read
                                         ? 'bg-white border-navy-100 text-navy-700 shadow-xs hover:border-orange-200'
                                         : 'bg-orange-50/50 border-orange-200/80 text-navy-900 shadow-sm hover:shadow-md'
                                 }`}
                             >
                                 {!notif.is_read && (
-                                    <span className="absolute top-4 right-4 w-2 h-2 rounded-full bg-orange-500"></span>
+                                    <span className="absolute top-4 right-9 w-2 h-2 rounded-full bg-orange-500"></span>
                                 )}
+
+                                {/* Remove single notification button */}
+                                <button
+                                    onClick={(e) => handleRemoveNotification(notif.id, e)}
+                                    title="Delete notification"
+                                    className="absolute top-3 right-3 p-1 text-navy-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                >
+                                    <X size={15} />
+                                </button>
 
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                                     notif.is_read ? 'bg-navy-50' : 'bg-orange-100'
@@ -217,7 +291,7 @@ export default function NotificationsList() {
                                     {getIcon(notif.type)}
                                 </div>
 
-                                <div className="flex-1 pr-4">
+                                <div className="flex-1 pr-6">
                                     <h4 className="font-bold text-sm leading-snug">{notif.title || notif.subject || notif.header || "Order Update"}</h4>
                                     <p className="text-xs text-navy-600 mt-1 leading-relaxed">{notif.message || notif.content || notif.body || "Click to view service details."}</p>
                                     <div className="flex items-center space-x-2 mt-2 text-[10px] text-navy-400 font-mono">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarNotificationService } from "../../../services/pillar/notificationService";
-import { Bell, Check, CheckCheck } from "lucide-react";
+import { Bell, Check, CheckCheck, Trash2, X } from "lucide-react";
 
 export default function NotificationsPage() {
   const { t } = useTranslation();
@@ -21,6 +21,15 @@ export default function NotificationsPage() {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
+  const handleRemove = (id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const handleClearAll = () => {
+    if (!window.confirm("Are you sure you want to clear all notifications?")) return;
+    setNotifications([]);
+  };
+
   return (
     <div className="container" style={{ paddingTop: "var(--space-6)" }}>
       <div className="page-header">
@@ -28,39 +37,76 @@ export default function NotificationsPage() {
           <h1 className="page-title">{t("notifications.title")}</h1>
           <p className="page-subtitle">Stay up to date with new bookings, alerts, and system updates</p>
         </div>
-        <button className="btn btn-outline" onClick={markAllRead}>
-          <CheckCheck size={16} /> {t("notifications.markAllRead")}
-        </button>
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          {notifications.length > 0 && (
+            <>
+              <button className="btn btn-outline" onClick={markAllRead}>
+                <CheckCheck size={16} /> {t("notifications.markAllRead")}
+              </button>
+              <button className="btn btn-outline" style={{ color: "var(--color-error)", borderColor: "var(--color-error)" }} onClick={handleClearAll}>
+                <Trash2 size={16} /> Clear All
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="card">
         <div className="card-body" style={{ padding: 0 }}>
-          {notifications.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                padding: "var(--space-4) var(--space-6)",
-                borderBottom: "1px solid var(--color-border-light)",
-                background: item.read ? "transparent" : "rgba(245, 124, 32, 0.04)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                  {!item.read && <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--color-secondary)" }}></span>}
-                  <h4 style={{ fontSize: "var(--font-size-base)", fontWeight: "600", margin: 0 }}>{item.title}</h4>
-                </div>
-                <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", marginTop: "4px" }}>
-                  {item.message}
-                </p>
-                <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                  {new Date(item.created_at).toLocaleString()}
-                </span>
-              </div>
+          {notifications.length === 0 ? (
+            <div style={{ padding: "var(--space-10)", textAlign: "center", color: "var(--color-text-muted)" }}>
+              <Bell size={32} style={{ margin: "0 auto var(--space-3)", opacity: 0.4 }} />
+              <p style={{ margin: 0, fontWeight: "600" }}>No notifications at this time.</p>
             </div>
-          ))}
+          ) : (
+            notifications.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  padding: "var(--space-4) var(--space-6)",
+                  borderBottom: "1px solid var(--color-border-light)",
+                  background: item.read ? "transparent" : "rgba(245, 124, 32, 0.04)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  position: "relative",
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    {!item.read && <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--color-secondary)" }}></span>}
+                    <h4 style={{ fontSize: "var(--font-size-base)", fontWeight: "600", margin: 0 }}>{item.title}</h4>
+                  </div>
+                  <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", marginTop: "4px" }}>
+                    {item.message}
+                  </p>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                    {new Date(item.created_at).toLocaleString()}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => handleRemove(item.id)}
+                  title="Remove notification"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--color-text-muted)",
+                    cursor: "pointer",
+                    padding: "6px",
+                    borderRadius: "6px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-error)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
