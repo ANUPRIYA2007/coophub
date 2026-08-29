@@ -37,17 +37,36 @@ export default function OrdersList() {
 
   const fetchOrders = async () => {
     setLoading(true);
-    const { data } = await pillarOrderService.getOrders(user?.id);
-    setOrders(data || []);
-    setLoading(false);
+    try {
+      const { data } = await pillarOrderService.getOrders(user?.id);
+      setOrders(data || []);
+    } catch (e) {
+      console.error("fetchOrders error:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchOrders();
+
+    // Live Realtime Channel for new incoming customer requests & status updates
+    const channel = pillarOrderService.subscribeToPillarOrders(user?.id, (payload) => {
+      console.log("⚡ Incoming realtime order event for Pillar:", payload);
+      fetchOrders();
+    });
+
+    return () => {
+      channel?.unsubscribe();
+    };
   }, [user]);
 
   const handleStatusChange = async (bookingId, newStatus) => {
-    await pillarOrderService.updateOrderStatus(bookingId, newStatus);
+    const metadata = {};
+    if (newStatus === "accepted" && user?.id) {
+      metadata.pillar_id = user.id;
+    }
+    await pillarOrderService.updateOrderStatus(bookingId, newStatus, metadata);
     fetchOrders();
   };
 

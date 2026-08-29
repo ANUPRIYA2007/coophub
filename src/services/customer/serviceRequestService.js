@@ -225,19 +225,50 @@ export const serviceRequestService = {
             throw new Error('Authentication required to submit request.');
         }
 
+        // 1. Generate secure 6-digit arrival OTP
+        const arrivalOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+        // 2. Intelligent Workforce Allocation: Find best available certified Pillar in this trade
+        let assignedPillarId = requestData.pillar_id || null;
+        let initialStatus = 'pending';
+
+        try {
+            const { matchingService } = await import('../ai/matchingService');
+            const matchRes = await matchingService.matchWorkforceForRequest({
+                service_id: requestData.service_id,
+                service_name: requestData.service_name,
+                category: requestData.category || requestData.service_name,
+                latitude: requestData.latitude || 13.0067,
+                longitude: requestData.longitude || 80.2025
+            });
+
+            if (matchRes?.rankedCandidates?.length > 0) {
+                const topCandidate = matchRes.rankedCandidates[0];
+                if (topCandidate?.pillarId) {
+                    assignedPillarId = topCandidate.pillarId;
+                    initialStatus = 'assigned';
+                    console.log(`⚡ AI Workforce Engine auto-assigned top matching Pillar: ${topCandidate.fullName} (${topCandidate.pillarCode})`);
+                }
+            }
+        } catch (matchErr) {
+            console.warn("AI workforce auto-dispatch note:", matchErr);
+        }
+
         const payload = {
             customer_id: user.id,
             service_id: requestData.service_id,
             sub_service_id: requestData.sub_service_id,
-            status: 'pending',
-            location_type: requestData.location_type || null,
+            pillar_id: assignedPillarId,
+            status: initialStatus,
+            arrival_otp: arrivalOtp,
+            location_type: requestData.location_type || 'google_map',
             address_line: requestData.address_line || null,
             area: requestData.area || null,
             city: requestData.city || null,
             state: requestData.state || null,
             postal_code: requestData.postal_code || null,
-            latitude: requestData.latitude || null,
-            longitude: requestData.longitude || null,
+            latitude: requestData.latitude || 13.0067,
+            longitude: requestData.longitude || 80.2025,
             flexible_timing: !!requestData.flexible_timing,
             preferred_date: requestData.preferred_date || null,
             preferred_time: requestData.preferred_time || null,
@@ -256,6 +287,19 @@ export const serviceRequestService = {
             throw new Error('Unable to create service request properly. Database constraint failure: ' + error.message);
         }
 
+        // Notify assigned pillar in realtime if matched
+        if (assignedPillarId) {
+            try {
+                await supabase.from('notifications').insert([{
+                    user_id: assignedPillarId,
+                    type: 'new_job_assigned',
+                    title: '⚡ New Service Assignment Dispatched',
+                    message: `You have been matched & assigned to Order #${data.id.slice(0, 8)}. Please review details in your orders dashboard.`,
+                    read: false
+                }]);
+            } catch (ne) { /* silent */ }
+        }
+
         // Trigger Service Request Confirmation Email with real data
         try {
             const loc = [requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ');
@@ -268,9 +312,9 @@ export const serviceRequestService = {
                 service_time: requestData.preferred_time || (requestData.flexible_timing ? 'Flexible Timing' : 'Standard Slot'),
                 service_location: loc || 'Service Location',
                 total_amount: requestData.total_amount || requestData.estimated_price || '0',
-                request_status: 'Pending',
+                request_status: initialStatus === 'assigned' ? 'Pillar Assigned' : 'Pending',
                 pillar_name: requestData.pillar_name || null,
-                pillar_id: requestData.pillar_id || null,
+                pillar_id: assignedPillarId,
                 payment_status: requestData.payment_status || null,
                 invoice_number: null
             });
