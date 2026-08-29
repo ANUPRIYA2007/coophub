@@ -3,45 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useTranslation } from '../../hooks/useTranslation';
-import { Bell, ArrowLeft, CheckCheck, Clock, ShieldCheck, Wrench, FileText, CheckCircle2 } from 'lucide-react';
-
-const DEMO_NOTIFICATIONS = [
-    {
-        id: "notif-1",
-        title: "Pillar En Route 🚗",
-        message: "Raj Kumar (Senior Electrician) is on the way to your location (ETA ~8 mins).",
-        is_read: false,
-        request_id: "REQ-8942",
-        created_at: new Date(Date.now() - 300000).toISOString()
-    },
-    {
-        id: "notif-2",
-        title: "Pillar Assigned 👷",
-        message: "Your Electrical Repair request #REQ-8942 has been accepted by Raj Kumar.",
-        is_read: false,
-        request_id: "REQ-8942",
-        created_at: new Date(Date.now() - 900000).toISOString()
-    },
-    {
-        id: "notif-3",
-        title: "Service Completed ✔️",
-        message: "Your AC Power Point & 16A Socket service #REQ-8890 has been completed.",
-        is_read: true,
-        request_id: "REQ-8890",
-        created_at: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-        id: "notif-4",
-        title: "Invoice Generated 🧾",
-        message: "Invoice INV-8890 for ₹1500 is marked paid. Thank you!",
-        is_read: true,
-        request_id: "REQ-8890",
-        created_at: new Date(Date.now() - 86400000).toISOString()
-    }
-];
+import { Bell, ArrowLeft, CheckCheck, Clock, ShieldCheck, Wrench, FileText, CheckCircle2, Navigation, AlertCircle } from 'lucide-react';
 
 export default function NotificationsList() {
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     const { t, language } = useTranslation();
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
@@ -51,26 +16,99 @@ export default function NotificationsList() {
 
     useEffect(() => {
         const fetchNotifications = async () => {
-            if (isDemo) {
-                setNotifications(DEMO_NOTIFICATIONS);
-                setLoading(false);
-                return;
-            }
-
-            if (!profile?.user_id) {
-                setLoading(false);
-                return;
-            }
-
+            setLoading(true);
             try {
-                const { data, error } = await supabase
-                    .from('notifications')
-                    .select('*')
-                    .eq('customer_id', profile.user_id)
-                    .order('created_at', { ascending: false });
+                const customerId = profile?.user_id || user?.id;
+                let notifList = [];
 
-                if (error) throw error;
-                setNotifications(data || []);
+                // 1. Fetch from Supabase notifications table if available
+                if (customerId) {
+                    const { data: dbNotifs } = await supabase
+                        .from('notifications')
+                        .select('*')
+                        .or(`customer_id.eq.${customerId},user_id.eq.${customerId}`)
+                        .order('created_at', { ascending: false });
+
+                    if (dbNotifs && dbNotifs.length > 0) {
+                        notifList.push(...dbNotifs);
+                    }
+                }
+
+                // 2. Fetch customer's real service_requests to generate live lifecycle alerts
+                let sReqQuery = supabase
+                    .from('service_requests')
+                    .select('*, services(name, category), sub_services(name)')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (customerId) {
+                    sReqQuery = sReqQuery.or(`customer_id.eq.${customerId},customer_id.is.null`);
+                }
+
+                const { data: reqs } = await sReqQuery;
+
+                if (reqs && reqs.length > 0) {
+                    reqs.forEach((r) => {
+                        const sName = r.services?.name || r.service_name || 'Home Service';
+                        const reqCode = 'REQ-' + r.id.substring(0, 6).toUpperCase();
+
+                        // Notification 1: Current Status Lifecycle Alert
+                        let statusTitle = `Service Request ${reqCode} Updated`;
+                        let statusMsg = `Your ${sName} is currently in progress.`;
+                        let iconType = 'order';
+
+                        if (r.status === 'pending' || r.status === 'assigned') {
+                            statusTitle = `Pillar Assigned • ${sName}`;
+                            statusMsg = `Technician has been matched for Order #${reqCode}. Stand by for arrival.`;
+                            iconType = 'assigned';
+                        } else if (r.status === 'on_the_way') {
+                            statusTitle = `Technician En Route 🚗 • ${sName}`;
+                            statusMsg = `Your technician is navigating to your address. Provide Arrival PIN ${r.arrival_otp || '687452'} upon arrival.`;
+                            iconType = 'en_route';
+                        } else if (r.status === 'arrived') {
+                            statusTitle = `🎉 Technician Arrived at Doorstep! • ${sName}`;
+                            statusMsg = `Share your 6-digit Arrival PIN ${r.arrival_otp || '687452'} with Pillar to verify and start the job.`;
+                            iconType = 'arrived';
+                        } else if (r.status === 'completed') {
+                            statusTitle = `✓ Service Completed • ${sName}`;
+                            statusMsg = `Job finished successfully! Total amount due: ₹${r.final_amount || r.amount || 450}. Click to pay or view invoice.`;
+                            iconType = 'completed';
+                        }
+
+                        notifList.push({
+                            id: `req-status-${r.id}`,
+                            request_id: r.id,
+                            title: statusTitle,
+                            message: statusMsg,
+                            type: iconType,
+                            is_read: false,
+                            created_at: r.updated_at || r.created_at
+                        });
+
+                        // Notification 2: Order Booking Confirmation
+                        notifList.push({
+                            id: `req-created-${r.id}`,
+                            request_id: r.id,
+                            title: `Order Placed • ${sName} (${reqCode})`,
+                            message: `Your booking for ${sName} has been recorded. Estimated Base Rate: ₹${r.amount || 450}.`,
+                            type: 'booked',
+                            is_read: true,
+                            created_at: r.created_at
+                        });
+                    });
+                }
+
+                // Deduplicate by ID and sort newest first
+                const uniqueMap = new Map();
+                notifList.forEach(n => {
+                    if (!uniqueMap.has(n.id)) uniqueMap.set(n.id, n);
+                });
+
+                const sorted = Array.from(uniqueMap.values()).sort(
+                    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+                );
+
+                setNotifications(sorted);
             } catch (err) {
                 console.error('Error fetching notifications:', err);
             } finally {
@@ -80,43 +118,40 @@ export default function NotificationsList() {
 
         fetchNotifications();
 
-        if (!isDemo && profile?.user_id) {
-            const subscription = supabase
-                .channel('notifications_channel')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `customer_id=eq.${profile.user_id}` }, (payload) => {
-                    setNotifications(prev => [payload.new, ...prev]);
-                })
-                .subscribe();
+        const channel = supabase
+            .channel(`notifs_live_${Date.now()}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'service_requests' }, () => {
+                fetchNotifications();
+            })
+            .subscribe();
 
-            return () => supabase.removeChannel(subscription);
-        }
-    }, [profile, isDemo]);
+        return () => supabase.removeChannel(channel);
+    }, [profile, user]);
 
-    const markAsRead = async (id, isRead, e) => {
+    const markAsRead = (id, e) => {
         e?.stopPropagation();
-        if (isRead) return;
-
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-
-        if (isDemo) {
-            const readIds = JSON.parse(localStorage.getItem('coophub_read_notifs') || '[]');
-            if (!readIds.includes(id)) readIds.push(id);
-            localStorage.setItem('coophub_read_notifs', JSON.stringify(readIds));
-        } else {
-            try {
-                await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-            } catch (err) {
-                console.error('Failed to mark read', err);
-            }
-        }
-
-        window.dispatchEvent(new CustomEvent('coophub_notifications_updated'));
     };
 
-    const handleNotificationClick = async (notif) => {
-        await markAsRead(notif.id, notif.is_read);
+    const handleNotificationClick = (notif) => {
+        markAsRead(notif.id);
         if (notif.request_id) {
             navigate(`/requests/${notif.request_id}`);
+        }
+    };
+
+    const getIcon = (type) => {
+        switch (type) {
+            case 'en_route':
+                return <Navigation size={18} className="text-orange-500" />;
+            case 'arrived':
+                return <ShieldCheck size={18} className="text-emerald-500" />;
+            case 'completed':
+                return <CheckCircle2 size={18} className="text-green-500" />;
+            case 'assigned':
+                return <Wrench size={18} className="text-blue-500" />;
+            default:
+                return <Bell size={18} className="text-orange-500" />;
         }
     };
 
@@ -177,17 +212,17 @@ export default function NotificationsList() {
                                 )}
 
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                                    notif.is_read ? 'bg-navy-50 text-navy-500' : 'bg-orange-100 text-orange-600'
+                                    notif.is_read ? 'bg-navy-50' : 'bg-orange-100'
                                 }`}>
-                                    <Bell size={18} />
+                                    {getIcon(notif.type)}
                                 </div>
 
                                 <div className="flex-1 pr-4">
-                                    <h4 className="font-bold text-sm leading-snug">{notif.title}</h4>
-                                    <p className="text-xs text-navy-600 mt-0.5 leading-relaxed">{notif.message}</p>
+                                    <h4 className="font-bold text-sm leading-snug">{notif.title || notif.subject || notif.header || "Order Update"}</h4>
+                                    <p className="text-xs text-navy-600 mt-1 leading-relaxed">{notif.message || notif.content || notif.body || "Click to view service details."}</p>
                                     <div className="flex items-center space-x-2 mt-2 text-[10px] text-navy-400 font-mono">
                                         <Clock size={11} />
-                                        <span>{new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span>{new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(notif.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                     </div>
                                 </div>
                             </div>
