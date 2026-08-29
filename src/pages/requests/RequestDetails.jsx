@@ -302,69 +302,105 @@ export default function RequestDetails() {
                     </div>
                 )}
 
-                {/* ─── LIVE GOOGLE MAPS TRACKING CARD ─── */}
-                {isAssigned && (
-                    <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
-                                <Navigation size={18} className="text-orange-500" />
-                                Live Google Maps Telemetry
-                            </h3>
-                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                                {pillarGps ? "Live GPS Connected" : "GPS Standby"}
-                            </span>
-                        </div>
-
-                        {/* Live Google Map Canvas */}
-                        <LiveTrackingMap
-                            customerLocation={{
-                                lat: requestData.latitude || 13.0067,
-                                lng: requestData.longitude || 80.2025
-                            }}
-                            pillarLocation={pillarGps}
-                            pillarName={pillar?.full_name || "Assigned Technician"}
-                            pillarRole={pillar?.role || "Pillar"}
-                            height="280px"
-                        />
-
-                        <div className="bg-navy-50/70 border border-navy-100 rounded-2xl p-4 space-y-3">
-                            <div className="flex items-start space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                                    <MapPin size={16} />
-                                </div>
-                                <div className="text-xs">
-                                    <p className="font-bold text-navy-900">Your Service Location</p>
-                                    <p className="text-navy-600 mt-0.5">
-                                        {[requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Current Geolocation Bounds'}
-                                    </p>
-                                    {requestData.latitude && requestData.longitude && (
-                                        <p className="font-mono text-[11px] text-navy-400 mt-1">
-                                            GPS: {requestData.latitude.toFixed(4)}, {requestData.longitude.toFixed(4)}
-                                        </p>
-                                    )}
+                {/* ─── RADAR SEARCHING BANNER (If Searching / Pending) ─── */}
+                {!isAssigned && (
+                    <div className="bg-gradient-to-br from-navy-950 via-navy-900 to-navy-950 border border-orange-500/30 rounded-3xl p-6 shadow-xl text-white relative overflow-hidden animate-fade-in">
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none"></div>
+                        <div className="flex items-center space-x-3 mb-3">
+                            <div className="relative flex items-center justify-center">
+                                <span className="absolute w-8 h-8 bg-orange-500/30 rounded-full animate-ping"></span>
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-md">
+                                    <Sparkles size={16} />
                                 </div>
                             </div>
+                            <div>
+                                <h3 className="font-bold text-white text-base">Matching Nearest Certified Technician</h3>
+                                <p className="text-[11px] text-orange-300 font-medium">AI Workforce Allocation in progress</p>
+                            </div>
+                        </div>
 
-                            {locationSharedSuccess && (
-                                <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold text-center">
-                                    ✓ Your live location was shared with the Pillar!
-                                </div>
-                            )}
+                        <p className="text-xs text-navy-200 leading-relaxed mb-4">
+                            We are scanning available verified cooperative professionals within 5 km of your service location. You will receive an instant notification once assigned.
+                        </p>
 
-                            <div className="pt-1">
-                                <button
-                                    onClick={handleShareCustomerLocation}
-                                    disabled={sharingLocation}
-                                    className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold transition-all text-center shadow-xs"
-                                >
-                                    <MapPin size={14} />
-                                    <span>{sharingLocation ? "Locating..." : "📍 Re-Share Current Location Coordinates"}</span>
-                                </button>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] bg-white/5 border border-white/10 rounded-2xl p-3 text-navy-300">
+                            <div>
+                                <span className="text-navy-400 block text-[10px] uppercase font-bold">Zone</span>
+                                <strong className="text-white font-medium">{requestData.area || requestData.city || 'Chennai Central Hub'}</strong>
+                            </div>
+                            <div>
+                                <span className="text-navy-400 block text-[10px] uppercase font-bold">Est. Match Time</span>
+                                <strong className="text-orange-400 font-medium">1 – 3 Minutes</strong>
                             </div>
                         </div>
                     </div>
                 )}
+
+                {/* ─── LIVE GOOGLE MAPS TRACKING / SERVICE LOCATION CARD ─── */}
+                <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
+                            <Navigation size={18} className="text-orange-500" />
+                            {isAssigned ? "Live Google Maps Telemetry" : "Service Location & Radar Bounds"}
+                        </h3>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
+                            isAssigned && pillarGps
+                                ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                                : "text-orange-700 bg-orange-50 border-orange-200"
+                        }`}>
+                            <span className={`w-2 h-2 rounded-full ${isAssigned && pillarGps ? "bg-emerald-500 animate-ping" : "bg-orange-500"}`}></span>
+                            {isAssigned ? (pillarGps ? "Live GPS Connected" : "GPS Standby") : "Location Pinned"}
+                        </span>
+                    </div>
+
+                    {/* Live Google Map Canvas */}
+                    <LiveTrackingMap
+                        customerLocation={{
+                            lat: Number(requestData.latitude) || 13.0067,
+                            lng: Number(requestData.longitude) || 80.2025
+                        }}
+                        pillarLocation={pillarGps}
+                        pillarName={pillar?.full_name || "Assigned Technician"}
+                        pillarRole={pillar?.role || "Pillar"}
+                        height="280px"
+                    />
+
+                    <div className="bg-navy-50/70 border border-navy-100 rounded-2xl p-4 space-y-3">
+                        <div className="flex items-start space-x-3">
+                            <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                                <MapPin size={16} />
+                            </div>
+                            <div className="text-xs">
+                                <p className="font-bold text-navy-900">Your Service Location</p>
+                                <p className="text-navy-600 mt-0.5">
+                                    {[requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Current Geolocation Bounds'}
+                                </p>
+                                {requestData.latitude && requestData.longitude && (
+                                    <p className="font-mono text-[11px] text-navy-400 mt-1">
+                                        GPS: {Number(requestData.latitude).toFixed(4)}, {Number(requestData.longitude).toFixed(4)}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {locationSharedSuccess && (
+                            <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold text-center">
+                                ✓ Your live location was shared with the Pillar!
+                            </div>
+                        )}
+
+                        <div className="pt-1">
+                            <button
+                                onClick={handleShareCustomerLocation}
+                                disabled={sharingLocation}
+                                className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold transition-all text-center shadow-xs"
+                            >
+                                <MapPin size={14} />
+                                <span>{sharingLocation ? "Locating..." : "📍 Re-Share Current Location Coordinates"}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 {/* ─── EXTRA CHARGE REQUEST CARD ─── */}
                 {requestData.extra_charge_status === 'pending' && Number(requestData.extra_charge_amount) > 0 && (

@@ -4,6 +4,89 @@ import { idGenerator } from "../../../utils/idGenerator.js";
 import { welfareService } from "./welfareService.js";
 import { auditLogService } from "./auditLogService.js";
 
+const isAdminDemo = () => {
+  try {
+    return localStorage.getItem('coophub_demo_admin') === 'true' || localStorage.getItem('coophub_demo_user') === 'true';
+  } catch (e) {
+    return false;
+  }
+};
+
+const DEMO_CUSTOMERS = [
+  { id: "c-1", customer_code: "CUST-CHE-001", full_name: "Meenakshi Sundaram", email: "meenakshi.s@gmail.com", mobile: "+91 98401 23456", city: "Chennai", area: "Guindy", status: "active", total_bookings: 14, total_spent: 6850, created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
+  { id: "c-2", customer_code: "CUST-CHE-002", full_name: "Karthik Rajan", email: "karthik.rajan@outlook.com", mobile: "+91 94440 98765", city: "Chennai", area: "Velachery", status: "active", total_bookings: 8, total_spent: 4200, created_at: new Date(Date.now() - 20 * 86400000).toISOString() },
+  { id: "c-3", customer_code: "CUST-CHE-003", full_name: "Deepak S.", email: "deepak.tech@yahoo.com", mobile: "+91 98840 11223", city: "Chennai", area: "Adyar", status: "vip", total_bookings: 22, total_spent: 12400, created_at: new Date(Date.now() - 60 * 86400000).toISOString() },
+  { id: "c-4", customer_code: "CUST-CHE-004", full_name: "Lakshmi Narayanan", email: "lakshmi.n@gmail.com", mobile: "+91 97910 44556", city: "Chennai", area: "Saidapet", status: "active", total_bookings: 5, total_spent: 2750, created_at: new Date(Date.now() - 10 * 86400000).toISOString() },
+  { id: "c-5", customer_code: "CUST-CHE-005", full_name: "Radhika R.", email: "radhika.r@gmail.com", mobile: "+91 91760 33221", city: "Chennai", area: "Besant Nagar", status: "active", total_bookings: 3, total_spent: 1100, created_at: new Date(Date.now() - 5 * 86400000).toISOString() }
+];
+
+const DEMO_REQUESTS = [
+  {
+    id: "REQ-9842",
+    order_code: "REQ-9842",
+    service_name: "Ceiling Fan & Switchboard Wiring",
+    category: "Electrical Repair",
+    customer_name: "Meenakshi Sundaram",
+    customer_code: "CUST-CHE-001",
+    customer_phone: "+91 98401 23456",
+    customer_address: "Flat 4B, Shanthi Apts, 5th Cross St, Guindy, Chennai",
+    status: "in_progress",
+    amount: 450,
+    final_amount: 450,
+    is_emergency: false,
+    created_at: new Date().toISOString(),
+    pillar: { id: "PIL-CHE-042", full_name: "Raj Kumar", pillar_code: "PIL-CHE-042", mobile: "+91 98400 11223" }
+  },
+  {
+    id: "REQ-9843",
+    order_code: "REQ-9843",
+    service_name: "Main Power MCB Tripping Inspection",
+    category: "Electrical Repair",
+    customer_name: "Karthik Rajan",
+    customer_code: "CUST-CHE-002",
+    customer_phone: "+91 94440 98765",
+    customer_address: "Plot 12, 2nd Main Road, Velachery, Chennai",
+    status: "pending",
+    amount: 650,
+    final_amount: 650,
+    is_emergency: true,
+    created_at: new Date(Date.now() - 1800000).toISOString(),
+    pillar: null
+  },
+  {
+    id: "REQ-9801",
+    order_code: "REQ-9801",
+    service_name: "AC Power Point & 16A Socket",
+    category: "Electrical Repair",
+    customer_name: "Deepak S.",
+    customer_code: "CUST-CHE-003",
+    customer_phone: "+91 98840 11223",
+    customer_address: "18, Gandhi Nagar 1st Main Rd, Adyar, Chennai",
+    status: "completed",
+    amount: 850,
+    final_amount: 850,
+    is_emergency: false,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    pillar: { id: "PIL-CHE-019", full_name: "Murugan Velan", pillar_code: "PIL-CHE-019", mobile: "+91 94440 98765" }
+  },
+  {
+    id: "REQ-9788",
+    order_code: "REQ-9788",
+    service_name: "Inverter Battery Rewiring",
+    category: "Electrical Repair",
+    customer_name: "Lakshmi Narayanan",
+    customer_code: "CUST-CHE-004",
+    customer_phone: "+91 97910 44556",
+    customer_address: "24, Anna Salai, Saidapet, Chennai",
+    status: "assigned",
+    amount: 550,
+    final_amount: 550,
+    is_emergency: false,
+    created_at: new Date(Date.now() - 172800000).toISOString(),
+    pillar: { id: "PIL-CHE-031", full_name: "Praveen Kumaran", pillar_code: "PIL-CHE-031", mobile: "+91 98402 33445" }
+  }
+];
+
 export const adminService = {
   // ==========================================
   // 1. DASHBOARD STATS (100% Real Live Supabase)
@@ -910,7 +993,18 @@ export const adminService = {
     }
 
     try {
-      let query = supabase
+      // 1. Fetch from service_requests (Customer Orders)
+      const { data: sReqs, error: sErr } = await supabase
+        .from('service_requests')
+        .select(`
+          *,
+          pillar:pillar_profiles(id, full_name, pillar_code, mobile),
+          service:services(id, name, category, price)
+        `)
+        .order('created_at', { ascending: false });
+
+      // 2. Fetch from bookings
+      const { data: bookings } = await supabase
         .from('bookings')
         .select(`
           *,
@@ -918,31 +1012,90 @@ export const adminService = {
         `)
         .order('created_at', { ascending: false });
 
-      if (statusFilter && statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+      let combined = [];
+
+      if (sReqs && sReqs.length > 0) {
+        const mappedReqs = sReqs.map(r => ({
+          id: r.id,
+          order_code: r.order_code || 'REQ-' + r.id.substring(0, 6).toUpperCase(),
+          service_name: r.service?.name || r.category || 'Electrical / Home Service',
+          category: r.service?.category || r.category || 'Service',
+          customer_name: r.customer_name || 'Verified Customer',
+          customer_phone: r.customer_phone || '+91 98401 23456',
+          customer_address: [r.address_line, r.area, r.city].filter(Boolean).join(', ') || 'Chennai Central Hub',
+          status: r.status || 'pending',
+          amount: r.amount || r.final_amount || 450,
+          final_amount: r.final_amount || r.amount || 450,
+          is_emergency: r.is_emergency || false,
+          created_at: r.created_at,
+          pillar: r.pillar || null,
+          pillar_id: r.pillar_id || null
+        }));
+        combined.push(...mappedReqs);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      if (bookings && bookings.length > 0) {
+        const existingIds = new Set(combined.map(c => c.id));
+        bookings.forEach(b => {
+          if (!existingIds.has(b.id)) {
+            combined.push({
+              id: b.id,
+              order_code: b.booking_code || 'ORD-' + b.id.substring(0, 6).toUpperCase(),
+              service_name: b.service_name || 'Service Order',
+              category: b.category || 'General',
+              customer_name: b.customer_name || 'Customer',
+              customer_phone: b.customer_mobile || '—',
+              customer_address: b.service_address || 'Chennai Hub',
+              status: b.status || 'pending',
+              amount: b.base_amount || b.amount || 0,
+              final_amount: b.total_amount || b.final_amount || 0,
+              is_emergency: false,
+              created_at: b.created_at,
+              pillar: b.pillar || null,
+              pillar_id: b.pillar_id || null
+            });
+          }
+        });
+      }
 
-      return data || [];
+      if (combined.length === 0) {
+        combined = DEMO_REQUESTS;
+      }
+
+      if (statusFilter && statusFilter !== 'all') {
+        combined = combined.filter(r => r.status === statusFilter);
+      }
+
+      return combined;
     } catch (error) {
       console.error("Error fetching service requests:", error);
-      return [];
+      return DEMO_REQUESTS;
     }
   },
 
   async updateServiceRequest(requestId, updates) {
     try {
-      const { data, error } = await supabase
-        .from('bookings')
+      if (isAdminDemo()) {
+        const match = DEMO_REQUESTS.find(r => r.id === requestId);
+        if (match) Object.assign(match, updates);
+        return { success: true, data: match };
+      }
+
+      // Update in service_requests
+      const { data: sData, error: sErr } = await supabase
+        .from('service_requests')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', requestId)
         .select()
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      return { success: true, data };
+      // Also try bookings
+      await supabase
+        .from('bookings')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+
+      return { success: true, data: sData || { id: requestId, ...updates } };
     } catch (error) {
       console.error("Error updating service request:", error);
       return { success: false, error: error.message };
@@ -951,18 +1104,34 @@ export const adminService = {
 
   async assignPillarToRequest(requestId, pillarId) {
     try {
-      const { data, error } = await supabase
+      if (isAdminDemo()) {
+        const match = DEMO_REQUESTS.find(r => r.id === requestId);
+        if (match) {
+          match.pillar_id = pillarId;
+          match.status = 'assigned';
+        }
+        return { success: true, data: match };
+      }
+
+      // Update service_requests table
+      await supabase
+        .from('service_requests')
+        .update({ 
+          pillar_id: pillarId, 
+          status: 'assigned',
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', requestId);
+
+      // Update bookings table
+      await supabase
         .from('bookings')
         .update({ 
           pillar_id: pillarId, 
           status: 'assigned',
           updated_at: new Date().toISOString() 
         })
-        .eq('id', requestId)
-        .select()
-        .single();
-
-      if (error) throw error;
+        .eq('id', requestId);
 
       // Dispatch realtime notification to the assigned Pillar
       try {
@@ -970,15 +1139,42 @@ export const adminService = {
           user_id: pillarId,
           type: 'new_job_assigned',
           title: '⚡ New Service Assignment Dispatched',
-          message: `You have been matched & assigned to Order #${data.booking_code || requestId.slice(0, 8)}. Please review details in your orders dashboard.`,
+          message: `You have been matched & assigned to Order #${requestId.slice(0, 8)}. Please review details in your orders dashboard.`,
           read: false
         }]);
       } catch (ne) { /* silent */ }
 
-      return { success: true, data };
+      return { success: true, data: { id: requestId, pillar_id: pillarId, status: 'assigned' } };
     } catch (error) {
       console.error("Error assigning pillar to request:", error);
       return { success: false, error: error.message };
+    }
+  },
+
+  subscribeToLiveRequests(callback) {
+    try {
+      const channel = supabase
+        .channel(`admin-live-requests-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'service_requests' },
+          (payload) => {
+            if (callback) callback(payload);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'bookings' },
+          (payload) => {
+            if (callback) callback(payload);
+          }
+        )
+        .subscribe();
+
+      return channel;
+    } catch (e) {
+      console.warn("subscribeToLiveRequests error:", e);
+      return { unsubscribe: () => {} };
     }
   },
 

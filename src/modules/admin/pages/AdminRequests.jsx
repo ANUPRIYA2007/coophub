@@ -39,9 +39,16 @@ export default function AdminRequests() {
   }, [selectedRequest]);
 
   const fetchRequests = async () => {
-    const data = await adminService.getServiceRequests(filterStatus);
-    setRequests(data);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const data = await adminService.getServiceRequests(filterStatus);
+      setRequests(data || []);
+    } catch (e) {
+      console.error("fetchRequests error in AdminRequests:", e);
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadWorkforceMatches = async (req) => {

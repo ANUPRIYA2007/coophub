@@ -33,9 +33,12 @@ export default function LocationPickerModal({
     if (!isOpen) return;
 
     let isMounted = true;
+    let mapInstance = null;
 
     async function initPickerMap() {
       try {
+        if (!mapContainerRef.current) return;
+
         const map = await googleMapsService.initializeMap(mapContainerRef.current, {
           center: coords,
           zoom: 15,
@@ -43,7 +46,16 @@ export default function LocationPickerModal({
         });
 
         if (!isMounted) return;
+        mapInstance = map;
         mapInstanceRef.current = map;
+
+        // Force resize trigger after DOM animation
+        setTimeout(() => {
+          if (window.google?.maps?.event && mapInstance) {
+            window.google.maps.event.trigger(mapInstance, "resize");
+            mapInstance.setCenter(coords);
+          }
+        }, 200);
 
         // Add Draggable Marker
         const marker = new window.google.maps.Marker({
@@ -260,9 +272,9 @@ export default function LocationPickerModal({
         </div>
 
         {/* Google Map View Canvas */}
-        <div className="relative flex-1 min-h-[260px] bg-navy-50">
-          <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
-          <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md text-[10px] font-bold text-navy-600 shadow-xs border border-navy-100 pointer-events-none">
+        <div className="relative w-full bg-navy-50" style={{ height: "300px", minHeight: "300px" }}>
+          <div ref={mapContainerRef} style={{ width: "100%", height: "100%", minHeight: "300px" }} />
+          <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md text-[10px] font-bold text-navy-600 shadow-xs border border-navy-100 pointer-events-none z-10">
             📍 Drag pin or click map to move
           </div>
         </div>
