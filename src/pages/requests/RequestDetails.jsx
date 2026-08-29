@@ -137,6 +137,15 @@ export default function RequestDetails() {
         };
     }, [id]);
 
+    // Auto-sync arrival_otp to DB if missing
+    useEffect(() => {
+        if (requestData?.id && !requestData.arrival_otp) {
+            const fallbackOtp = String(Math.abs(requestData.id.split('-').reduce((acc, part) => acc + (parseInt(part, 16) || 0), 489201) % 900000 + 100000));
+            supabase.from('service_requests').update({ arrival_otp: fallbackOtp }).eq('id', requestData.id);
+            setRequestData(prev => prev ? ({ ...prev, arrival_otp: fallbackOtp }) : prev);
+        }
+    }, [requestData?.id, requestData?.arrival_otp]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-surface p-10 flex flex-col items-center justify-center">
@@ -164,14 +173,7 @@ export default function RequestDetails() {
     const subServiceName = requestData.sub_services?.name_translations?.[language] || requestData.sub_services?.name_translations?.['en'] || requestData.sub_service_name || '';
 
     // Determine secure arrival OTP
-    const displayOtp = requestData.arrival_otp || (requestData.id ? String(Math.abs(requestData.id.split('-').reduce((acc, part) => acc + parseInt(part, 16) || 0, 489201) % 900000 + 100000)) : '489201');
-
-    // Auto-sync arrival_otp to DB if missing
-    useEffect(() => {
-        if (requestData?.id && !requestData.arrival_otp) {
-            supabase.from('service_requests').update({ arrival_otp: displayOtp }).eq('id', requestData.id);
-        }
-    }, [requestData?.id, requestData?.arrival_otp]);
+    const displayOtp = requestData.arrival_otp || '489201';
 
     // Check if assigned with real pillar profile
     const isDemo = localStorage.getItem('coophub_demo_customer') === 'true' || localStorage.getItem('coophub_demo_user') === 'true';
