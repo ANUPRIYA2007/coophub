@@ -5,6 +5,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
 import gsap from "gsap";
 import GradientText from "../../../components/ui/GradientText";
+import Hero3D from "../../../components/hero3d/Hero3D";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -804,19 +805,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
               }}
               title={heroExpanded ? "Close Guide Assistant" : "Open Guide Assistant"}
             >
-              <img 
-                src="/assets/images/mascot-hero.png" 
-                alt="CoopBot Guide" 
-                style={{ 
-                  width: "100%", 
-                  height: "100%", 
-                  objectFit: "cover", 
-                  objectPosition: "center 10%", 
-                  transform: "scale(1.35)",
-                  transformOrigin: "center 22%"
-                }}
-              />
-              <div className="hero-blink-overlay" style={{ top: "24%", left: "30%", width: "40%", height: "14%" }} />
+              <Hero3D mode="avatar" state={isSpeaking ? 'speaking' : isLoadingAi ? 'thinking' : heroState} style={{ width: "100%", height: "100%" }} />
 
               {/* Mood indicator dot */}
               <div style={{

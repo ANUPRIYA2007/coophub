@@ -4,6 +4,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
 import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import Hero3D from "../../hero3d/Hero3D";
 
 export default function MascotFloating() {
   const { t, language } = useTranslation();
@@ -235,11 +236,7 @@ export default function MascotFloating() {
           {isOpen ? (
             <X size={30} />
           ) : (
-            <img
-              src="/assets/images/mascot-hero.png"
-              alt="CoopBot"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
+            <Hero3D mode="bubble" state={isListening ? 'listening' : isTyping ? 'thinking' : speakingMsgId ? 'speaking' : 'idle'} style={{ width: "100%", height: "100%" }} />
           )}
         </button>
       </div>
@@ -295,11 +292,7 @@ export default function MascotFloating() {
                   justifyContent: "center",
                 }}
               >
-                <img
-                  src="/assets/images/mascot-hero.png"
-                  alt="CoopBot"
-                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                />
+                <Hero3D mode="avatar" state={isListening ? 'listening' : isTyping ? 'thinking' : speakingMsgId ? 'speaking' : 'idle'} style={{ width: "100%", height: "100%" }} />
               </div>
               <div>
                 <h4 style={{ fontWeight: "800", fontSize: "16px", margin: 0, letterSpacing: "0.3px", color: "white" }}>CoopBot AI</h4>

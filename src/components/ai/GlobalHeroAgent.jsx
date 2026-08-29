@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare } from 'lucide-react';
+import Hero3D from '../hero3d/Hero3D';
+import { aiService } from '../../services/pillar/aiService';
 
 export default function GlobalHeroAgent({ inline = false }) {
     const { t, language } = useTranslation();
@@ -12,95 +14,123 @@ export default function GlobalHeroAgent({ inline = false }) {
     const [heroGreeting, setHeroGreeting] = useState('');
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [activeInputName, setActiveInputName] = useState(null);
+    const [isBubbleOpen, setIsBubbleOpen] = useState(false);
 
-    // Initial greeting on route change with context-awareness for newly added workflows
+    // Dynamic Context & Route Tracking per page
+    const routeGuidanceMap = useMemo(() => ({
+        '/home': {
+            en: 'Welcome to your Dashboard! Browse top-rated services or track active technicians.',
+            ta: 'உங்கள் முகப்புப் பக்கத்திற்கு வருக! சிறந்த சேவைகளை ஆராயலாம் அல்லது தொழில்நுட்ப வல்லுநர்களைக் கண்காணிக்கலாம்.',
+            mood: 'happy'
+        },
+        '/services': {
+            en: 'Find verified electricians, plumbers, AC specialists, and home repair experts across Chennai.',
+            ta: 'மின்சாரம், பிளம்பிங், ஏசி பழுது உள்ளிட்ட சிறந்த தொழில்நுட்ப வல்லுநர்களைத் தேர்ந்தெடுக்கவும்.',
+            mood: 'excited'
+        },
+        '/requests': {
+            en: 'Your live bookings queue. View technician dispatch progress, arrival time, and job status.',
+            ta: 'உங்கள் முன்பதிவுகளின் நேரடி நிலையை இங்கே கண்காணிக்கலாம் மற்றும் வருகை OTP-யை அறியலாம்.',
+            mood: 'helpful'
+        },
+        '/messages': {
+            en: 'Live direct chat with your assigned technicians and COOP HUB support.',
+            ta: 'உங்கள் தொழில்நுட்ப வல்லுநருடன் நேரடியாக செய்தி பரிமாறலாம்.',
+            mood: 'helpful'
+        },
+        '/history': {
+            en: 'Your completed service history, official invoices, and verified technician ratings.',
+            ta: 'உங்கள் முந்தைய சேவைகள், கட்டண ரசீதுகள் மற்றும் மதிப்பீடுகளை இங்கே காணலாம்.',
+            mood: 'happy'
+        },
+        '/support': {
+            en: 'COOP HUB Help & Support center. I am here 24/7 to solve any service or booking questions.',
+            ta: 'உதவி மையம்: உங்கள் சேவை அல்லது கட்டணம் தொடர்பான கேள்விகளுக்கு உதவ நான் தயாராக உள்ளேன்.',
+            mood: 'helpful'
+        },
+        '/settings': {
+            en: 'Settings: Manage your profile, language preferences, notification alerts, and security.',
+            ta: 'அமைப்புகள்: உங்கள் மொழி, அறிவிப்புகள் மற்றும் கணக்கு பாதுகாப்பை நிர்வகிக்கவும்.',
+            mood: 'thinking'
+        },
+        '/profile': {
+            en: 'Customer Profile: Update your contact information and saved service delivery addresses.',
+            ta: 'சுயவிவரம்: உங்கள் தொடர்பு எண்கள் மற்றும் முகவரி தகவல்களை இங்கே சரிபார்க்கலாம்.',
+            mood: 'happy'
+        },
+        '/admin/pillars': {
+            en: 'Workforce Registry: Review the Pending Verification queue to approve new technician applicants.',
+            ta: 'தொழில்நுட்ப வல்லுநர் பதிவுப் பட்டியல்: நிலுவையில் உள்ள புதிய விண்ணப்பங்களைச் சரிபார்த்து ஒப்புதல் அளிக்கவும்!',
+            mood: 'thinking'
+        },
+        '/pillar/register': {
+            en: 'Pillar Registration: Select your trade skills and upload your Government ID for verification!',
+            ta: 'பில்லர் பதிவு: உங்கள் தொழில் திறன்கள் மற்றும் அரசு அடையாள அட்டையை பதிவேற்றி இணையுங்கள்!',
+            mood: 'excited'
+        },
+        '/pillar/login': {
+            en: 'Pillar Portal: Sign in with your assigned Unique Pillar ID, Password, or Mobile OTP!',
+            ta: 'பில்லர் போர்ட்டல்: உங்கள் பில்லர் ஐடி அல்லது கடவுச்சொல் மூலம் உள்நுழையவும்!',
+            mood: 'happy'
+        },
+    }), []);
+
+    // Live AI navigation & context tracking on every route change
     useEffect(() => {
         let isMounted = true;
-        setAnimState('greeting');
+        const currentPath = location.pathname;
 
-        const announceContextChange = async () => {
-            const currentPath = location.pathname;
+        // Immediate visual cue that CoopBot is active & processing new page
+        setAnimState('speaking');
 
-            // Route-specific dynamic greetings for newly added sections
-            if (currentPath.includes('/admin/pillars/')) {
-                const msg = language === 'ta'
-                    ? 'பில்லர் சரிபார்ப்பு பணியிடம்: PaddleOCR முடிவுகளை ஆய்வு செய்து Auto-Verify மூலம் விண்ணப்பத்தைச் சரிபார்க்கவும்!'
-                    : 'Pillar Verification Workspace: Inspect PaddleOCR extraction and use Auto-Verify to assist your clearance decision.';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
-            if (currentPath === '/admin/pillars') {
-                const msg = language === 'ta'
-                    ? 'தொழில்நுட்ப வல்லுநர் பதிவுப் பட்டியல்: நிலுவையில் உள்ள புதிய விண்ணப்பங்களைச் சரிபார்த்து ஒப்புதல் அளிக்கவும்!'
-                    : 'Workforce Registry: Review the Pending Verification queue to approve new technician applicants.';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
-            if (currentPath === '/pillar/register') {
-                const msg = language === 'ta'
-                    ? 'பில்லர் பதிவு: உங்கள் தொழில் திறன்கள் மற்றும் அரசு அடையாள அட்டையை (ஆதார்/பான்) பதிவேற்றி இணையுங்கள்!'
-                    : 'Pillar Registration: Select your trade skills and upload your Government ID (Aadhaar/PAN/Voter ID) for verification!';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
-            if (currentPath === '/pillar/login') {
-                const msg = language === 'ta'
-                    ? 'பில்லர் போர்ட்டல்: உங்கள் பில்லர் ஐடி அல்லது கடவுச்சொல் மூலம் உள்நுழையவும்!'
-                    : 'Pillar Portal: Sign in with your assigned Unique Pillar ID, Password, or Mobile OTP!';
-                setHeroGreeting(msg);
-                setTimeout(() => { if (isMounted) setAnimState('idle'); }, 1400);
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/ai/mascot-context', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        currentRoute: location.pathname,
-                        language,
-                        module: location.pathname.split('/')[1] || 'home'
-                    })
-                });
-
-                const data = await res.json();
-                if (!isMounted) return;
-
-                if (res.ok && data.message) {
-                    setHeroGreeting(data.message);
-                } else {
-                    const fallbackGreetings = {
-                        ta: 'வணக்கம்! நான் உங்கள் COOP HUB வழிகாட்டி. உங்களுக்கு உதவ நான் எப்போதும் தயார்!',
-                        hi: 'नमस्ते! मैं आपका COOP HUB सहायक हूँ। मैं आपकी कैसे मदद कर सकता हूँ?',
-                        te: 'నమస్కారం! నేను మీ COOP HUB గైడ్. మీకు ఎలా సహాయపడగలను?',
-                        kn: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ COOP HUB ಮಾರ್ಗದರ್ಶಿ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?',
-                        en: 'Hello! I am CoopBot, your live service guide. How can I assist your home today?'
-                    };
-                    setHeroGreeting(fallbackGreetings[language] || fallbackGreetings.en);
+        // Look up route guidance
+        let matched = routeGuidanceMap[currentPath];
+        if (!matched) {
+            for (const [routeKey, val] of Object.entries(routeGuidanceMap)) {
+                if (currentPath.startsWith(routeKey) && routeKey !== '/') {
+                    matched = val;
+                    break;
                 }
+            }
+        }
 
+        const fallback = matched?.[language] || matched?.en || (
+            language === 'ta'
+                ? 'வணக்கம்! நான் உங்கள் COOP HUB நேரடி வழிகாட்டி. உங்களுக்கு உதவ எப்போதும் தயார்!'
+                : 'Hello! I am CoopBot, your live service guide. How can I assist your home today?'
+        );
+
+        setHeroGreeting(fallback);
+
+        // Query Live AI intelligence asynchronously for smart contextual guidance
+        aiService.chatWithMascot({
+            message: `Customer just navigated to ${currentPath}. Give a concise, friendly 1-sentence tip.`,
+            context: {
+                route: currentPath,
+                language,
+                module: currentPath.split('/')[1] || 'home'
+            }
+        }).then((res) => {
+            if (isMounted && res?.reply) {
+                const clean = res.reply.split('\n')[0].replace(/[*#_]/g, '').trim();
+                if (clean.length > 15) {
+                    setHeroGreeting(clean);
+                }
+            }
+        }).catch(() => {
+            // Keep instant contextual fallback
+        }).finally(() => {
+            if (isMounted) {
                 setTimeout(() => {
                     if (isMounted) setAnimState('idle');
-                }, 1400);
-            } catch (err) {
-                if (isMounted) {
-                    setHeroGreeting('Welcome to COOP HUB! I am right here to help.');
-                    setAnimState('idle');
-                }
+                }, 2200);
             }
-        };
+        });
 
-        announceContextChange();
         return () => {
             isMounted = false;
         };
-    }, [location.pathname, language]);
+    }, [location.pathname, language, routeGuidanceMap]);
 
     // Global Interactive Live Focus & Error Tracking
     useEffect(() => {
@@ -182,18 +212,63 @@ export default function GlobalHeroAgent({ inline = false }) {
             }
         };
 
-        const handleFocusOut = () => {
+        const handleFocusOut = (e) => {
+            const target = e.target;
+            if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
+                const name = (target.name || target.id || target.placeholder || '').toLowerCase();
+                const val = (target.value || '').trim();
+
+                // Dynamic contextual validation on blur
+                if (name.includes('email') && val && (!val.includes('@') || !val.includes('.'))) {
+                    setAnimState('error');
+                    setHeroGreeting(
+                        language === 'ta'
+                            ? 'அச்சச்சோ! மின்னஞ்சல் முகவரி முழுமையடையவில்லை. சரியான "@" மற்றும் முகவரியைச் சேர்க்கவும்!'
+                            : "Oops! That email address looks incomplete. Please include a valid '@' and domain!"
+                    );
+                    return;
+                } else if ((name.includes('mobile') || name.includes('phone')) && val && val.replace(/\D/g, '').length < 10) {
+                    setAnimState('warning');
+                    setHeroGreeting(
+                        language === 'ta'
+                            ? 'அச்சச்சோ! மொபைல் எண் 10 இலக்கங்களாக இருக்க வேண்டும். தயவுசெய்து சரிபார்க்கவும்!'
+                            : "Oops! Mobile number needs to be 10 digits. Please double-check your number!"
+                    );
+                    return;
+                } else if (name.includes('password') && val && val.length < 6) {
+                    setAnimState('warning');
+                    setHeroGreeting(
+                        language === 'ta'
+                            ? 'அச்சச்சோ! கடவுச்சொல் மிகவும் சிறியது. குறைந்தது 6+ எழுத்துக்களைப் பயன்படுத்தவும்!'
+                            : "Oops! Password is a bit too short. Please use at least 6 characters for security!"
+                    );
+                    return;
+                }
+            }
+
             setActiveInputName(null);
             setTimeout(() => {
                 setAnimState('idle');
-            }, 600);
+            }, 1200);
+        };
+
+        // Form Invalid Event Capture (detects when user attempts submit with empty required fields)
+        const handleInvalidCapture = (e) => {
+            const target = e.target;
+            const fieldLabel = target.name || target.id || target.placeholder || 'required field';
+            setAnimState('error');
+            setHeroGreeting(
+                language === 'ta'
+                    ? `அச்சச்சோ! ${fieldLabel} விடுபட்டுள்ளது. தயவுசெய்து தேவையான விவரங்களை நிரப்பவும்!`
+                    : `Oops! It looks like ${fieldLabel} is missing or incorrect. Please fill it in to continue!`
+            );
         };
 
         // Custom live event dispatch listener for validation errors / successes
         const handleHeroEvent = (e) => {
             if (e.detail?.type === 'error') {
                 setAnimState('error');
-                setHeroGreeting(`⚠️ ${e.detail.message || 'Please check the highlighted field!'}`);
+                setHeroGreeting(`Oops! ${e.detail.message || 'Please check the highlighted field!'}`);
             } else if (e.detail?.type === 'success') {
                 setAnimState('success');
                 setHeroGreeting(`🎉 ${e.detail.message || 'Action completed successfully!'}`);
@@ -205,11 +280,13 @@ export default function GlobalHeroAgent({ inline = false }) {
 
         document.addEventListener('focusin', handleFocusIn);
         document.addEventListener('focusout', handleFocusOut);
+        document.addEventListener('invalid', handleInvalidCapture, true);
         window.addEventListener('coophub-hero-event', handleHeroEvent);
 
         return () => {
             document.removeEventListener('focusin', handleFocusIn);
             document.removeEventListener('focusout', handleFocusOut);
+            document.removeEventListener('invalid', handleInvalidCapture, true);
             window.removeEventListener('coophub-hero-event', handleHeroEvent);
         };
     }, [language]);
@@ -267,56 +344,101 @@ export default function GlobalHeroAgent({ inline = false }) {
     if (inline) {
         return (
             <div 
-                onClick={handleOpenChat}
-                style={{ background: "rgba(22, 34, 56, 0.8)", borderColor: "rgba(255, 121, 0, 0.2)" }}
-                className="mx-3 my-3 border rounded-2xl p-3 relative cursor-pointer hover:bg-opacity-100 transition-all select-none group"
-                title="Click to talk with CoopBot"
+                className="mx-3 my-2 relative select-none flex flex-col items-center"
             >
-                <div className="flex items-center space-x-3">
-                    {/* Compact Avatar */}
-                    <div className="relative shrink-0">
-                        <div className={`absolute -inset-1 rounded-full blur-sm transition-all duration-500 opacity-60 group-hover:opacity-100 ${
-                            animState === 'error' ? 'bg-red-500' :
-                            animState === 'success' ? 'bg-green-500' :
-                            animState === 'speaking' ? 'bg-orange-500 animate-pulse' :
-                            'bg-orange-400'
-                        }`} />
-                        <div className={`relative w-12 h-12 rounded-full bg-white dark:bg-slate-900 border border-orange-500 p-0.5 flex items-center justify-center ${getAnimationClass()}`}>
-                            <img
-                                src="/assets/images/mascot-hero.png"
-                                alt="CoopBot"
-                                className="w-full h-full object-contain rounded-full"
-                                onError={(e) => {
-                                    e.target.src = '/src/assets/branding/mascot-ai.png';
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Speech Text */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider flex items-center gap-0.5">
-                                <Sparkles size={10} /> CoopBot
+                {/* Expandable Speech Bubble (Only when user clicks) */}
+                {isBubbleOpen && (
+                    <div 
+                        style={{ background: "rgba(22, 34, 56, 0.95)", borderColor: "rgba(255, 121, 0, 0.3)" }}
+                        className="w-full border rounded-2xl p-3 mb-2 relative shadow-xl backdrop-blur-md animate-fadeIn"
+                    >
+                        <div className="flex items-center justify-between border-b border-navy-700 pb-1.5 mb-1.5">
+                            <span className="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1">
+                                <Sparkles size={12} /> CoopBot Guide
                             </span>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        speakGreeting(e);
+                                    }}
+                                    className={`p-1 rounded transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-slate-400 hover:text-orange-400'}`}
+                                    title={isSpeaking ? "Mute speech" : "Read aloud"}
+                                >
+                                    {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsBubbleOpen(false);
+                                    }}
+                                    className="text-slate-400 hover:text-white p-0.5 text-xs font-bold"
+                                    title="Close Bubble"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        <p className="text-[11px] text-slate-200 font-medium leading-relaxed">
+                            "{heroGreeting || 'Hello! I am CoopBot, your live service guide.'}"
+                        </p>
+                        <div className="mt-2 pt-1 border-t border-navy-700/60 flex items-center justify-between text-[10px]">
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    speakGreeting(e);
+                                    handleOpenChat();
                                 }}
-                                className={`p-0.5 rounded transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-slate-400 hover:text-orange-400'}`}
-                                title={isSpeaking ? "Mute speech" : "Read aloud"}
+                                className="text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1"
                             >
-                                {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                                <MessageSquare size={10} /> Open AI Chat →
                             </button>
                         </div>
-                        <p className="text-[11px] text-slate-200 font-medium leading-normal mt-0.5 whitespace-pre-line">
-                            "{heroGreeting || 'I am right here to help.'}"
-                        </p>
+                    </div>
+                )}
+
+                {/* Full 3D Hero Mascot Character (Standing freely uncropped) */}
+                <div 
+                    onClick={() => {
+                        setIsBubbleOpen(prev => !prev);
+                    }}
+                    className="w-full h-48 sm:h-52 relative flex items-center justify-center cursor-pointer group transition-transform transform hover:scale-105"
+                    title={isBubbleOpen ? "Click to collapse bubble" : "Click to talk with CoopBot"}
+                >
+                    <Hero3D mode="card" state={isSpeaking ? 'speaking' : animState} style={{ width: "100%", height: "100%" }} />
+
+                    {/* Live Active Status Aura Pill */}
+                    <div 
+                        style={{
+                            position: "absolute",
+                            bottom: "2px",
+                            background: "rgba(5, 10, 18, 0.9)",
+                            color: "white",
+                            padding: "4px 12px",
+                            borderRadius: "9999px",
+                            fontSize: "10px",
+                            fontWeight: "700",
+                            backdropFilter: "blur(8px)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            border: "1px solid rgba(255, 121, 0, 0.35)",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
+                        }}
+                    >
+                        <span className="status-dot available" style={{ width: "6px", height: "6px", background: "#10B981", borderRadius: "50%" }}></span>
+                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {animState}</span>
+                        <span className="text-[9px] text-orange-400 font-normal ml-1">
+                            {isBubbleOpen ? "• Close" : "• Click"}
+                        </span>
                     </div>
                 </div>
             </div>
         );
+    }
+
+    const authPages = ['/login', '/register', '/pillar/login', '/pillar/register'];
+    if (!inline && authPages.includes(location.pathname)) {
+        return null;
     }
 
     if (!inline && hasSidebar) {
@@ -326,35 +448,36 @@ export default function GlobalHeroAgent({ inline = false }) {
     return (
         <div className="fixed bottom-6 left-6 z-40 flex items-end space-x-3 pointer-events-none select-none transition-all duration-300">
             
-            {/* Mascot Avatar Trigger */}
+            {/* Big Uncaged 3D Mascot Character Trigger */}
             <div 
                 onClick={handleOpenChat}
-                className="relative group pointer-events-auto cursor-pointer"
+                className="relative group pointer-events-auto cursor-pointer flex flex-col items-center"
                 title="Click to talk with CoopBot"
             >
-                {/* Status Indicator Glow */}
-                <div className={`absolute -inset-1.5 rounded-full blur-md transition-all duration-500 opacity-60 group-hover:opacity-100 ${
-                    animState === 'error' ? 'bg-red-500' :
-                    animState === 'success' ? 'bg-green-500' :
-                    animState === 'speaking' ? 'bg-orange-500 animate-pulse' :
-                    'bg-orange-500'
-                }`} />
+                <div className="relative w-48 h-60 sm:w-56 sm:h-72 flex items-center justify-center transition-transform transform group-hover:scale-105">
+                    <Hero3D mode="card" state={animState} style={{ width: "100%", height: "100%" }} />
 
-                <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white dark:bg-slate-900 border-2 border-orange-500 p-1 shadow-2xl flex items-center justify-center transition-transform transform group-hover:scale-105 ${getAnimationClass()}`}>
-                    <img
-                        src="/assets/images/mascot-hero.png"
-                        alt="COOP HUB Hero Mascot"
-                        className="w-full h-full object-contain rounded-full drop-shadow-md"
-                        onError={(e) => {
-                            e.target.src = '/src/assets/branding/mascot-ai.png';
+                    {/* Status Pill Aura */}
+                    <div 
+                        style={{
+                            position: "absolute",
+                            bottom: "8px",
+                            background: "rgba(5, 10, 18, 0.88)",
+                            color: "white",
+                            padding: "4px 12px",
+                            borderRadius: "9999px",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            backdropFilter: "blur(8px)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            border: "1px solid rgba(255, 121, 0, 0.3)",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
                         }}
-                    />
-
-                    {/* Active State Mini Badge */}
-                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-sm">
-                        {animState === 'error' ? <AlertCircle size={12} className="text-white" /> :
-                         animState === 'success' ? <CheckCircle2 size={12} className="text-white" /> :
-                         <Sparkles size={11} className="text-white animate-spin" style={{ animationDuration: '4s' }} />}
+                    >
+                        <span className="status-dot available" style={{ width: "7px", height: "7px", background: "#10B981", borderRadius: "50%" }}></span>
+                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {animState}</span>
                     </div>
                 </div>
             </div>
@@ -364,7 +487,7 @@ export default function GlobalHeroAgent({ inline = false }) {
                 <div
                     onClick={handleOpenChat}
                     style={{ backgroundColor: 'var(--color-surface, #FFFFFF)', borderColor: '#FF7900' }}
-                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm border-2 shadow-2xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative"
+                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm border-2 shadow-2xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative mb-6"
                 >
                     <div className="flex items-center justify-between gap-2 mb-1.5 border-b border-orange-200 dark:border-slate-700 pb-1">
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">

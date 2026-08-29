@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { Sparkles, Bot, AlertCircle, CheckCircle2, MessageSquare, Send, ShieldCheck, FileText, Lock } from "lucide-react";
 import { aiService } from "../../../services/pillar/aiService";
+import Hero3D from "../../hero3d/Hero3D";
 
 export default function HeroInteractiveAgent({
   currentStep = 1,
@@ -130,20 +131,26 @@ export default function HeroInteractiveAgent({
       if (currentStep === 1) {
         setHeroMessage(
           language === "ta"
-            ? "படி 1/3: உங்கள் தனிப்பட்ட சுயவிவர தகவல்களை உள்ளிட்டு 'Next' பொத்தானை அழுத்தவும்!"
-            : "Step 1 of 3: Enter your personal profile details to begin your Pillar registration!"
+            ? "படி 1/4: உங்கள் தனிப்பட்ட சுயவிவர தகவல்களை உள்ளிட்டு 'Next' பொத்தானை அழுத்தவும்!"
+            : "Step 1 of 4: Enter your personal profile details to begin your Pillar registration!"
         );
       } else if (currentStep === 2) {
         setHeroMessage(
           language === "ta"
-            ? "படி 2/3: உங்கள் முதன்மை தொழில் திறன் மற்றும் சேவை பகுதிகளைத் தேர்ந்தெடுக்கவும்!"
-            : "Step 2 of 3: Select your trade skills and operating service areas across Chennai!"
+            ? "படி 2/4: உங்கள் முதன்மை தொழில் திறன் மற்றும் சேவை பகுதிகளைத் தேர்ந்தெடுக்கவும்!"
+            : "Step 2 of 4: Select your trade skills and operating service areas across Chennai!"
         );
       } else if (currentStep === 3) {
         setHeroMessage(
           language === "ta"
-            ? "படி 3/3: ஆதார், பான், வாக்காளர் அட்டை அல்லது ஓட்டுநர் உரிமத்தைப் பதிவேற்றி சரிபார்க்கவும்!"
-            : "Step 3 of 3: Upload your Government Identity Document for PaddleOCR administrative verification!"
+            ? "படி 3/4: ஆதார், பான், வாக்காளர் அட்டை அல்லது ஓட்டுநர் உரிமத்தைப் பதிவேற்றி சரிபார்க்கவும்!"
+            : "Step 3 of 4: Upload your Government Identity Document for PaddleOCR administrative verification!"
+        );
+      } else if (currentStep === 4) {
+        setHeroMessage(
+          language === "ta"
+            ? "படி 4/4: உங்கள் திறன் சான்றிதழ்களைப் பதிவேற்றி பில்லர் பதிவை நிறைவு செய்யவும்!"
+            : "Step 4 of 4: Upload optional trade skill certificates to boost your verified ranking and complete registration!"
         );
       }
     }
@@ -241,27 +248,18 @@ export default function HeroInteractiveAgent({
         />
       </div>
 
-      {/* Expressive Hero Mascot Character */}
+      {/* Expressive 3D Hero Mascot Character */}
       <div
-        className={`hero-mascot-container hero-state-${heroState}`}
         style={{
           width: "280px",
-          height: "360px",
-          position: "relative"
+          height: "340px",
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        <img
-          src="/assets/images/mascot-hero.png"
-          alt="Hero AI Mascot"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-          }}
-        />
-
-        {/* Natural eye blink overlay */}
-        <div className="hero-blink-overlay" />
+        <Hero3D mode="card" state={heroState} style={{ width: "100%", height: "100%" }} />
 
         {/* Live Active Status Aura with Global Dark Navy & Orange Styling */}
         <div

@@ -1,0 +1,280 @@
+{
+  "blend_open": true,
+  "mesh_name": "CoopBot_Mesh",
+  "armature_name": "Armature_CoopBot",
+  "vertices_count": 54427,
+  "polygons_count": 79934,
+  "armature_modifier": true,
+  "bones": [
+    {
+      "name": "Root",
+      "parent": null,
+      "use_deform": false,
+      "length": 0.2
+    },
+    {
+      "name": "Hips",
+      "parent": "Root",
+      "use_deform": true,
+      "length": 0.25
+    },
+    {
+      "name": "Spine",
+      "parent": "Hips",
+      "use_deform": true,
+      "length": 0.35
+    },
+    {
+      "name": "Chest",
+      "parent": "Spine",
+      "use_deform": true,
+      "length": 0.35
+    },
+    {
+      "name": "Neck",
+      "parent": "Chest",
+      "use_deform": true,
+      "length": 0.17
+    },
+    {
+      "name": "Head",
+      "parent": "Neck",
+      "use_deform": true,
+      "length": 0.4538
+    },
+    {
+      "name": "Eye_L",
+      "parent": "Head",
+      "use_deform": true,
+      "length": 0.15
+    },
+    {
+      "name": "Eye_R",
+      "parent": "Head",
+      "use_deform": true,
+      "length": 0.15
+    },
+    {
+      "name": "Shoulder.L",
+      "parent": "Chest",
+      "use_deform": true,
+      "length": 0.201
+    },
+    {
+      "name": "UpperArm.L",
+      "parent": "Shoulder.L",
+      "use_deform": true,
+      "length": 0.4072
+    },
+    {
+      "name": "Forearm.L",
+      "parent": "UpperArm.L",
+      "use_deform": true,
+      "length": 0.3603
+    },
+    {
+      "name": "Hand.L",
+      "parent": "Forearm.L",
+      "use_deform": true,
+      "length": 0.1628
+    },
+    {
+      "name": "Shoulder.R",
+      "parent": "Chest",
+      "use_deform": true,
+      "length": 0.201
+    },
+    {
+      "name": "UpperArm.R",
+      "parent": "Shoulder.R",
+      "use_deform": true,
+      "length": 0.4072
+    },
+    {
+      "name": "Forearm.R",
+      "parent": "UpperArm.R",
+      "use_deform": true,
+      "length": 0.3603
+    },
+    {
+      "name": "Hand.R",
+      "parent": "Forearm.R",
+      "use_deform": true,
+      "length": 0.1628
+    },
+    {
+      "name": "Thigh.L",
+      "parent": "Hips",
+      "use_deform": true,
+      "length": 0.2707
+    },
+    {
+      "name": "Shin.L",
+      "parent": "Thigh.L",
+      "use_deform": true,
+      "length": 0.23
+    },
+    {
+      "name": "Foot.L",
+      "parent": "Shin.L",
+      "use_deform": true,
+      "length": 0.1868
+    },
+    {
+      "name": "Thigh.R",
+      "parent": "Hips",
+      "use_deform": true,
+      "length": 0.2707
+    },
+    {
+      "name": "Shin.R",
+      "parent": "Thigh.R",
+      "use_deform": true,
+      "length": 0.23
+    },
+    {
+      "name": "Foot.R",
+      "parent": "Shin.R",
+      "use_deform": true,
+      "length": 0.1868
+    }
+  ],
+  "shape_keys": [
+    {
+      "name": "Basis",
+      "affected_vertices": 0,
+      "max_displacement_meters": 0.0,
+      "functional": true
+    },
+    {
+      "name": "Blink",
+      "affected_vertices": 8054,
+      "max_displacement_meters": 0.0129,
+      "functional": true
+    },
+    {
+      "name": "Smile",
+      "affected_vertices": 8062,
+      "max_displacement_meters": 0.0149,
+      "functional": true
+    },
+    {
+      "name": "Speaking",
+      "affected_vertices": 1072,
+      "max_displacement_meters": 0.0062,
+      "functional": true
+    },
+    {
+      "name": "Thinking",
+      "affected_vertices": 7830,
+      "max_displacement_meters": 0.0036,
+      "functional": true
+    },
+    {
+      "name": "Alert",
+      "affected_vertices": 8062,
+      "max_displacement_meters": 0.018,
+      "functional": true
+    }
+  ],
+  "animations": [
+    {
+      "name": "Action_Confirmation",
+      "frame_start": 0.0,
+      "frame_end": 54.0,
+      "duration_sec": 1.8,
+      "curves_count": 24
+    },
+    {
+      "name": "Action_Error",
+      "frame_start": 0.0,
+      "frame_end": 54.0,
+      "duration_sec": 1.8,
+      "curves_count": 24
+    },
+    {
+      "name": "Action_Greeting",
+      "frame_start": 0.0,
+      "frame_end": 75.0,
+      "duration_sec": 2.5,
+      "curves_count": 36
+    },
+    {
+      "name": "Action_Idle",
+      "frame_start": 0.0,
+      "frame_end": 90.0,
+      "duration_sec": 3.0,
+      "curves_count": 42
+    },
+    {
+      "name": "Action_Listening",
+      "frame_start": 0.0,
+      "frame_end": 75.0,
+      "duration_sec": 2.5,
+      "curves_count": 36
+    },
+    {
+      "name": "Action_Point",
+      "frame_start": 0.0,
+      "frame_end": 66.0,
+      "duration_sec": 2.2,
+      "curves_count": 24
+    },
+    {
+      "name": "Action_Speaking",
+      "frame_start": 0.0,
+      "frame_end": 60.0,
+      "duration_sec": 2.0,
+      "curves_count": 30
+    },
+    {
+      "name": "Action_Success",
+      "frame_start": 0.0,
+      "frame_end": 66.0,
+      "duration_sec": 2.2,
+      "curves_count": 24
+    },
+    {
+      "name": "Action_Thinking",
+      "frame_start": 0.0,
+      "frame_end": 90.0,
+      "duration_sec": 3.0,
+      "curves_count": 24
+    },
+    {
+      "name": "Action_Warning",
+      "frame_start": 0.0,
+      "frame_end": 60.0,
+      "duration_sec": 2.0,
+      "curves_count": 42
+    },
+    {
+      "name": "Action_Wave",
+      "frame_start": 0.0,
+      "frame_end": 60.0,
+      "duration_sec": 2.0,
+      "curves_count": 18
+    }
+  ],
+  "deformation_tests": {
+    "Head_x_25": "DEFORMS_NORMALLY",
+    "Head_z_30": "DEFORMS_NORMALLY",
+    "Neck_x_15": "DEFORMS_NORMALLY",
+    "Spine_x_10": "DEFORMS_NORMALLY",
+    "Chest_y_15": "DEFORMS_NORMALLY",
+    "UpperArm.L_x_-70": "DEFORMS_NORMALLY",
+    "Forearm.L_x_-80": "DEFORMS_NORMALLY",
+    "Hand.L_z_25": "DEFORMS_NORMALLY",
+    "UpperArm.R_x_-70": "DEFORMS_NORMALLY",
+    "Forearm.R_x_-80": "DEFORMS_NORMALLY",
+    "Hand.R_z_25": "DEFORMS_NORMALLY",
+    "Thigh.L_x_30": "DEFORMS_NORMALLY",
+    "Shin.L_x_-45": "DEFORMS_NORMALLY",
+    "Thigh.R_x_30": "DEFORMS_NORMALLY",
+    "Shin.R_x_-45": "DEFORMS_NORMALLY",
+    "Eye_L_z_10": "DEFORMS_NORMALLY",
+    "Eye_R_z_10": "DEFORMS_NORMALLY"
+  },
+  "transitions": {},
+  "bones_count": 22
+}

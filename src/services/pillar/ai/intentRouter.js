@@ -1,5 +1,6 @@
 import { registrationHelpAgent, authHelpAgent, publicInfoAgent } from "./publicAgents.js";
 import { callPillarAiApi } from "./aiApi.js";
+import { customerAgent } from "./customerAgent.js";
 import {
   orderAgent,
   financeAgent,
@@ -23,11 +24,19 @@ import { adminAgent } from "./adminAgent.js";
 
 export const intentRouter = {
   async route({ message, context = {} }) {
-    const { isAuthenticated, session, route = "/", language = "en" } = context;
+    const { isAuthenticated, session, route = "/", language = "en", module } = context;
     const q = message.toLowerCase().trim();
 
     // ============================================================
-    // 1. ADMIN AI MODE (Cooperative Operations Intelligence)
+    // 1. CUSTOMER PORTAL AI MODE (Live Service Guidance & Booking)
+    // ============================================================
+    const customerRoutes = ["/home", "/services", "/requests", "/messages", "/history", "/support", "/settings", "/profile"];
+    if (module === "customer" || customerRoutes.some(cr => route === cr || (cr !== "/" && route.startsWith(cr)))) {
+      return await customerAgent.handle(message, { language, route, context });
+    }
+
+    // ============================================================
+    // 2. ADMIN AI MODE (Cooperative Operations Intelligence)
     // ============================================================
     if (route.startsWith("/admin")) {
       return await adminAgent.handle(message, { language, route });
