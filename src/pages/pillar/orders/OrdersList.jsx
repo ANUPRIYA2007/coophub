@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import FinalizeBillModal from "../../../components/pillar/orders/FinalizeBillModal";
+
 export default function OrdersList() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -33,6 +35,7 @@ export default function OrdersList() {
   const [loading, setLoading] = useState(true);
   const [selectedBookingForOtp, setSelectedBookingForOtp] = useState(null);
   const [selectedBookingForExtra, setSelectedBookingForExtra] = useState(null);
+  const [selectedOrderForCompletion, setSelectedOrderForCompletion] = useState(null);
   const [expandedMapOrderId, setExpandedMapOrderId] = useState(null);
 
   const fetchOrders = async () => {
@@ -335,17 +338,17 @@ export default function OrdersList() {
                     </button>
                     <button
                       className="btn btn-success"
-                      style={{ flex: 1 }}
-                      onClick={() => handleStatusChange(order.id, "completed")}
+                      style={{ flex: 1.5, fontWeight: "bold" }}
+                      onClick={() => setSelectedOrderForCompletion(order)}
                     >
-                      <Check size={16} /> {t("orders.completeService")}
+                      <Check size={16} /> Complete & Finalize Bill
                     </button>
                   </div>
                 )}
 
                 {order.status === "completed" && (
-                  <button className="btn btn-outline" style={{ width: "100%" }} disabled>
-                    Job Completed
+                  <button className="btn btn-outline" style={{ width: "100%", fontWeight: "bold" }} disabled>
+                    ✓ Job Completed (₹{order.final_amount || order.total_amount || 450})
                   </button>
                 )}
               </div>
@@ -368,6 +371,15 @@ export default function OrdersList() {
         <ExtraChargeModal
           bookingId={selectedBookingForExtra}
           onClose={() => setSelectedBookingForExtra(null)}
+          onSuccess={fetchOrders}
+        />
+      )}
+
+      {/* Finalize Bill & Job Completion Modal */}
+      {selectedOrderForCompletion && (
+        <FinalizeBillModal
+          order={selectedOrderForCompletion}
+          onClose={() => setSelectedOrderForCompletion(null)}
           onSuccess={fetchOrders}
         />
       )}

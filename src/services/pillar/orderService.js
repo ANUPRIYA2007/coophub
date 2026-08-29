@@ -283,6 +283,74 @@ export const pillarOrderService = {
     }
   },
 
+  async completeOrderAndFinalizeBill(orderId, payload) {
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
+    if (isDemo) {
+      const match = DEMO_ORDERS.find(o => o.id === orderId);
+      if (match) {
+        match.status = "completed";
+        match.final_amount = payload.final_amount;
+        match.extra_charge_amount = payload.extra_charge_amount;
+        match.extra_charge_reason = payload.extra_charge_reason;
+      }
+      return { success: true, error: null };
+    }
+
+    try {
+      const updates = {
+        status: "completed",
+        final_amount: payload.final_amount,
+        extra_charge_amount: payload.extra_charge_amount || 0,
+        extra_charge_reason: payload.extra_charge_reason || null,
+        extra_charge_status: payload.extra_charge_status || "none",
+        updated_at: new Date().toISOString()
+      };
+
+      // 1. Update in service_requests
+      const { data: sData, error: sErr } = await supabase
+        .from("service_requests")
+        .update(updates)
+        .eq("id", orderId)
+        .select()
+        .maybeSingle();
+
+      // 2. Update in bookings
+      await supabase
+        .from("bookings")
+        .update(updates)
+        .eq("id", orderId);
+
+      // 3. Create or update invoice in invoices table
+      try {
+        const baseAmount = Number(payload.amount || sData?.amount || 450);
+        const extraAmount = Number(payload.extra_charge_amount || 0);
+        const taxAmount = Math.round((baseAmount + extraAmount) * 0.18 * 100) / 100;
+        const totalAmount = Math.round((baseAmount + extraAmount + taxAmount) * 100) / 100;
+
+        await supabase.from('invoices').upsert([{
+          request_id: orderId,
+          booking_id: orderId,
+          invoice_number: `INV-${orderId.slice(0, 6).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+          customer_id: sData?.customer_id || null,
+          pillar_id: sData?.pillar_id || null,
+          base_amount: baseAmount,
+          extra_charges: extraAmount,
+          tax_amount: taxAmount,
+          total_amount: payload.final_amount || totalAmount,
+          currency: 'INR',
+          invoice_status: 'pending'
+        }], { onConflict: 'request_id' });
+      } catch (ie) {
+        console.warn("Invoice generation note:", ie.message);
+      }
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error("completeOrderAndFinalizeBill error:", error);
+      return { success: false, error };
+    }
+  },
+
   async verifyArrivalOTP(bookingId, enteredOtp) {
     const isDemo = localStorage.getItem("coophub_demo_user") === "true";
     if (isDemo || enteredOtp === "123456" || enteredOtp === "489201") {

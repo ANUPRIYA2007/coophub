@@ -130,10 +130,29 @@ export default function RequestDetails() {
 
         fetchRequest();
 
+        // Realtime Subscription on service_requests & bookings for immediate status transition
+        const reqChannel = supabase
+            .channel(`req_live_${id}_${Date.now()}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'service_requests', filter: `id=eq.${id}` },
+                (payload) => {
+                    console.log("⚡ Live Request status change in Customer Portal:", payload.new);
+                    fetchRequest();
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${id}` },
+                (payload) => {
+                    fetchRequest();
+                }
+            )
+            .subscribe();
+
         return () => {
-            if (channel) {
-                supabase.removeChannel(channel);
-            }
+            if (channel) supabase.removeChannel(channel);
+            if (reqChannel) supabase.removeChannel(reqChannel);
         };
     }, [id]);
 
@@ -519,18 +538,21 @@ export default function RequestDetails() {
                         <div className="space-y-2.5 text-xs">
                             <div className="flex justify-between text-navy-600">
                                 <span>Base Service Charge</span>
-                                <span className="font-mono font-medium">₹{invoiceData?.total_amount || 1000}</span>
+                                <span className="font-mono font-medium">₹{requestData.amount || invoiceData?.base_amount || 450}</span>
                             </div>
-                            {requestData.extra_charge_status === 'accepted' && (
-                                <div className="flex justify-between text-orange-600 font-medium">
-                                    <span>Approved Extra Charges ({requestData.extra_charge_reason || 'Parts'})</span>
-                                    <span className="font-mono">+ ₹{requestData.extra_charge_amount || 500}</span>
+                            {Number(requestData.extra_charge_amount) > 0 && (
+                                <div className="flex justify-between text-orange-700 font-medium bg-orange-50/80 p-3 rounded-2xl border border-orange-200">
+                                    <div>
+                                        <span className="block font-bold text-orange-950">Additional Parts & Work (Verified by Pillar)</span>
+                                        <span className="text-[11px] text-orange-800/80 mt-0.5 block">{requestData.extra_charge_reason || 'Extra parts & labor added during inspection'}</span>
+                                    </div>
+                                    <span className="font-mono font-bold text-sm text-orange-600 shrink-0 ml-3">+ ₹{requestData.extra_charge_amount}</span>
                                 </div>
                             )}
                             <div className="flex justify-between pt-3 border-t border-navy-100 text-sm font-bold text-navy-900">
                                 <span>Grand Total</span>
                                 <span className="font-mono text-base text-orange-600">
-                                    ₹{Number(invoiceData?.total_amount || 1000) + (requestData.extra_charge_status === 'accepted' ? Number(requestData.extra_charge_amount || 0) : 0)}
+                                    ₹{Number(requestData.final_amount || invoiceData?.total_amount || (Number(requestData.amount || 450) + Number(requestData.extra_charge_amount || 0)))}
                                 </span>
                             </div>
                         </div>
