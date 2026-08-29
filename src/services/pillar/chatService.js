@@ -60,22 +60,13 @@ export const pillarChatService = {
   // Fetch messages for a specific booking / request
   async getMessages(bookingId) {
     try {
-      // Query by booking_id
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("booking_id", bookingId)
         .order("created_at", { ascending: true });
 
-      if (error) {
-        // Fallback query if booking_id isn't matching
-        const { data: fallbackData } = await supabase
-          .from("messages")
-          .select("*")
-          .order("created_at", { ascending: true })
-          .limit(50);
-        return { data: fallbackData || [], error: null };
-      }
+      if (error) throw error;
       return { data: data || [], error: null };
     } catch (error) {
       console.error("Chat fetch error:", error);

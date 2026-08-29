@@ -54,15 +54,15 @@ export default function RequestChat() {
                     return;
                 }
 
-                // Live Supabase Messages
+                // Live Supabase Messages strictly for this booking ID
                 const { data: msgs, error } = await supabase
                     .from('messages')
                     .select('*')
+                    .eq('booking_id', id)
                     .order('created_at', { ascending: true });
 
                 if (msgs && msgs.length > 0) {
-                    const filtered = msgs.filter(m => !m.booking_id || m.booking_id === id || m.request_id === id);
-                    setMessages(filtered.length > 0 ? filtered : msgs.slice(-10));
+                    setMessages(msgs);
                 } else {
                     setMessages([]);
                 }
@@ -80,8 +80,11 @@ export default function RequestChat() {
                 .channel(`messages-live-${id}-${Date.now()}`)
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
                     if (!payload.new) return;
-                    if (!payload.new.booking_id || payload.new.booking_id === id || payload.new.request_id === id) {
-                        setMessages(prev => [...prev, payload.new]);
+                    if (payload.new.booking_id === id) {
+                        setMessages(prev => {
+                            if (prev.some(m => m.id === payload.new.id)) return prev;
+                            return [...prev, payload.new];
+                        });
                     }
                 })
                 .subscribe();
@@ -108,6 +111,7 @@ export default function RequestChat() {
             sender_name: 'You',
             message: text,
             content: text,
+            booking_id: id,
             created_at: new Date().toISOString()
         };
 
@@ -141,23 +145,16 @@ export default function RequestChat() {
 
         // Live Supabase Insert
         try {
-            const isValidUUID = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
             const payload = {
+                booking_id: id,
                 sender_type: 'customer',
                 message: text
             };
-            if (isValidUUID) {
-                payload.booking_id = id;
-            }
             if (profile?.user_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.user_id)) {
                 payload.sender_id = profile.user_id;
             }
 
-            const { error } = await supabase.from('messages').insert(payload);
-            if (error) {
-                console.warn("Retrying minimal message insert:", error.message);
-                await supabase.from('messages').insert({ sender_type: 'customer', message: text });
-            }
+            await supabase.from('messages').insert(payload);
         } catch (err) {
             console.error('Failed to send message: ', err);
         }
@@ -172,7 +169,7 @@ export default function RequestChat() {
         );
     }
 
-    const pillarName = requestData?.pillar?.full_name || 'Raj Kumar (Electrician)';
+    const pillarName = requestData?.pillar?.full_name || (requestData?.service_name?.includes('Plumb') ? 'Leo (Certified Plumber)' : 'Assigned Technician');
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col h-screen">
