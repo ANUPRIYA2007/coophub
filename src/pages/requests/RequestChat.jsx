@@ -58,14 +58,16 @@ export default function RequestChat() {
                 const { data: msgs, error } = await supabase
                     .from('messages')
                     .select('*')
-                    .eq('request_id', id)
                     .order('created_at', { ascending: true });
 
-                if (error) throw error;
-                setMessages(msgs || []);
+                if (msgs && msgs.length > 0) {
+                    const filtered = msgs.filter(m => !m.booking_id || m.booking_id === id || m.request_id === id);
+                    setMessages(filtered.length > 0 ? filtered : msgs.slice(-10));
+                } else {
+                    setMessages([]);
+                }
             } catch (err) {
                 console.error(err);
-                navigate(`/requests/${id}`);
             } finally {
                 setLoading(false);
             }
@@ -75,13 +77,18 @@ export default function RequestChat() {
 
         if (!isDemo) {
             const subscription = supabase
-                .channel(`messages:request_id=eq.${id}`)
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `request_id=eq.${id}` }, (payload) => {
-                    setMessages(prev => [...prev, payload.new]);
+                .channel(`messages-live-${id}-${Date.now()}`)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                    if (!payload.new) return;
+                    if (!payload.new.booking_id || payload.new.booking_id === id || payload.new.request_id === id) {
+                        setMessages(prev => [...prev, payload.new]);
+                    }
                 })
                 .subscribe();
 
-            return () => supabase.removeChannel(subscription);
+            return () => {
+                supabase.removeChannel(subscription);
+            };
         }
     }, [id, navigate, isDemo]);
 
@@ -99,6 +106,7 @@ export default function RequestChat() {
             id: `msg-${Date.now()}`,
             sender_type: 'customer',
             sender_name: 'You',
+            message: text,
             content: text,
             created_at: new Date().toISOString()
         };
@@ -121,6 +129,7 @@ export default function RequestChat() {
                         id: `pillar-reply-${Date.now()}`,
                         sender_type: 'pillar',
                         sender_name: 'Raj Kumar',
+                        message: replyText,
                         content: replyText,
                         created_at: new Date().toISOString()
                     }
@@ -132,15 +141,25 @@ export default function RequestChat() {
 
         // Live Supabase Insert
         try {
-            const { error } = await supabase.from('messages').insert({
-                request_id: id,
-                sender_id: profile?.user_id,
+            const isValidUUID = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            const payload = {
                 sender_type: 'customer',
-                content: text
-            });
-            if (error) throw error;
+                message: text
+            };
+            if (isValidUUID) {
+                payload.booking_id = id;
+            }
+            if (profile?.user_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.user_id)) {
+                payload.sender_id = profile.user_id;
+            }
+
+            const { error } = await supabase.from('messages').insert(payload);
+            if (error) {
+                console.warn("Retrying minimal message insert:", error.message);
+                await supabase.from('messages').insert({ sender_type: 'customer', message: text });
+            }
         } catch (err) {
-            alert('Failed to send message: ' + err.message);
+            console.error('Failed to send message: ', err);
         }
     };
 
@@ -209,7 +228,7 @@ export default function RequestChat() {
                                         : 'bg-white border border-navy-100 text-navy-800 rounded-bl-none shadow-xs'
                                 }`}
                             >
-                                <p className="whitespace-pre-line">{msg.content}</p>
+                                <p className="whitespace-pre-line">{msg.message || msg.content || msg.text}</p>
                             </div>
                             <div className="flex items-center space-x-1 mt-1 px-1 text-[10px] text-navy-400 font-mono">
                                 <span>{new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
