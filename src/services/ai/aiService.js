@@ -7,7 +7,9 @@
 const NVIDIA_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_API_KEY : null) || 
                        (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_API_KEY : null) ||
                        "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";
-const NVIDIA_MODEL = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_MODEL : null) || "meta/llama-3.2-11b-vision-instruct";
+const rawNvidiaModel = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_MODEL : null) || 
+                       (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_MODEL : null);
+const NVIDIA_MODEL = (rawNvidiaModel && !rawNvidiaModel.includes('nemotron-parse')) ? rawNvidiaModel : "meta/llama-3.2-11b-vision-instruct";
 const GEMINI_API_KEY = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_GEMINI_API_KEY : null;
 
 /**
@@ -53,7 +55,8 @@ async function callNvidiaNIM(systemPrompt, userPrompt, base64Image = null) {
   });
 
   if (!response.ok) {
-    throw new Error(`NVIDIA Vision API HTTP ${response.status}`);
+    const errBody = await response.text().catch(() => '');
+    throw new Error(`NVIDIA Vision API HTTP ${response.status}: ${errBody || response.statusText}`);
   }
 
   const data = await response.json();
@@ -78,7 +81,7 @@ async function callGeminiAPI(systemPrompt, userPrompt, base64Image = null) {
     });
   }
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

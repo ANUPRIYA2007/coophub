@@ -7,7 +7,9 @@ const NVIDIA_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? 
                        (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_API_KEY : null) ||
                        "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";
 
-const NVIDIA_MODEL = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_MODEL : null) || "meta/llama-3.2-11b-vision-instruct";
+const rawModel = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_MODEL : null) || 
+                   (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_MODEL : null);
+const NVIDIA_MODEL = (rawModel && !rawModel.includes('nemotron-parse')) ? rawModel : "meta/llama-3.2-11b-vision-instruct";
 
 const GEMINI_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_GEMINI_API_KEY : null) ||
                        (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : null) ||
@@ -49,6 +51,9 @@ Respond directly, professionally, and helpfully in ${langName}. If the technicia
             intent: "live_ai_response"
           };
         }
+      } else {
+        const errText = await res.text();
+        console.warn(`NVIDIA NIM returned ${res.status}: ${errText}. Falling back to Gemini...`);
       }
     } catch (nvErr) {
       console.warn("NVIDIA NIM call failed, falling back to Gemini:", nvErr.message);
@@ -58,7 +63,7 @@ Respond directly, professionally, and helpfully in ${langName}. If the technicia
   // 2. Secondary Fallback: Google Gemini API
   if (GEMINI_API_KEY) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

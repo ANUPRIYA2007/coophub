@@ -26,8 +26,8 @@ export const nvidiaDocumentService = {
          (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_API_KEY : null));
 
     const candidateModels = [
-      (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_MODEL : null) || 
-      (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_MODEL : null) || 
+      (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_OCR_MODEL : null) || 
+      (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_OCR_MODEL : null) || 
       'nvidia/nemotron-parse',
       'meta/llama-3.2-11b-vision-instruct',
       'meta/llama-3.2-90b-vision-instruct'
@@ -48,6 +48,29 @@ export const nvidiaDocumentService = {
     let lastError = null;
     for (const model of candidateModels) {
       try {
+        const isNemotronParse = model.includes('nemotron-parse');
+        const userContent = isNemotronParse
+          ? [
+              {
+                type: "image_url",
+                image_url: {
+                  url: formattedImageUrl
+                }
+              }
+            ]
+          : [
+              {
+                type: "text",
+                text: "You are an expert Document OCR and Identity Card Reader. Read every word, number, Aadhaar number, name, date of birth, address, and issuing details visible in this document image and transcribe it completely with 100% accuracy."
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: formattedImageUrl
+                }
+              }
+            ];
+
         const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -59,18 +82,7 @@ export const nvidiaDocumentService = {
             messages: [
               {
                 role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: "You are an expert Document OCR and Identity Card Reader. Read every word, number, Aadhaar number, name, date of birth, address, and issuing details visible in this document image and transcribe it completely with 100% accuracy."
-                  },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: formattedImageUrl
-                    }
-                  }
-                ]
+                content: userContent
               }
             ],
             temperature: 0.1,

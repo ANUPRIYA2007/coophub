@@ -19,18 +19,26 @@ const PORT = process.env.PORT || 3000;
 
 // NVIDIA AI Configuration
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
-const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.2-11b-vision-instruct';
+const NVIDIA_MODEL = (process.env.NVIDIA_MODEL && !process.env.NVIDIA_MODEL.includes('nemotron-parse'))
+    ? process.env.NVIDIA_MODEL 
+    : 'meta/llama-3.2-11b-vision-instruct';
+const NVIDIA_OCR_MODEL = process.env.NVIDIA_OCR_MODEL || 'nvidia/nemotron-parse';
 
 // Gemini API Configuration (Fallback)
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// Base URL for Gemini standard chat endpoint (if needed) fallback
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// Base URL for Gemini standard chat endpoint fallback
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
+
 
 // Abstracted AI Provider function
 async function generateAIResponse(messages, systemPrompt = '') {
-    try {
-        if (NVIDIA_API_KEY) {
-            // Primary: NVIDIA Nemotron
+    // 1. Primary: NVIDIA NIM
+    if (NVIDIA_API_KEY) {
+        try {
+            const chatModel = (NVIDIA_MODEL && !NVIDIA_MODEL.includes('nemotron-parse')) 
+                ? NVIDIA_MODEL 
+                : 'meta/llama-3.2-11b-vision-instruct';
+
             const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -38,7 +46,7 @@ async function generateAIResponse(messages, systemPrompt = '') {
                     'Authorization': `Bearer ${NVIDIA_API_KEY}`,
                 },
                 body: JSON.stringify({
-                    model: NVIDIA_MODEL,
+                    model: chatModel,
                     messages: [
                         ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
                         ...messages
@@ -48,14 +56,22 @@ async function generateAIResponse(messages, systemPrompt = '') {
                 }),
             });
 
-            if (!response.ok) throw new Error(`NVIDIA API Error: ${response.statusText}`);
-            const data = await response.json();
-            return data.choices[0].message.content;
+            if (response.ok) {
+                const data = await response.json();
+                const reply = data.choices?.[0]?.message?.content;
+                if (reply) return reply;
+            } else {
+                const errBody = await response.text();
+                console.warn(`NVIDIA API warning (${response.status}): ${errBody}. Falling back to Gemini...`);
+            }
+        } catch (nvErr) {
+            console.warn(`NVIDIA API error: ${nvErr.message}. Falling back to Gemini...`);
         }
+    }
 
-        // Fallback: Gemini
-        if (GEMINI_API_KEY) {
-            // Map standard msg format to Gemini format
+    // 2. Fallback: Gemini
+    if (GEMINI_API_KEY) {
+        try {
             let contents = [];
             if (systemPrompt) contents.push({ role: 'user', parts: [{ text: `SYSTEM INSTRUCTION: ${systemPrompt}` }] });
 
@@ -72,16 +88,20 @@ async function generateAIResponse(messages, systemPrompt = '') {
                 body: JSON.stringify({ contents }),
             });
 
-            if (!response.ok) throw new Error(`Gemini API Error: ${response.statusText}`);
-            const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
+            if (response.ok) {
+                const data = await response.json();
+                const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (reply) return reply;
+            } else {
+                const errBody = await response.text();
+                console.warn(`Gemini API warning (${response.status}): ${errBody}`);
+            }
+        } catch (gemErr) {
+            console.warn(`Gemini API error: ${gemErr.message}`);
         }
-
-        throw new Error('No AI Providers configured (API keys missing)');
-    } catch (error) {
-        console.error('AI Generation Error:', error);
-        throw error;
     }
+
+    throw new Error('All configured AI Providers failed or API keys are missing.');
 }
 
 // ----------------------------------------------------------------------
@@ -386,11 +406,19 @@ app.post('/api/ai/process-document', async (req, res) => {
 
         let ocrRawText = '';
         let boundingBoxes = [];
-        let ocrProvider = process.env.NVIDIA_MODEL || 'nvidia/nemotron-parse';
+        let ocrProvider = process.env.NVIDIA_OCR_MODEL || 'nvidia/nemotron-parse';
 
-        // 1. Call NVIDIA Nemotron Parse
+        // 1. Call NVIDIA Nemotron Parse / Vision Model
         if (process.env.NVIDIA_API_KEY) {
             try {
+                const isNemotronParse = ocrProvider.includes('nemotron-parse');
+                const userContent = isNemotronParse
+                    ? [{ type: "image_url", image_url: { url: formattedImageUrl } }]
+                    : [
+                        { type: "text", text: "Transcribe every detail, word, Aadhaar number, name, DOB, and issuing authority from this document accurately." },
+                        { type: "image_url", image_url: { url: formattedImageUrl } }
+                    ];
+
                 const nvidiaRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
                     method: "POST",
                     headers: {
@@ -402,12 +430,7 @@ app.post('/api/ai/process-document', async (req, res) => {
                         messages: [
                             {
                                 role: "user",
-                                content: [
-                                    {
-                                        type: "image_url",
-                                        image_url: { url: formattedImageUrl }
-                                    }
-                                ]
+                                content: userContent
                             }
                         ],
                         max_tokens: 1500
@@ -431,6 +454,9 @@ app.post('/api/ai/process-document', async (req, res) => {
                             }
                         }
                     }
+                } else {
+                    const errBody = await nvidiaRes.text();
+                    console.warn("Server NVIDIA OCR error:", nvidiaRes.status, errBody);
                 }
             } catch (err) {
                 console.warn("Server NVIDIA Nemotron error:", err.message);

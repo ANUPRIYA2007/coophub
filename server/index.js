@@ -28,8 +28,9 @@ loadEnv();
 
 const PORT = process.env.PORT || 5000;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "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";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AQ.Ab8RN6J24z0pu89-nym7TCiEJx5QHtO8_gYdrnfxRN_RCh9kTA";
-const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.2-11b-vision-instruct";
+const NVIDIA_MODEL = (process.env.NVIDIA_MODEL && !process.env.NVIDIA_MODEL.includes("nemotron-parse"))
+  ? process.env.NVIDIA_MODEL 
+  : "meta/llama-3.2-11b-vision-instruct";
 
 // Helper: Call NVIDIA Chat API
 async function callNvidia(prompt, systemPrompt, language) {
@@ -107,7 +108,7 @@ async function callGemini(prompt, systemPrompt, language) {
     const req = https.request(
       {
         hostname: "generativelanguage.googleapis.com",
-        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        path: `/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
         method: "POST",
         headers: {
           "Content-Type": "application/json",

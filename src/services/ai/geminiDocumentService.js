@@ -31,15 +31,28 @@ function extractJsonFromText(text = '') {
       return JSON.parse(candidate);
     } catch (e) {
       try {
-        const cleaned = candidate.replace(/,\s*([\]}])/g, '$1');
+        const cleaned = candidate
+          .replace(/,\s*([\]}])/g, '$1')
+          .replace(/'/g, '"')
+          .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
         return JSON.parse(cleaned);
       } catch (cleanErr) {}
     }
   }
 
-  // 3. Fallback direct parse
-  const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-  return JSON.parse(clean);
+  // 3. Fallback direct parse with cleanup
+  try {
+    const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    return JSON.parse(clean);
+  } catch (err) {
+    const loose = text
+      .replace(/```(?:json)?/gi, '')
+      .replace(/```/g, '')
+      .trim()
+      .replace(/,\s*([\]}])/g, '$1')
+      .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+    return JSON.parse(loose);
+  }
 }
 
 export const geminiDocumentService = {
@@ -107,9 +120,9 @@ ${rawText || 'No OCR text available.'}
 Registered Profile to check against:
 Name: ${pillarProfile?.full_name || 'N/A'}, DOB: ${pillarProfile?.dob || 'N/A'}, Trade: ${pillarProfile?.main_services || 'N/A'}`;
 
-    // 1. First attempt: Google Gemini / Gemma API
+    // 1. First attempt: Google Gemini API
     if (key) {
-      const candidateModels = ['gemma-4-31b-it', 'gemini-flash-latest'];
+      const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash'];
       for (const model of candidateModels) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;

@@ -15,8 +15,8 @@
 
 import { supabase } from '../../lib/supabase.js';
 
-const NVIDIA_API_KEY = import.meta.env?.VITE_NVIDIA_API_KEY;
-const NVIDIA_MODEL = import.meta.env?.VITE_NVIDIA_MODEL || "meta/llama-3.2-11b-vision-instruct";
+const rawNvidiaModel = import.meta.env?.VITE_NVIDIA_MODEL;
+const NVIDIA_MODEL = (rawNvidiaModel && !rawNvidiaModel.includes('nemotron-parse')) ? rawNvidiaModel : "meta/llama-3.2-11b-vision-instruct";
 const GEMINI_API_KEY = import.meta.env?.VITE_GEMINI_API_KEY;
 
 const CHENNAI_DEFAULT_COORDS = {
