@@ -18,8 +18,8 @@ const GEMINI_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? 
 export async function callPillarAiApi({ prompt, language = "en", route = "/" }) {
   const langName = language === "ta" ? "Tamil" : language === "hi" ? "Hindi" : language === "te" ? "Telugu" : language === "kn" ? "Kannada" : "English";
 
-  const systemPrompt = `You are CoopBot, the intelligent 24/7 AI Companion and Operational Assistant for certified technicians (Pillars) and administrators in the COOP HUB cooperative platform in Chennai.
-Respond directly, professionally, and helpfully in ${langName}. If the technician asks a technical question about tools, repairs, plumbing, electrical, carpentry, AC, or safety, provide a thorough, structured, and practical guide with clear bullet points. Keep tone polite, empowering, and accurate.`;
+  const systemPrompt = `You are CoopBot, the intelligent 24/7 AI Companion and Assistant for customers, certified technicians (Pillars), and administrators in the COOP HUB cooperative platform in Chennai.
+Respond directly, professionally, and helpfully in ${langName}. If asking about services, repairs, booking, pricing, verification, or tools, provide a thorough, structured, and practical guide with clear bullet points. Keep tone polite, empowering, and accurate.`;
 
   // 1. Primary: NVIDIA Nemotron AI API
   if (NVIDIA_API_KEY) {
@@ -106,9 +106,10 @@ Respond directly, professionally, and helpfully in ${langName}. If the technicia
     });
     if (response.ok) {
       const data = await response.json();
-      if (data.success && data.text) {
+      const replyText = data.text || data.reply || data.message;
+      if (replyText) {
         return {
-          reply: data.text,
+          reply: replyText,
           provider: data.provider || "COOP HUB AI",
           intent: "ai_public_reply",
         };
@@ -118,5 +119,12 @@ Respond directly, professionally, and helpfully in ${langName}. If the technicia
     console.warn("Backend proxy failed:", err.message);
   }
 
-  return null;
+  // 4. Final Resilient Domain Fallback
+  return {
+    reply: language === "ta"
+      ? "வணக்கம்! COOP HUB-ல் சரிபார்க்கப்பட்ட மின்சார, பிளம்பிங் மற்றும் வீட்டுப் பராமரிப்பு வல்லுநர்களை உடனடியாக முன்பதிவு செய்யலாம் அல்லது பில்லராக இணையலாம்."
+      : "Hello! COOP HUB provides certified electricians, plumbers, and home repair professionals across Chennai. How may I assist you today?",
+    provider: "CoopBot Intelligence",
+    intent: "local_guidance"
+  };
 }

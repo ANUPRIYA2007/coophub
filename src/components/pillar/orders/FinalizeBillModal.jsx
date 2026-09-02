@@ -1,28 +1,40 @@
-import React, { useState } from "react";
-import { CheckCircle2, AlertCircle, X, Loader2, DollarSign, Wrench, ShieldCheck, Plus } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CheckCircle2, AlertCircle, X, Loader2, DollarSign, Wrench, ShieldCheck, Tag, FileText, Calculator } from "lucide-react";
 import { pillarOrderService } from "../../../services/pillar/orderService";
 
 export default function FinalizeBillModal({ order, onClose, onSuccess }) {
-  const basePrice = Number(order?.total_amount || order?.base_amount || 450);
-  const [hasExtra, setHasExtra] = useState(false);
-  const [extraAmount, setExtraAmount] = useState("");
-  const [reason, setReason] = useState("");
+  // Initial state with defaults from order or standard tariff
+  const initialBase = Number(order?.service_charge || order?.base_amount || order?.amount || 800);
+  const initialMaterials = Number(order?.materials_parts || order?.extra_charge_amount || 250);
+  const initialAdditional = Number(order?.additional_charges || 100);
+
+  const [serviceCharge, setServiceCharge] = useState(String(initialBase));
+  const [materialsParts, setMaterialsParts] = useState(String(initialMaterials));
+  const [materialsDescription, setMaterialsDescription] = useState(order?.materials_parts_description || "Capacitor & 2.5mm copper wiring");
+  const [additionalCharges, setAdditionalCharges] = useState(String(initialAdditional));
+  const [additionalDescription, setAdditionalDescription] = useState(order?.additional_charges_description || "Specialist diagnostic & conduit routing");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const finalAmount = hasExtra ? basePrice + (parseFloat(extraAmount) || 0) : basePrice;
+  // Live Calculations
+  const numService = parseFloat(serviceCharge) || 0;
+  const numMaterials = parseFloat(materialsParts) || 0;
+  const numAdditional = parseFloat(additionalCharges) || 0;
+
+  const subtotal = numService + numMaterials + numAdditional;
+  const gst = Math.round(subtotal * 0.18 * 100) / 100;
+  const total = Math.round((subtotal + gst) * 100) / 100;
+
+  // Cooperative Breakdown
+  const coopCommission = Math.round(numService * 0.0805 * 100) / 100; // ~₹64.40 on 800
+  const pillarEarnings = Math.round((subtotal - coopCommission) * 100) / 100; // ~₹1,085.60
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (hasExtra) {
-      if (!extraAmount || parseFloat(extraAmount) <= 0) {
-        setError("Please enter the additional amount or select standard billing.");
-        return;
-      }
-      if (!reason.trim()) {
-        setError("Please enter the reason/breakdown for the extra parts or labor.");
-        return;
-      }
+    if (numService <= 0) {
+      setError("Service charge must be greater than zero.");
+      return;
     }
 
     setLoading(true);
@@ -30,11 +42,21 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
 
     const payload = {
       status: "completed",
-      amount: basePrice,
-      final_amount: finalAmount,
-      extra_charge_amount: hasExtra ? parseFloat(extraAmount) : 0,
-      extra_charge_reason: hasExtra ? reason.trim() : null,
-      extra_charge_status: hasExtra ? "accepted" : "none",
+      service_charge: numService,
+      materials_parts: numMaterials,
+      materials_parts_description: materialsDescription.trim(),
+      additional_charges: numAdditional,
+      additional_charges_description: additionalDescription.trim(),
+      subtotal: subtotal,
+      gst_amount: gst,
+      final_amount: total,
+      amount: numService,
+      extra_charge_amount: numMaterials + numAdditional,
+      extra_charge_reason: `${materialsDescription} ${additionalDescription ? '• ' + additionalDescription : ''}`.trim(),
+      extra_charge_status: (numMaterials > 0 || numAdditional > 0) ? "accepted" : "none",
+      pillar_earnings: pillarEarnings,
+      cooperative_commission: coopCommission,
+      settlement_status: "Settled",
       completed_at: new Date().toISOString()
     };
 
@@ -42,7 +64,7 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
     setLoading(false);
 
     if (reqError) {
-      setError(reqError.message || "Failed to complete order. Please try again.");
+      setError(reqError.message || "Failed to finalize bill. Please try again.");
     } else {
       onSuccess?.();
       onClose();
@@ -50,133 +72,230 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
-        <div className="modal-header">
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <CheckCircle2 size={22} color="var(--color-primary)" />
-            <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "700" }}>Finalize Bill & Complete Service</h3>
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", background: "rgba(15, 23, 42, 0.75)" }}>
+      <div 
+        className="modal-content" 
+        onClick={(e) => e.stopPropagation()} 
+        style={{ 
+          maxWidth: "560px", 
+          width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          borderRadius: "16px",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.35)",
+          padding: 0
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: "18px 24px",
+          background: "#162238",
+          color: "#FFFFFF",
+          borderTopLeftRadius: "16px",
+          borderTopRightRadius: "16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "8px",
+              background: "rgba(255, 121, 0, 0.2)",
+              color: "#FF7900",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}>
+              <Calculator size={20} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", letterSpacing: "0.3px" }}>
+                Maintain Charges & Finalize Receipt
+              </h3>
+              <span style={{ fontSize: "11px", color: "#94A3B8" }}>
+                Pillar & Admin Tariff Maintenance Suite
+              </span>
+            </div>
           </div>
-          <button className="btn-icon" onClick={onClose}><X size={18} /></button>
+          <button 
+            onClick={onClose}
+            style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#FFFFFF", borderRadius: "8px", padding: "6px", cursor: "pointer" }}
+          >
+            <X size={16} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-            {error && (
-              <div style={{ background: "var(--color-error-bg)", color: "var(--color-error)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", gap: "8px", fontSize: "var(--font-size-sm)" }}>
-                <AlertCircle size={16} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Service & Order Summary Card */}
-            <div style={{ background: "var(--color-surface-hover)", border: "1px solid var(--color-border-light)", padding: "var(--space-3)", borderRadius: "var(--radius-lg)", fontSize: "var(--font-size-xs)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <span style={{ color: "var(--color-text-muted)" }}>Order ID:</span>
-                <span style={{ fontWeight: "bold", fontFamily: "monospace" }}>{order.booking_code || order.id.slice(0, 8)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <span style={{ color: "var(--color-text-muted)" }}>Service:</span>
-                <span style={{ fontWeight: "600" }}>{order.service_name}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed var(--color-border-light)", paddingTop: "4px", marginTop: "4px" }}>
-                <span style={{ color: "var(--color-text-muted)" }}>Initial Base Estimate:</span>
-                <span style={{ fontWeight: "bold", color: "var(--color-primary)" }}>₹{basePrice}</span>
-              </div>
+        <form onSubmit={handleSubmit} style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+          {error && (
+            <div style={{ background: "#FEE2E2", color: "#B91C1C", padding: "12px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
+              <AlertCircle size={16} />
+              <span>{error}</span>
             </div>
+          )}
 
-            {/* Scope of Work Selection */}
+          {/* Order Summary Pill */}
+          <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", padding: "12px 16px", borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12.5px" }}>
             <div>
-              <label style={{ fontSize: "var(--font-size-xs)", fontWeight: "700", textTransform: "uppercase", color: "var(--color-text-muted)", display: "block", marginBottom: "var(--space-2)" }}>
-                Actual On-Site Work Scope
-              </label>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderRadius: "var(--radius-md)", border: `1px solid ${!hasExtra ? 'var(--color-primary)' : 'var(--color-border-light)'}`, background: !hasExtra ? 'rgba(230, 81, 0, 0.05)' : 'white', cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="scopeType"
-                    checked={!hasExtra}
-                    onChange={() => { setHasExtra(false); setExtraAmount(""); setReason(""); }}
-                  />
-                  <div style={{ fontSize: "var(--font-size-xs)" }}>
-                    <span style={{ fontWeight: "bold", display: "block" }}>Standard Work Completed (Base ₹{basePrice})</span>
-                    <span style={{ color: "var(--color-text-muted)" }}>Job matched initial customer request with no extra materials.</span>
-                  </div>
-                </label>
-
-                <label style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderRadius: "var(--radius-md)", border: `1px solid ${hasExtra ? 'var(--color-primary)' : 'var(--color-border-light)'}`, background: hasExtra ? 'rgba(230, 81, 0, 0.05)' : 'white', cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="scopeType"
-                    checked={hasExtra}
-                    onChange={() => setHasExtra(true)}
-                  />
-                  <div style={{ fontSize: "var(--font-size-xs)" }}>
-                    <span style={{ fontWeight: "bold", display: "block", color: "var(--color-primary)" }}>Additional Work / Parts Added</span>
-                    <span style={{ color: "var(--color-text-muted)" }}>Extra materials, spare parts, or expanded labor required.</span>
-                  </div>
-                </label>
-              </div>
+              <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", textTransform: "uppercase", fontWeight: "700" }}>Service & Booking</span>
+              <span style={{ fontWeight: "700", color: "#162238" }}>{order.service_name || "Electrical Repair"}</span>
             </div>
-
-            {/* Extra Amount & Reason Fields (If Extra Work) */}
-            {hasExtra && (
-              <div style={{ background: "rgba(230, 81, 0, 0.04)", border: "1px solid rgba(230, 81, 0, 0.2)", padding: "var(--space-3)", borderRadius: "var(--radius-lg)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "var(--font-size-xs)", fontWeight: "bold" }}>
-                    Additional Amount (₹) <span className="required">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="form-input"
-                    value={extraAmount}
-                    onChange={(e) => setExtraAmount(e.target.value)}
-                    placeholder="e.g. 250"
-                    required
-                    autoFocus
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: "var(--font-size-xs)", fontWeight: "bold" }}>
-                    Reason / Itemized Parts Breakdown <span className="required">*</span>
-                  </label>
-                  <textarea
-                    className="form-input"
-                    rows={2}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="e.g. Replaced 2 heavy-duty brass joints and applied sealant tape"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Live Grand Total Bar */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-navy-900, #0f172a)", color: "white", padding: "14px 18px", borderRadius: "var(--radius-lg)" }}>
-              <div>
-                <span style={{ fontSize: "11px", color: "#94a3b8", display: "block", textTransform: "uppercase", fontWeight: "bold" }}>
-                  Customer Final Total Due
-                </span>
-                <span style={{ fontSize: "12px", color: "#fdba74" }}>
-                  {hasExtra ? `₹${basePrice} (Base) + ₹${parseFloat(extraAmount) || 0} (Extra)` : `Standard ₹${basePrice}`}
-                </span>
-              </div>
-              <div style={{ fontSize: "1.5rem", fontWeight: "800", color: "#f97316", fontFamily: "monospace" }}>
-                ₹{finalAmount}
-              </div>
+            <div style={{ textAlign: "right" }}>
+              <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", textTransform: "uppercase", fontWeight: "700" }}>Booking Ref</span>
+              <span style={{ fontWeight: "700", color: "#FF7900", fontFamily: "monospace" }}>{order.booking_code || order.id?.slice(0, 8)}</span>
             </div>
           </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose} disabled={loading}>
+          {/* ─── CHARGES MAINTENANCE INPUTS ─── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <span style={{ fontSize: "12px", fontWeight: "800", textTransform: "uppercase", color: "#162238", letterSpacing: "0.5px" }}>
+              Itemized Charges Maintenance
+            </span>
+
+            {/* 1. Base Service Charge */}
+            <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "10px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <label style={{ fontSize: "12.5px", fontWeight: "700", color: "#162238" }}>
+                  1. Service Charge (Base Labor)
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: "700", color: "#64748B" }}>₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="form-input"
+                    value={serviceCharge}
+                    onChange={(e) => setServiceCharge(e.target.value)}
+                    style={{ width: "120px", height: "34px", padding: "0 8px", fontSize: "14px", fontWeight: "700", textAlign: "right", borderRadius: "6px" }}
+                    placeholder="800.00"
+                    required
+                  />
+                </div>
+              </div>
+              <span style={{ fontSize: "11px", color: "#64748B" }}>
+                Standard diagnostic, inspection, and service labor tariff.
+              </span>
+            </div>
+
+            {/* 2. Materials & Parts */}
+            <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "10px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <label style={{ fontSize: "12.5px", fontWeight: "700", color: "#162238" }}>
+                  2. Materials / Replacement Parts
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: "700", color: "#64748B" }}>₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="form-input"
+                    value={materialsParts}
+                    onChange={(e) => setMaterialsParts(e.target.value)}
+                    style={{ width: "120px", height: "34px", padding: "0 8px", fontSize: "14px", fontWeight: "700", textAlign: "right", borderRadius: "6px" }}
+                    placeholder="250.00"
+                  />
+                </div>
+              </div>
+              <input
+                type="text"
+                className="form-input"
+                value={materialsDescription}
+                onChange={(e) => setMaterialsDescription(e.target.value)}
+                style={{ width: "100%", height: "32px", padding: "0 8px", fontSize: "12px", borderRadius: "6px", marginTop: "4px" }}
+                placeholder="Description of materials used (e.g. Capacitor, wires, fuse)"
+              />
+            </div>
+
+            {/* 3. Additional Charges */}
+            <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "10px", padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <label style={{ fontSize: "12.5px", fontWeight: "700", color: "#162238" }}>
+                  3. Additional Charges
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: "700", color: "#64748B" }}>₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="form-input"
+                    value={additionalCharges}
+                    onChange={(e) => setAdditionalCharges(e.target.value)}
+                    style={{ width: "120px", height: "34px", padding: "0 8px", fontSize: "14px", fontWeight: "700", textAlign: "right", borderRadius: "6px" }}
+                    placeholder="100.00"
+                  />
+                </div>
+              </div>
+              <input
+                type="text"
+                className="form-input"
+                value={additionalDescription}
+                onChange={(e) => setAdditionalDescription(e.target.value)}
+                style={{ width: "100%", height: "32px", padding: "0 8px", fontSize: "12px", borderRadius: "6px", marginTop: "4px" }}
+                placeholder="Reason for additional charges (e.g. Extra conduit routing)"
+              />
+            </div>
+          </div>
+
+          {/* ─── LIVE RECEIPT CHARGES SUMMARY ─── */}
+          <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "14px 18px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#64748B" }}>
+              <span>Subtotal (1 + 2 + 3):</span>
+              <span style={{ fontWeight: "700", color: "#162238" }}>₹{subtotal.toFixed(2)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#64748B" }}>
+              <span>GST (18% Tax):</span>
+              <span style={{ fontWeight: "600", color: "#162238" }}>₹{gst.toFixed(2)}</span>
+            </div>
+
+            {/* Prominent Total Bar */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "#162238",
+              color: "#FFFFFF",
+              borderRadius: "8px",
+              padding: "10px 14px",
+              marginTop: "4px",
+              borderLeft: "4px solid #FF7900"
+            }}>
+              <span style={{ fontSize: "13px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                CUSTOMER TOTAL
+              </span>
+              <span style={{ fontSize: "18px", fontWeight: "900", color: "#FF7900" }}>
+                ₹{total.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Cooperative Breakdown Note */}
+            <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed #CBD5E1", paddingTop: "8px", marginTop: "4px", fontSize: "12px" }}>
+              <span style={{ color: "#059669", fontWeight: "700" }}>Your Take-Home: ₹{pillarEarnings.toFixed(2)}</span>
+              <span style={{ color: "#64748B" }}>Coop Fund (8.5%): ₹{coopCommission.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={onClose}
+              style={{ flex: 1, height: "42px", fontSize: "13px" }}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-success" disabled={loading} style={{ fontWeight: "bold" }}>
-              {loading ? <Loader2 size={16} className="spinner" /> : `✓ Confirm & Complete Job (₹${finalAmount})`}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary"
+              style={{ flex: 2, height: "42px", fontSize: "13px", fontWeight: "700", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+            >
+              {loading ? <Loader2 size={16} className="spinner" /> : <CheckCircle2 size={16} />}
+              {loading ? "Saving & Finalizing..." : "Confirm & Generate Receipt"}
             </button>
           </div>
         </form>

@@ -9,16 +9,47 @@ export const pillarAuthService = {
       let resolvedEmail = (email || phone || '').trim();
       let foundPillar = null;
 
-      // If user provided a Pillar Code (e.g. PIL-CHE-043) or Mobile or Application ID
-      const { data: pillarMatch } = await supabase
-        .from("pillar_profiles")
-        .select("*")
-        .or(`pillar_code.eq.${resolvedEmail},mobile.eq.${resolvedEmail},email.eq.${resolvedEmail},application_id.eq.${resolvedEmail}`)
-        .maybeSingle();
+      // Resilient multi-field lookup for Pillar Code, Email, Mobile, or Application ID
+      try {
+        let { data: pillarMatch } = await supabase
+          .from("pillar_profiles")
+          .select("*")
+          .eq("email", resolvedEmail)
+          .maybeSingle();
 
-      if (pillarMatch) {
-        foundPillar = pillarMatch;
-        resolvedEmail = pillarMatch.email || resolvedEmail;
+        if (!pillarMatch) {
+          const { data: codeMatch } = await supabase
+            .from("pillar_profiles")
+            .select("*")
+            .eq("pillar_code", resolvedEmail)
+            .maybeSingle();
+          pillarMatch = codeMatch;
+        }
+
+        if (!pillarMatch) {
+          const { data: mobMatch } = await supabase
+            .from("pillar_profiles")
+            .select("*")
+            .eq("mobile", resolvedEmail)
+            .maybeSingle();
+          pillarMatch = mobMatch;
+        }
+
+        if (!pillarMatch) {
+          const { data: appMatch } = await supabase
+            .from("pillar_profiles")
+            .select("*")
+            .eq("application_id", resolvedEmail)
+            .maybeSingle();
+          pillarMatch = appMatch;
+        }
+
+        if (pillarMatch) {
+          foundPillar = pillarMatch;
+          resolvedEmail = pillarMatch.email || resolvedEmail;
+        }
+      } catch (lookupErr) {
+        console.warn("Pillar lookup note:", lookupErr);
       }
 
       // Check verification clearance status in pillar_profiles

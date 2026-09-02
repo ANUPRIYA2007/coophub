@@ -127,17 +127,21 @@ export default function Hero3DCanvas({
         lookTargetY = 0;
 
         if (mode === 'avatar') {
-          lookTargetY = size.y * 0.38;
-          camDist = maxDim * 0.55;
+          // Centered head & chest portrait with full cap and shoulders
+          lookTargetY = size.y * 0.28;
+          camDist = maxDim * 0.82;
         } else if (mode === 'bubble') {
-          lookTargetY = size.y * 0.04;
-          camDist = maxDim * 1.12;
+          // Upper body with head, chest, and arms
+          lookTargetY = size.y * 0.08;
+          camDist = maxDim * 1.35;
         } else if (mode === 'card') {
-          lookTargetY = size.y * 0.02;
-          camDist = maxDim * 1.25;
-        } else if (mode === 'full') {
+          // Full character standing uncropped from cap to boots
           lookTargetY = 0;
-          camDist = maxDim * 1.45;
+          camDist = maxDim * 1.82;
+        } else if (mode === 'full') {
+          // Full character with generous framing margin
+          lookTargetY = 0;
+          camDist = maxDim * 1.95;
         }
 
         camera.position.set(0, lookTargetY + 0.05, camDist);

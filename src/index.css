@@ -400,3 +400,56 @@ html.dark .btn-secondary:hover {
   width: 24px !important;
   opacity: 1 !important;
 }
+
+/* ============================================================ */
+/* 3D GSAP ANIMATION & PERSPECTIVE SYSTEM                        */
+/* ============================================================ */
+.perspective-container {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+.gsap-3d-card,
+.card-3d,
+.stat-card,
+.admin-stat-card {
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+  transition: box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gsap-3d-card:hover,
+.card-3d:hover,
+.stat-card:hover,
+.admin-stat-card:hover {
+  box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.25), 0 0 20px rgba(255, 121, 0, 0.15) !important;
+}
+
+.gsap-3d-btn,
+.btn-3d {
+  transform-style: preserve-3d;
+  will-change: transform;
+  position: relative;
+}
+
+.gsap-3d-nav {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* 3D Floating Bobbing Animation */
+@keyframes float3D {
+  0% {
+    transform: translateY(0px) rotateX(0deg) rotateZ(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotateX(3deg) rotateZ(1deg);
+  }
+  100% {
+    transform: translateY(0px) rotateX(0deg) rotateZ(0deg);
+  }
+}
+
+.anim-float-3d {
+  animation: float3D 3.5s ease-in-out infinite;
+}

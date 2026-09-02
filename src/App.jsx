@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { gsap3dEngine } from './services/animation/gsap3dEngine';
 
 // --- PILLAR PORTAL PAGES ---
 import Landing from './pages/pillar/Landing';
@@ -42,6 +43,7 @@ import AdminLogin from './modules/admin/pages/AdminLogin';
 import AdminForecast from './modules/admin/pages/AdminForecast';
 import AdminCertifications from './modules/admin/pages/AdminCertifications';
 import AdminAllocation from './modules/admin/pages/AdminAllocation';
+import AdminChatAI from './modules/admin/pages/AdminChatAI';
 
 // --- CUSTOMER PORTAL PAGES & AGENTS ---
 import AppRoutes from './routes/AppRoutes';
@@ -61,16 +63,26 @@ const AdminProtectedRoute = ({ children }) => {
 
 export default function App() {
   const { loading } = useAuth();
-  
-  const isPillarOrAdmin = window.location.pathname.startsWith('/pillar') || 
-                          window.location.pathname.startsWith('/dashboard') || 
-                          window.location.pathname.startsWith('/admin');
-  const isRoot = window.location.pathname === '/' || window.location.pathname === '';
+  const location = useLocation();
+
+  const isPillarOrAdmin = location.pathname.startsWith('/pillar') ||
+    location.pathname.startsWith('/dashboard') ||
+    location.pathname.startsWith('/admin');
+  const isRoot = location.pathname === '/' || location.pathname === '';
   const [showSplash, setShowSplash] = useState(isRoot);
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
   }, []);
+
+  // Global 3D GSAP Engine Initialization & Route Sync
+  useEffect(() => {
+    gsap3dEngine.initGlobal3DInteractions();
+    const timer = setTimeout(() => {
+      gsap3dEngine.refresh();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
 
   if (loading) {
     return (
@@ -125,6 +137,8 @@ export default function App() {
                 <AdminLayout>
                   <Routes>
                     <Route path="/" element={<AdminOverview />} />
+                    <Route path="/chatai" element={<AdminChatAI />} />
+                    <Route path="/chat" element={<AdminChatAI />} />
                     <Route path="/forecast" element={<AdminForecast />} />
                     <Route path="/allocation" element={<AdminAllocation />} />
                     <Route path="/certifications" element={<AdminCertifications />} />

@@ -11,6 +11,7 @@ import {
     CheckCircle2, AlertTriangle, FileText, Star, UserCheck, ChevronRight,
     CreditCard, ArrowLeft, Sparkles
 } from 'lucide-react';
+import OrderReceiptModal from '../../components/common/OrderReceiptModal';
 
 export default function RequestDetails() {
     const { id } = useParams();
@@ -647,36 +648,33 @@ export default function RequestDetails() {
                 </div>
             )}
 
-            {/* ─── INVOICE MODAL ─── */}
-            {showInvoiceModal && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-navy-100 space-y-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-start border-b border-navy-100 pb-3">
-                            <div>
-                                <span className="text-[10px] font-bold uppercase text-orange-600">Official Tax Invoice</span>
-                                <h3 className="font-bold text-navy-900 text-lg">{invoiceData?.invoice_number || `INV-${id?.slice(0, 6)}`}</h3>
-                            </div>
-                            <button onClick={() => setShowInvoiceModal(false)} className="text-navy-400 hover:text-navy-600 font-bold">✕</button>
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                            <button onClick={() => window.print()} className="btn-secondary flex-1 py-2 text-xs font-bold">Print</button>
-                            <button onClick={() => setShowInvoiceModal(false)} className="btn-primary flex-1 py-2 text-xs font-bold">Done</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ─── RECEIPT MODAL ─── */}
-            {showReceiptModal && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-navy-100 text-center space-y-4">
-                        <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                            <CheckCircle2 size={32} />
-                        </div>
-                        <h3 className="font-bold text-navy-900 text-lg mt-2">Payment Cleared</h3>
-                        <button onClick={() => setShowReceiptModal(false)} className="btn-primary w-full py-2.5 text-xs font-bold">Close</button>
-                    </div>
-                </div>
+            {/* ─── OFFICIAL TAX INVOICE & CASH RECEIPT MODAL ─── */}
+            {(showInvoiceModal || showReceiptModal) && (
+                <OrderReceiptModal
+                    order={{
+                        ...requestData,
+                        id: id,
+                        booking_code: requestData?.order_code || `REQ-${id?.slice(0, 6)?.toUpperCase()}`,
+                        service_name: requestData?.service?.name || requestData?.service_name || 'Home Service',
+                        sub_service_name: requestData?.sub_service?.name || requestData?.sub_service_name || '',
+                        customer_name: requestData?.customer_name || 'Coop Customer',
+                        customer_mobile: requestData?.customer_mobile || '+91 98401 23456',
+                        service_address: requestData?.address_line || requestData?.service_address || 'Service Zone, Chennai',
+                        base_amount: requestData?.amount || 450,
+                        extra_charge_amount: requestData?.extra_charge_amount || 0,
+                        extra_charge_reason: requestData?.extra_charge_reason || '',
+                        total_amount: requestData?.final_amount || requestData?.amount || 450,
+                        final_amount: requestData?.final_amount || requestData?.amount || 450,
+                        scheduled_date: requestData?.scheduled_date || requestData?.preferred_date,
+                        scheduled_time: requestData?.scheduled_time || requestData?.preferred_time,
+                        payment_method: paymentData?.payment_method || 'Online Payment (UPI)',
+                        pillar: requestData?.pillar
+                    }}
+                    onClose={() => {
+                        setShowInvoiceModal(false);
+                        setShowReceiptModal(false);
+                    }}
+                />
             )}
         </div>
     );

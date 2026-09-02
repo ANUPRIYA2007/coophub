@@ -3,13 +3,15 @@ import { adminService } from "../services/adminService";
 import { 
   Users, UserCheck, Clock, Activity, DollarSign, TrendingUp, 
   ArrowUpRight, CheckCircle2, ShieldCheck, MapPin, Wrench, Star,
-  BarChart3, RefreshCw
+  BarChart3, RefreshCw, Bot, Sparkles
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import gsap from "gsap";
+import { gsap3dEngine } from "../../../services/animation/gsap3dEngine";
 import TypewriterEffect from "../../../components/ui/TypewriterEffect";
 
 export default function AdminOverview() {
+  const navigate = useNavigate();
   const isDemo = localStorage.getItem("coophub_demo_admin") === "true" || localStorage.getItem("coophub_demo_user") === "true";
   const [isAdminOnline, setIsAdminOnline] = useState(() => localStorage.getItem("coophub_admin_online") !== "false");
   const [stats, setStats] = useState({
@@ -84,18 +86,24 @@ export default function AdminOverview() {
     }
     setLoading(false);
 
-    // GSAP Stagger Entrance
+    // Heavy 3D GSAP Stagger Entrance
     setTimeout(() => {
-      gsap.fromTo(
-        ".admin-kpi-card",
-        { opacity: 0, y: 22, scale: 0.96 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.08, ease: "power2.out" }
-      );
+      gsap3dEngine.animate3DStaggerEntrance(".admin-kpi-card, .card, .admin-stat-card", {
+        y: 45,
+        rotationX: 20,
+        rotationY: -8,
+        translateZ: -70,
+        stagger: 0.08,
+        duration: 0.8,
+      });
+
       gsap.fromTo(
         ".admin-bar-col",
         { scaleY: 0, transformOrigin: "bottom" },
-        { scaleY: 1, duration: 0.65, stagger: 0.08, ease: "back.out(1.4)" }
+        { scaleY: 1, duration: 0.75, stagger: 0.08, ease: "back.out(1.5)" }
       );
+
+      gsap3dEngine.refresh();
     }, 50);
   };
 
@@ -171,6 +179,77 @@ export default function AdminOverview() {
             disabled={loading}
           >
             <RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh Telemetry
+          </button>
+        </div>
+      </div>
+
+      {/* AI Operations Command Banner */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, rgba(27, 42, 74, 0.95), rgba(15, 23, 42, 0.98))",
+          border: "1px solid rgba(245, 124, 32, 0.35)",
+          borderRadius: "var(--radius-lg)",
+          padding: "16px 20px",
+          marginBottom: "var(--space-5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "16px",
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "50%",
+              background: "rgba(245, 124, 32, 0.2)",
+              border: "1.5px solid var(--color-secondary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Bot size={26} color="var(--color-secondary)" />
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h3 style={{ margin: 0, color: "#FFFFFF", fontSize: "1.05rem", fontWeight: "700" }}>
+                CoopBot AI Operations Assistant
+              </h3>
+              <span style={{ background: "rgba(16, 185, 129, 0.2)", color: "#10B981", fontSize: "10px", fontWeight: "700", padding: "2px 8px", borderRadius: "10px", border: "1px solid rgba(16, 185, 129, 0.4)" }}>
+                Active Live
+              </span>
+            </div>
+            <p style={{ margin: "4px 0 0 0", color: "#94A3B8", fontSize: "12.5px" }}>
+              Query Chronos-2 demand forecasts, execute instant candidate allocation, and inspect cooperative telemetry via natural language.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            onClick={() => navigate("/admin/chatai")}
+            style={{
+              background: "var(--color-secondary)",
+              color: "#FFFFFF",
+              border: "none",
+              padding: "8px 18px",
+              borderRadius: "20px",
+              fontWeight: "700",
+              fontSize: "12.5px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 2px 8px rgba(245, 124, 32, 0.35)",
+              transition: "transform 0.15s ease",
+            }}
+          >
+            <Bot size={15} /> Launch Chat AI Workspace →
           </button>
         </div>
       </div>

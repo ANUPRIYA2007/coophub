@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
-import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX } from "lucide-react";
+import { heroNotificationHub } from "../../../services/ai/heroNotificationHub";
+import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX, Bell } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Hero3D from "../../hero3d/Hero3D";
 
@@ -18,6 +19,9 @@ export default function MascotFloating() {
   const [isListening, setIsListening] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [activeNotifBubble, setActiveNotifBubble] = useState(null);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(heroNotificationHub.isMuted);
   const messagesEndRef = useRef(null);
 
   // Listen for global custom event to open Chat Assistant
@@ -54,6 +58,38 @@ export default function MascotFloating() {
     ]);
   }, [language, isAdminRoute]);
 
+  // Unified Hero AI Realtime Notification Subscription & Voice Announcements
+  useEffect(() => {
+    const unsubscribe = heroNotificationHub.subscribe(({ latest, unreadCount, isMuted: muted }) => {
+      setUnreadNotifCount(unreadCount);
+      setIsVoiceMuted(muted);
+
+      if (latest) {
+        // Show floating notification bubble for 9 seconds
+        setActiveNotifBubble(latest);
+        setTimeout(() => {
+          setActiveNotifBubble((curr) => (curr?.id === latest.id ? null : curr));
+        }, 9000);
+
+        // Inject notification into messages
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `notif-${latest.id}`,
+            sender: "mascot",
+            isNotification: true,
+            title: latest.title,
+            text: `🔔 **${latest.title}**\n${latest.message}`,
+            timestamp: latest.timestamp,
+            actionUrl: latest.actionUrl
+          }
+        ]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [language]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -61,6 +97,9 @@ export default function MascotFloating() {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
+      // Mark notifications as read when chat is opened
+      heroNotificationHub.markAllRead();
+      setUnreadNotifCount(0);
     }
   }, [messages, isOpen]);
 
@@ -107,32 +146,34 @@ export default function MascotFloating() {
     setIsTyping(true);
 
     try {
-      const response = await aiService.chatWithMascot({
-        message: userText,
-        context: {
-          isAuthenticated: true,
-          session,
-          route: location.pathname,
-          language,
-        },
+      // Direct live AI pipeline with Chronos-2 & Intent Router
+      const res = await aiService.chatWithMascot(userText, {
+        language,
+        role: isAdminRoute ? "admin" : "pillar",
+        currentPath: location.pathname
       });
 
       const mascotMsg = {
         id: `mascot-${Date.now()}`,
         sender: "mascot",
-        text: response.reply,
-        route: response.route,
-        provider: response.provider,
+        text: res.text || res.message || "I am processing your request with COOP HUB intelligence.",
+        route: res.route,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
+
       setMessages((prev) => [...prev, mascotMsg]);
+
+      // Speak aloud automatically if not muted
+      if (!isVoiceMuted) {
+        speakText(mascotMsg.text, mascotMsg.id);
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           id: `mascot-err-${Date.now()}`,
           sender: "mascot",
-          text: t("ai.errorResponse") || "I am here to help. Please try asking again!",
+          text: "I am ready to help. You can ask about your orders, customer messages, arrival OTP, or platform tariffs.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -142,9 +183,8 @@ export default function MascotFloating() {
   };
 
   const toggleVoice = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert(t("ai.voiceUnavailable") || "Voice speech recognition not supported in this browser.");
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      alert("Speech recognition is not supported in your browser.");
       return;
     }
 
@@ -153,30 +193,27 @@ export default function MascotFloating() {
       return;
     }
 
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
-      recognition.interimResults = false;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+    recognition.interimResults = false;
 
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(transcript);
-      };
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
 
-      recognition.start();
-    } catch (err) {
-      console.error(err);
-      setIsListening(false);
-    }
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+    };
+
+    recognition.start();
   };
 
   return (
     <>
       {/* ============================================================ */}
-      {/* CHATAGENT FLOATING TRIGGER (BOTTOM-RIGHT)                    */}
+      {/* FLOATING 3D HERO MASCOT BUTTON (PORTAL-WIDE)                  */}
       {/* ============================================================ */}
       <div
         style={{
@@ -186,10 +223,63 @@ export default function MascotFloating() {
           zIndex: "var(--z-mascot, 500)",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          gap: "12px",
         }}
       >
-        {!isOpen && (
+        {/* Floating Notification Alert Bubble above Mascot */}
+        {!isOpen && activeNotifBubble && (
+          <div
+            onClick={() => {
+              setIsOpen(true);
+              setActiveNotifBubble(null);
+            }}
+            style={{
+              position: "absolute",
+              bottom: "78px",
+              right: "0",
+              width: "290px",
+              background: "#162238",
+              color: "#FFFFFF",
+              borderRadius: "16px",
+              padding: "12px 14px",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.4), 0 0 0 2px #FF7900",
+              border: "1px solid #FF7900",
+              cursor: "pointer",
+              animation: "slideUp 0.3s ease",
+              zIndex: 1000
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10B981" }}></span>
+                <span style={{ fontSize: "11px", fontWeight: "800", color: "#FF7900", textTransform: "uppercase" }}>
+                  🔔 Hero AI Alert
+                </span>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveNotifBubble(null);
+                }}
+                style={{ background: "transparent", border: "none", color: "#94A3B8", cursor: "pointer", fontSize: "13px", padding: "0 4px" }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ fontSize: "12.5px", fontWeight: "700", color: "#FFFFFF", marginBottom: "2px" }}>
+              {activeNotifBubble.title}
+            </div>
+            <div style={{ fontSize: "11.5px", color: "#CBD5E1", lineHeight: "1.4" }}>
+              {activeNotifBubble.message}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "6px", borderTop: "1px solid rgba(255,255,255,0.1)", fontSize: "10.5px" }}>
+              <span style={{ color: "#94A3B8" }}>{activeNotifBubble.timestamp}</span>
+              <span style={{ color: "#FF7900", fontWeight: "700" }}>Tap to open chat →</span>
+            </div>
+          </div>
+        )}
+
+        {!isOpen && !activeNotifBubble && (
           <div
             onClick={() => setIsOpen(true)}
             style={{
@@ -213,32 +303,60 @@ export default function MascotFloating() {
           </div>
         )}
 
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          style={{
-            width: "66px",
-            height: "66px",
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, var(--color-secondary), #D46510)",
-            boxShadow: "0 0 24px rgba(245, 124, 32, 0.4), 0 8px 16px rgba(0,0,0,0.2)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "white",
-            cursor: "pointer",
-            transition: "all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
-            border: "3px solid white",
-            overflow: "hidden",
-            padding: 0,
-          }}
-          title="CoopBot AI Assistant"
-        >
-          {isOpen ? (
-            <X size={30} />
-          ) : (
-            <Hero3D mode="bubble" state={isListening ? 'listening' : isTyping ? 'thinking' : speakingMsgId ? 'speaking' : 'idle'} style={{ width: "100%", height: "100%" }} />
+        <div style={{ position: "relative" }}>
+          {/* Pulsating unread badge on 3D Mascot button */}
+          {unreadNotifCount > 0 && !isOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-4px",
+                right: "-4px",
+                background: "#EF4444",
+                color: "#FFFFFF",
+                fontSize: "11px",
+                fontWeight: "900",
+                minWidth: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "2px solid #FFFFFF",
+                boxShadow: "0 0 10px rgba(239, 68, 68, 0.7)",
+                zIndex: 10
+              }}
+            >
+              {unreadNotifCount}
+            </div>
           )}
-        </button>
+
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            style={{
+              width: "66px",
+              height: "66px",
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, var(--color-secondary), #D46510)",
+              boxShadow: "0 0 24px rgba(245, 124, 32, 0.4), 0 8px 16px rgba(0,0,0,0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              cursor: "pointer",
+              transition: "all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              border: "3px solid white",
+              overflow: "hidden",
+              padding: 0,
+            }}
+            title="CoopBot AI Assistant"
+          >
+            {isOpen ? (
+              <X size={30} />
+            ) : (
+              <Hero3D mode="bubble" state={isListening ? 'listening' : isTyping ? 'thinking' : speakingMsgId ? 'speaking' : 'idle'} style={{ width: "100%", height: "100%" }} />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ============================================================ */}
@@ -302,9 +420,33 @@ export default function MascotFloating() {
                 </span>
               </div>
             </div>
-            <button className="btn-icon" onClick={() => setIsOpen(false)} style={{ color: "white" }}>
-              <X size={20} />
-            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <button
+                onClick={() => {
+                  const muted = heroNotificationHub.toggleVoiceMute();
+                  setIsVoiceMuted(muted);
+                }}
+                className="btn-icon"
+                style={{
+                  color: isVoiceMuted ? "#94A3B8" : "#FFFFFF",
+                  background: isVoiceMuted ? "rgba(255,255,255,0.1)" : "rgba(255, 121, 0, 0.3)",
+                  borderRadius: "8px",
+                  padding: "6px",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+                title={isVoiceMuted ? "Unmute Hero Voice Announcements" : "Mute Hero Voice Announcements"}
+              >
+                {isVoiceMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </button>
+              <button className="btn-icon" onClick={() => setIsOpen(false)} style={{ color: "white" }}>
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Quick Action Chips (Dynamic for Admin vs Pillar) */}
@@ -318,23 +460,15 @@ export default function MascotFloating() {
               overflowX: "auto",
               whiteSpace: "nowrap",
             }}
-            className="hide-scrollbar"
           >
             {isAdminRoute ? (
               <>
                 <button
                   className="btn btn-outline btn-sm"
                   style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
-                  onClick={() => setInput("Show all registered pillars summary")}
+                  onClick={() => setInput("How many pending pillar verifications exist?")}
                 >
-                  👥 All Pillars
-                </button>
-                <button
-                  className="btn btn-outline btn-sm"
-                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
-                  onClick={() => setInput("What are the active service requests?")}
-                >
-                  📦 Active Requests
+                  👥 Pillar KYC
                 </button>
                 <button
                   className="btn btn-outline btn-sm"
@@ -403,10 +537,10 @@ export default function MascotFloating() {
                     maxWidth: "84%",
                     padding: "12px 16px",
                     borderRadius: "16px",
-                    background: m.sender === "user" ? "var(--color-secondary)" : "var(--color-surface)",
+                    background: m.sender === "user" ? "var(--color-secondary)" : m.isNotification ? "rgba(255, 121, 0, 0.08)" : "var(--color-surface)",
                     color: m.sender === "user" ? "#FFFFFF" : "var(--color-text)",
                     boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-                    border: m.sender === "user" ? "none" : "1px solid var(--color-border)",
+                    border: m.sender === "user" ? "none" : m.isNotification ? "1px solid #FF7900" : "1px solid var(--color-border)",
                     fontSize: "13.5px",
                     lineHeight: "1.5",
                     whiteSpace: "pre-line",

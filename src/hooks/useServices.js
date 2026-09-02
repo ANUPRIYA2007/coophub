@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useTranslation } from './useTranslation';
 
-const DEMO_SERVICES = [
+const MASTER_SERVICES = [
     {
         id: 'srv-1',
         name: 'Electrical Repair',
@@ -104,6 +104,166 @@ const DEMO_SERVICES = [
         }
     },
     {
+        id: 'srv-domestic',
+        name: 'Domestic Helpers',
+        category: 'Domestic',
+        icon: '🍲',
+        name_translations: {
+            en: 'Domestic Helpers',
+            ta: 'வீட்டு உதவியாளர்கள்',
+            hi: 'घरेलू सहायक',
+            te: 'గృహ సహాయకులు',
+            kn: 'ಮನೆ ಕೆಲಸದವರು'
+        },
+        description_translations: {
+            en: 'Cooking, household assistance, daily domestic support.',
+            ta: 'சமையல், வீட்டு வேலைகள் மற்றும் தினசரி குடும்ப உதவி.',
+            hi: 'खाना बनाना, घरेलू सहायता और दैनिक घरेलू सहयोग।',
+            te: 'వంట, ఇంటి పనుల సహాయం మరియు రోజువారీ మద్దతు.',
+            kn: 'ಅಡುಗೆ, ಮನೆಕೆಲಸ ಮತ್ತು ದೈನಂದಿನ ಗೃಹ ಬೆಂಬಲ.'
+        }
+    },
+    {
+        id: 'srv-caregiver',
+        name: 'Caregiver Services',
+        category: 'Healthcare',
+        icon: '🩺',
+        name_translations: {
+            en: 'Caregiver Services',
+            ta: 'பராமரிப்பாளர் சேவைகள்',
+            hi: 'देखभालकर्ता सेवाएं',
+            te: 'సంరక్షక సేవలు',
+            kn: 'ಆರೈಕೆದಾರರ ಸೇವೆಗಳು'
+        },
+        description_translations: {
+            en: 'Elder care, patient assistance, home care and nursing support.',
+            ta: 'முதியோர் பராமரிப்பு, நோயாளி உதவி மற்றும் செவிலியர் ஆதரவு.',
+            hi: 'बुजुर्गों की देखभाल, रोगी सहायता और होम नर्सिंग समर्थन।',
+            te: 'వృద్ధుల సంరక్షణ, రోగుల సహాయం మరియు హోమ్ కేర్.',
+            kn: 'ಹಿರಿಯರ ಆರೈಕೆ, ರೋಗಿ ಸಹಾಯ ಮತ್ತು ಮನೆ ನರ್ಸಿಂಗ್ ಬೆಂಬಲ.'
+        }
+    },
+    {
+        id: 'srv-gardening',
+        name: 'Gardening & Landscaping',
+        category: 'Outdoor',
+        icon: '🌿',
+        name_translations: {
+            en: 'Gardening & Landscaping',
+            ta: 'தோட்டக்கலை & இயற்கையமைப்பு',
+            hi: 'बागवानी और लैंडस्केपिंग',
+            te: 'గార్డెనింగ్ & ల్యాండ్‌స్కేపింగ్',
+            kn: 'ತೋಟಗಾರಿಕೆ ಮತ್ತು ಭೂದೃಶ್ಯ'
+        },
+        description_translations: {
+            en: 'Garden maintenance, plant care, pruning and landscaping.',
+            ta: 'தோட்ட பராமரிப்பு, செடி வளர்ப்பு, கவாத்து மற்றும் வடிவமைப்பு.',
+            hi: 'बगीचे का रखरखाव, पौधों की देखभाल, छंटाई और लैंडस्केपिंग।',
+            te: 'గార్డెన్ నిర్వహణ, మొక్కల సంరక్షణ మరియు ల్యాండ్‌స్కేపింగ్.',
+            kn: 'ತೋಟ ನಿರ್ವಹಣೆ, ಸಸ್ಯ ಆರೈಕೆ ಮತ್ತು ಭೂದೃಶ್ಯ ವಿನ್ಯಾಸ.'
+        }
+    },
+    {
+        id: 'srv-technician',
+        name: 'Technician Services',
+        category: 'Technical',
+        icon: '🔧',
+        name_translations: {
+            en: 'Technician Services',
+            ta: 'தொழில்நுட்ப வல்லுநர் சேவைகள்',
+            hi: 'तकनीशियन सेवाएं',
+            te: 'టెక్నీషియన్ సేవలు',
+            kn: 'ತಂತ್ರಜ್ಞರ ಸೇವೆಗಳು'
+        },
+        description_translations: {
+            en: 'Appliance repair, CCTV, electronics and equipment maintenance.',
+            ta: 'உபகரண பழுது, சிசிடிவி மற்றும் மின்னணு சாதன பராமரிப்பு.',
+            hi: 'उपकरण मरम्मत, सीसीटीवी, इलेक्ट्रॉनिक्स और उपकरण रखरखाव।',
+            te: 'ఉపకరణాల మరమ్మత్తు, సీసీటీవీ మరియు ఎలక్ట్రానిక్స్ నిర్వహణ.',
+            kn: 'ಉಪಕರಣ ದುರಸ್ತಿ, ಸಿಸಿಟಿವಿ ಮತ್ತು ಎಲೆಕ್ಟ್ರಾನಿಕ್ಸ್ ನಿರ್ವಹಣೆ.'
+        }
+    },
+    {
+        id: 'srv-emergency',
+        name: 'Emergency Services',
+        category: 'Emergency',
+        icon: '🚨',
+        name_translations: {
+            en: 'Emergency Services',
+            ta: 'அவசர சேவைகள்',
+            hi: 'आपातकालीन सेवाएं',
+            te: 'అత్యవసర సేవలు',
+            kn: 'ತುರ್ತು ಸೇವೆಗಳು'
+        },
+        description_translations: {
+            en: '24/7 urgent household and repair assistance.',
+            ta: '24/7 அவசர வீட்டு பராமரிப்பு மற்றும் உடனடி பழுதுபார்ப்பு.',
+            hi: '24/7 तत्काल घरेलू और मरम्मत सहायता।',
+            te: '24/7 అత్యవసర గృహ మరియు మరమ్మత్తు సహాయం.',
+            kn: '24/7 ತುರ್ತು ಗೃಹ ಮತ್ತು ದುರಸ್ತಿ ನೆರವು.'
+        }
+    },
+    {
+        id: 'srv-ondemand',
+        name: 'On-Demand Services',
+        category: 'On-Demand',
+        icon: '⚡',
+        name_translations: {
+            en: 'On-Demand Services',
+            ta: 'தேவைக்கேற்ற உடனடி சேவைகள்',
+            hi: 'ऑन-डिमांड सेवाएं',
+            te: 'ఆన్-డిమాండ్ సేవలు',
+            kn: 'ಆನ್-ಡಿಮಾಂಡ್ ಸೇವೆಗಳು'
+        },
+        description_translations: {
+            en: 'Instant booking for quick and immediate assistance.',
+            ta: 'விரைவான மற்றும் உடனடி உதவிக்கான நேரடி முன்பதிவு.',
+            hi: 'त्वरित और तत्काल सहायता के लिए त्वरित बुकिंग।',
+            te: 'త్వరిత సహాయం కోసం తక్షణ బుకింగ్.',
+            kn: 'ತ್ವರಿತ ಮತ್ತು ತಕ್ಷಣದ ನೆರವಿಗಾಗಿ ತ್ವರಿತ ಬುಕಿಂಗ್.'
+        }
+    },
+    {
+        id: 'srv-coop-workers',
+        name: 'Verified Cooperative Workers',
+        category: 'Cooperative',
+        icon: '🛡️',
+        name_translations: {
+            en: 'Verified Cooperative Workers',
+            ta: 'சரிபார்க்கப்பட்ட கூட்டுறவு பணியாளர்கள்',
+            hi: 'सत्यापित सहकारी कार्यकर्ता',
+            te: 'ధృవీకరించబడిన సహకార కార్మికులు',
+            kn: 'ಪರಿಶೀಲಿಸಿದ ಸಹಕಾರಿ ಕಾರ್ಮಿಕರು'
+        },
+        description_translations: {
+            en: 'Verified and skilled workers from cooperative societies.',
+            ta: 'கூட்டுறவு சங்கங்களிலிருந்து சரிபார்க்கப்பட்ட திறமையான தொழிலாளர்கள்.',
+            hi: 'सहकारी समितियों से सत्यापित और कुशल कार्यकर्ता।',
+            te: 'సహకార సంఘాల నుండి నైపుణ్యం కలిగిన కార్మికులు.',
+            kn: 'ಸಹಕಾರಿ ಸಂಘಗಳಿಂದ ಪರಿಶೀಲಿಸಿದ ನುರಿತ ಕಾರ್ಮಿಕರು.'
+        }
+    },
+    {
+        id: 'srv-training',
+        name: 'Training & Certification',
+        category: 'Training',
+        icon: '🎓',
+        name_translations: {
+            en: 'Training & Certification',
+            ta: 'பயிற்சி மற்றும் சான்றிதழ்',
+            hi: 'प्रशिक्षण और प्रमाणन',
+            te: 'శిక్షణ మరియు ధృవీకరణ',
+            kn: 'ತರಬೇತಿ ಮತ್ತು ಪ್ರಮಾಣೀಕರಣ'
+        },
+        description_translations: {
+            en: 'Worker skill development, training and certification.',
+            ta: 'தொழிலாளர் திறன் மேம்பாடு, பயிற்சி மற்றும் சான்றிதழ்.',
+            hi: 'श्रमिक कौशल विकास, प्रशिक्षण और प्रमाणन।',
+            te: 'కార్మికుల నైపుణ్య అభివృద్ధి మరియు ధృవీకరణ.',
+            kn: 'ಕಾರ್ಮಿಕ ಕೌಶಲ್ಯ ಅಭಿವೃದ್ಧಿ, ತರಬೇತಿ ಮತ್ತು ಪ್ರಮಾಣೀಕರಣ.'
+        }
+    },
+    {
         id: 'srv-driver',
         name: 'Professional Driver Services',
         category: 'Transport',
@@ -122,30 +282,10 @@ const DEMO_SERVICES = [
             te: 'స్థానిక మరియు అవుట్‌స్టేషన్ ప్రయాణాల కోసం డ్రైవర్లు.',
             kn: 'ಸ್ಥಳೀಯ ಮತ್ತು ಹೊರಗಿನ ಪ್ರಯಾಣಕ್ಕಾಗಿ ಪರಿಶೀಲಿಸಿದ ಚಾಲಕರು.'
         }
-    },
-    {
-        id: 'srv-others',
-        name: 'Specialized & Custom Trades',
-        category: 'Specialized',
-        icon: '🛠️',
-        name_translations: {
-            en: 'Specialized & Custom Trades',
-            ta: 'சிறப்புத் தொழில்கள்',
-            hi: 'विशेषज्ञ सेवाएं',
-            te: 'ప్రత్యేక సేవలు',
-            kn: 'ವಿಶೇಷ ಸೇವೆಗಳು'
-        },
-        description_translations: {
-            en: 'CCTV installation, welding, masonry, and on-demand artisan trades.',
-            ta: 'சிசிடிவி பொருத்துதல், வெல்டிங் மற்றும் இதர பணிகள்.',
-            hi: 'सीसीटीवी स्थापना, वेल्डिंग और कस्टम सेवाएं।',
-            te: 'సీసీటీవీ ఇన్‌స్టాలేషన్ మరియు ఇతర సేవలు.',
-            kn: 'ಸಿಸಿಟಿವಿ ಸ್ಥಾಪನೆ ಮತ್ತು ಇತರ ವಿಶೇಷ ಸೇವೆಗಳು.'
-        }
     }
 ];
 
-const DEMO_SUB_SERVICES = [
+const MASTER_SUB_SERVICES = [
     { id: 'sub-1', service_id: 'srv-1', name: 'Ceiling Fan & Switchboard Wiring', base_price: 350 },
     { id: 'sub-2', service_id: 'srv-1', name: 'MCB Trip & Short Circuit Inspection', base_price: 450 },
     { id: 'sub-3', service_id: 'srv-1', name: 'Inverter & Battery Setup', base_price: 800 },
@@ -155,9 +295,21 @@ const DEMO_SUB_SERVICES = [
     { id: 'sub-7', service_id: 'srv-3', name: 'Water Leakage & Clog Removal', base_price: 400 },
     { id: 'sub-8', service_id: 'srv-4', name: 'Washing Machine Drum & Motor Service', base_price: 650 },
     { id: 'sub-9', service_id: 'srv-5', name: 'Single Room Wall Painting & Primer', base_price: 2400 },
+    { id: 'sub-dom-1', service_id: 'srv-domestic', name: 'Daily Cooking & Meal Preparation', base_price: 350 },
+    { id: 'sub-dom-2', service_id: 'srv-domestic', name: 'Household Assistance & Maid Service', base_price: 500 },
+    { id: 'sub-care-1', service_id: 'srv-caregiver', name: 'Elder Care & Daily Patient Assistance', base_price: 800 },
+    { id: 'sub-care-2', service_id: 'srv-caregiver', name: 'Home Nursing & Medication Support', base_price: 1200 },
+    { id: 'sub-gard-1', service_id: 'srv-gardening', name: 'Garden Maintenance & Lawn Mowing', base_price: 450 },
+    { id: 'sub-gard-2', service_id: 'srv-gardening', name: 'Plant Care, Pruning & Landscaping', base_price: 650 },
+    { id: 'sub-tech-1', service_id: 'srv-technician', name: 'CCTV & Security Camera Setup', base_price: 850 },
+    { id: 'sub-tech-2', service_id: 'srv-technician', name: 'Electronics & Equipment Maintenance', base_price: 550 },
+    { id: 'sub-emerg-1', service_id: 'srv-emergency', name: '24/7 Urgent Plumbing & Pipe Burst Fix', base_price: 600 },
+    { id: 'sub-emerg-2', service_id: 'srv-emergency', name: '24/7 Emergency Electrical Short Circuit', base_price: 700 },
+    { id: 'sub-ondem-1', service_id: 'srv-ondemand', name: 'Instant 30-Min Priority Dispatch', base_price: 400 },
+    { id: 'sub-coop-1', service_id: 'srv-coop-workers', name: 'Verified Skilled Cooperative Technician', base_price: 500 },
+    { id: 'sub-train-1', service_id: 'srv-training', name: 'Worker Skill Assessment & Certification', base_price: 0 },
     { id: 'sub-driver-1', service_id: 'srv-driver', name: 'Personal City Chauffeur (Local Trip)', base_price: 450 },
-    { id: 'sub-driver-2', service_id: 'srv-driver', name: 'Outstation / Full-Day Driver', base_price: 1200 },
-    { id: 'sub-other-1', service_id: 'srv-others', name: 'CCTV & Smart Security Setup', base_price: 850 }
+    { id: 'sub-driver-2', service_id: 'srv-driver', name: 'Outstation / Full-Day Driver', base_price: 1200 }
 ];
 
 export function useServices() {
@@ -170,18 +322,17 @@ export function useServices() {
     useEffect(() => {
         const fetchCatalogue = async () => {
             setLoading(true);
-            const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
             try {
                 // Fetch Services from Supabase
-                const { data: srvData, error: srvError } = await supabase
+                const { data: srvData } = await supabase
                     .from('services')
                     .select('*')
                     .eq('active', true)
                     .order('display_order', { ascending: true });
 
                 // Fetch Sub-Services from Supabase
-                const { data: subData, error: subError } = await supabase
+                const { data: subData } = await supabase
                     .from('sub_services')
                     .select('*')
                     .eq('active', true)
@@ -193,29 +344,38 @@ export function useServices() {
                     description: item.description_translations?.[language] || item.description_translations?.['en'] || item.description || ''
                 });
 
+                // Merge database services with master catalog so all standard categories are populated
+                let combinedServices = [...MASTER_SERVICES];
                 if (srvData && srvData.length > 0) {
-                    setServices(srvData.map(mapTranslations));
-                    setSubServices(subData ? subData.map(mapTranslations) : []);
-                } else if (isDemo) {
-                    // In Demo Mode: provide complete catalogue
-                    setServices(DEMO_SERVICES.map(mapTranslations));
-                    setSubServices(DEMO_SUB_SERVICES.map(mapTranslations));
+                    const dbMapped = srvData.map(mapTranslations);
+                    const dbIds = new Set(dbMapped.map(s => s.id));
+                    const remainingMasters = MASTER_SERVICES.filter(m => !dbIds.has(m.id)).map(mapTranslations);
+                    combinedServices = [...dbMapped, ...remainingMasters];
                 } else {
-                    setServices([]);
-                    setSubServices([]);
+                    combinedServices = MASTER_SERVICES.map(mapTranslations);
                 }
+
+                let combinedSubServices = [...MASTER_SUB_SERVICES];
+                if (subData && subData.length > 0) {
+                    const subMapped = subData.map(mapTranslations);
+                    const subDbIds = new Set(subMapped.map(s => s.id));
+                    const remainingSubMasters = MASTER_SUB_SERVICES.filter(m => !subDbIds.has(m.id)).map(mapTranslations);
+                    combinedSubServices = [...subMapped, ...remainingSubMasters];
+                } else {
+                    combinedSubServices = MASTER_SUB_SERVICES.map(mapTranslations);
+                }
+
+                setServices(combinedServices);
+                setSubServices(combinedSubServices);
             } catch (err) {
-                if (isDemo) {
-                    const mapTranslations = (item) => ({
-                        ...item,
-                        name: item.name_translations?.[language] || item.name_translations?.['en'] || item.name || '',
-                        description: item.description_translations?.[language] || item.description_translations?.['en'] || item.description || ''
-                    });
-                    setServices(DEMO_SERVICES.map(mapTranslations));
-                    setSubServices(DEMO_SUB_SERVICES.map(mapTranslations));
-                } else {
-                    setError(err.message);
-                }
+                console.warn('Using master services catalogue:', err.message);
+                const mapTranslations = (item) => ({
+                    ...item,
+                    name: item.name_translations?.[language] || item.name_translations?.['en'] || item.name || '',
+                    description: item.description_translations?.[language] || item.description_translations?.['en'] || item.description || ''
+                });
+                setServices(MASTER_SERVICES.map(mapTranslations));
+                setSubServices(MASTER_SUB_SERVICES.map(mapTranslations));
             } finally {
                 setLoading(false);
             }
@@ -231,3 +391,5 @@ export function useServices() {
 
     return { services, subServices, getSubServices, loading, error };
 }
+
+export default useServices;

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { supabase } from '../../lib/supabase';
+import { aiService } from '../../services/pillar/aiService';
 import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 export default function ChatAgent({ contextData }) {
@@ -239,40 +240,45 @@ export default function ChatAgent({ contextData }) {
                 return;
             }
 
-            // 2. Fallback to backend API for unrecognized queries
+            // 2. Live AI Pipeline: Call aiService (NVIDIA Nemotron & Gemini multi-model engine)
             const { data: { session } } = await supabase.auth.getSession();
             const currentContext = {
-                currentModule: location.pathname.split('/')[1] || 'home',
-                currentRequestId: params.id || null
+                route: location.pathname,
+                module: location.pathname.split('/')[1] || 'home',
+                currentRequestId: params.id || null,
+                language,
+                session,
+                catalogContext: contextData
             };
 
-            const res = await fetch('/api/ai/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: newHistory.map(m => ({ role: m.role, content: m.content })),
-                    language,
-                    catalogContext: contextData,
-                    token: session?.access_token,
-                    contextData: currentContext
-                })
+            const response = await aiService.chatWithMascot({
+                message: textToSend,
+                context: currentContext
             });
 
-            const data = await res.json();
-
-            if (data.message || data.text) {
-                const botReply = data.message || data.text;
+            if (response && response.reply) {
+                let action = null;
+                if (response.route && response.route !== location.pathname) {
+                    action = {
+                        type: 'navigate',
+                        path: response.route,
+                        label: `Go to ${response.route.replace('/', '').replace('dashboard/', '') || 'Page'} →`
+                    };
+                }
                 setMessages(prev => [
                     ...prev,
                     {
                         id: `bot-${Date.now()}`,
                         role: 'assistant',
-                        content: botReply,
+                        content: response.reply,
+                        action: action,
+                        provider: response.provider || 'CoopBot AI',
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     }
                 ]);
+                return;
             } else {
-                throw new Error(data.error || 'Empty response');
+                throw new Error('No reply from AI service');
             }
         } catch (err) {
             console.error('Chat error:', err);

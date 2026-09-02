@@ -132,9 +132,35 @@ export default function Login() {
     }
   };
 
-  // Fallback Step 3: Password Login if Admin requested
+  // 1-Click Quick Demo Login Helper
+  const handleQuickDemoLogin = (role = "pillar") => {
+    setLoading(true);
+    if (role === "admin") {
+      localStorage.setItem("coophub_demo_admin", "true");
+      localStorage.removeItem("coophub_demo_user");
+      setTimeout(() => {
+        setLoading(false);
+        navigate("/admin");
+      }, 500);
+    } else {
+      localStorage.setItem("coophub_demo_user", "true");
+      localStorage.removeItem("coophub_demo_admin");
+      setTimeout(() => {
+        setLoading(false);
+        navigate("/dashboard");
+      }, 500);
+    }
+  };
+
+  // Password Login Method
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
+    if (!formData.pillarId.trim()) {
+      setError("Please enter your registered Pillar ID, Email, or Mobile Number");
+      setActiveField("pillarId");
+      return;
+    }
+
     if (!formData.password.trim()) {
       setError("Please enter your Password");
       setActiveField("password");
@@ -144,24 +170,14 @@ export default function Login() {
     setLoading(true);
 
     // 🧪 PILLAR DEMO BYPASS: Logs into Pillar Dashboard with rich demo data
-    if (formData.pillarId === "PIL-CHE-042" && formData.password === "password123") {
-      localStorage.setItem("coophub_demo_user", "true");
-      localStorage.removeItem("coophub_demo_admin");
-      setTimeout(() => {
-        setLoading(false);
-        navigate("/dashboard");
-      }, 800);
+    if ((formData.pillarId.toUpperCase() === "PIL-CHE-042" || formData.pillarId.toLowerCase() === "senthil@coophub.in") && (formData.password === "password123" || formData.password === "demo123")) {
+      handleQuickDemoLogin("pillar");
       return;
     }
 
     // 🧪 ADMIN DEMO BYPASS: Logs into Admin Dashboard with rich demo data
-    if (formData.pillarId === "ADMIN-DEMO" && formData.password === "admin123") {
-      localStorage.setItem("coophub_demo_admin", "true");
-      localStorage.removeItem("coophub_demo_user");
-      setTimeout(() => {
-        setLoading(false);
-        navigate("/admin");
-      }, 800);
+    if ((formData.pillarId.toUpperCase() === "ADMIN-DEMO" || formData.pillarId.toLowerCase() === "admin@coophub.in") && formData.password === "admin123") {
+      handleQuickDemoLogin("admin");
       return;
     }
 
@@ -169,9 +185,8 @@ export default function Login() {
     localStorage.removeItem("coophub_demo_user");
     localStorage.removeItem("coophub_demo_admin");
 
-    // Assuming the login service can take the pillarId as 'email' or handles it internally
     const { user, error: loginError } = await login({
-      email: formData.pillarId, // Mock mapping; real implementation depends on your auth provider
+      email: formData.pillarId.trim(),
       password: formData.password,
     });
     setLoading(false);
@@ -679,6 +694,37 @@ export default function Login() {
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: "100%", marginTop: "4px", background: "linear-gradient(135deg, #FF7900 0%, #E05300 100%)", fontWeight: "800" }} disabled={loading}>
                   {loading ? <Loader2 size={18} className="spinner" /> : "Sign In to Pillar Dashboard"}
                 </button>
+
+                {/* 1-Click Quick Demo Login Button */}
+                <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px dashed #E2E8F0", textAlign: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickDemoLogin("pillar")}
+                    disabled={loading}
+                    className="btn btn-outline"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "12px",
+                      borderColor: "#FF7900",
+                      color: "#FF7900",
+                      background: "rgba(255, 121, 0, 0.06)",
+                      fontWeight: "700",
+                      fontSize: "13px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <Sparkles size={16} color="#FF7900" />
+                    <span>⚡ 1-Click Demo Login (Pillar Technician)</span>
+                  </button>
+                  <div style={{ fontSize: "11px", color: "#64748B", marginTop: "6px" }}>
+                    Demo ID: <code style={{ color: "#FF7900", fontWeight: "bold" }}>PIL-CHE-042</code> | Password: <code style={{ color: "#FF7900", fontWeight: "bold" }}>password123</code>
+                  </div>
+                </div>
               </form>
             )}
 

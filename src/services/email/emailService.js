@@ -19,7 +19,8 @@ import {
   renderServiceRequestConfirmationTemplate,
   renderPillarRejectionTemplate,
   renderClaimApprovalTemplate,
-  renderClaimRejectionTemplate
+  renderClaimRejectionTemplate,
+  renderServiceReceiptTemplate
 } from './emailTemplates.js';
 
 export const emailService = {
@@ -280,6 +281,69 @@ export const emailService = {
       success: true,
       recipient: email,
       subject: `⚠️ Insurance Claim Decision Update: ${claim_id} — COOP HUB`,
+      html: htmlContent
+    };
+  },
+
+  /**
+   * 9. Customer Service Receipt & Tax Invoice Email
+   * Triggered upon job completion, bill finalization, or manual email receipt action.
+   */
+  async sendServiceReceiptEmail({
+    email,
+    customer_name,
+    receipt_no,
+    booking_id,
+    invoice_no,
+    service_date,
+    service_time,
+    service_title,
+    service_description,
+    service_location,
+    pillar_name,
+    pillar_id,
+    pillar_trade,
+    service_charge,
+    materials_parts,
+    additional_charges,
+    subtotal,
+    gst,
+    total_amount,
+    payment_method,
+    transaction_id
+  }) {
+    if (!email) return { success: false, error: 'Customer email address is required' };
+
+    const htmlContent = renderServiceReceiptTemplate({
+      customer_name: customer_name || 'Customer',
+      receipt_no: receipt_no || 'CH-2026-000123',
+      booking_id: booking_id || 'BK-2026-00456',
+      invoice_no: invoice_no || 'INV-2026-00789',
+      service_date: service_date || '02 Sep 2026',
+      service_time: service_time || '11:30 AM',
+      service_title: service_title || 'Electrical Repair',
+      service_description: service_description || 'Standard Home Service',
+      service_location: service_location || 'Service Address',
+      pillar_name: pillar_name || 'Verified Pillar',
+      pillar_id: pillar_id || 'PIL-0000',
+      pillar_trade: pillar_trade || 'Technician',
+      service_charge: service_charge || '₹800.00',
+      materials_parts: materials_parts || '₹0.00',
+      additional_charges: additional_charges || '₹0.00',
+      subtotal: subtotal || '₹800.00',
+      gst: gst || '₹144.00',
+      total_amount: total_amount || '₹944.00',
+      payment_method: payment_method || 'UPI',
+      transaction_id: transaction_id || 'TXN000123',
+      receipt_url: `${window.location.origin}/receipt-template`
+    });
+
+    console.log(`[COOP HUB Mailer] ✉️ Service Receipt & Tax Invoice email prepared for ${email} (Receipt #${receipt_no})`);
+
+    return {
+      success: true,
+      recipient: email,
+      subject: `📄 Official Service Receipt & Tax Invoice: ${receipt_no} — COOP HUB`,
       html: htmlContent
     };
   }

@@ -3,13 +3,16 @@ import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarNotificationService } from "../../../services/pillar/notificationService";
 import { supabase } from "../../../lib/supabase";
-import { Menu, Bell, Search, CheckCheck, Sun, Moon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Menu, Bell, Search, CheckCheck, Sun, Moon, Bot, Sparkles } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { heroNotificationHub } from "../../../services/ai/heroNotificationHub";
 
 export default function Header({ toggleSidebar }) {
   const { language, changeLanguage, supportedLanguages } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
 
   const [theme, setTheme] = useState(() => localStorage.getItem("coophub_theme") || "light");
   const [showNotifications, setShowNotifications] = useState(false);
@@ -41,8 +44,8 @@ export default function Header({ toggleSidebar }) {
           setNotifications([
             {
               id: "n-1",
-              title: "System Ready",
-              message: "COOP HUB cooperative administration and live notifications active.",
+              title: "System Active & Online",
+              message: "COOP HUB cooperative administration and live Hero AI notifications active.",
               created_at: "Just now",
               is_read: false,
               type: "system",
@@ -70,6 +73,9 @@ export default function Header({ toggleSidebar }) {
         };
         setNotifications(prev => [newNotif, ...prev.slice(0, 9)]);
         setUnreadCount(prev => prev + 1);
+
+        // Announce through Hero AI
+        heroNotificationHub.notify(newNotif);
       })
       .subscribe();
 
@@ -141,6 +147,31 @@ export default function Header({ toggleSidebar }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", position: "relative" }} ref={dropdownRef}>
+        {/* Chat AI Quick Launcher for Admin */}
+        {isAdmin && (
+          <button
+            onClick={() => navigate('/admin/chatai')}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(245, 124, 32, 0.12)",
+              border: "1px solid rgba(245, 124, 32, 0.3)",
+              color: "var(--color-secondary)",
+              padding: "6px 14px",
+              borderRadius: "20px",
+              fontSize: "12px",
+              fontWeight: "700",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            title="Open CoopBot AI Operations Console"
+          >
+            <Bot size={15} />
+            <span className="hide-on-mobile">Chat AI</span>
+          </button>
+        )}
+
         {/* Language Selector */}
         <select 
           className="form-input" 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { idGenerator } from "../../../utils/idGenerator";
-import { Wrench, Plus, Search, CheckCircle, Edit, Trash2, Tag, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
+import { Wrench, Plus, Search, CheckCircle, Edit, Trash2, Tag, ShieldCheck, ToggleLeft, ToggleRight, DollarSign, Save } from "lucide-react";
 
 export default function AdminServices() {
   const [services, setServices] = useState([
@@ -17,6 +17,9 @@ export default function AdminServices() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newService, setNewService] = useState({ name: "", category: "Electrician", base_price: "", standard_time: "45 mins" });
+
+  // Edit Tariff Modal State
+  const [editingService, setEditingService] = useState(null);
 
   const toggleStatus = (id) => {
     setServices(prev => prev.map(s => s.id === id ? { ...s, active: !s.active } : s));
@@ -41,6 +44,19 @@ export default function AdminServices() {
     setShowAddModal(false);
   };
 
+  const handleSaveEditService = (e) => {
+    e.preventDefault();
+    if (!editingService || !editingService.name.trim() || !editingService.base_price) return;
+    setServices(prev => prev.map(s => s.id === editingService.id ? {
+      ...s,
+      name: editingService.name,
+      category: editingService.category,
+      base_price: Number(editingService.base_price),
+      standard_time: editingService.standard_time
+    } : s));
+    setEditingService(null);
+  };
+
   const filtered = services.filter(s => {
     const matchQ = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.category.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCat = categoryFilter === "all" || s.category.toLowerCase() === categoryFilter.toLowerCase();
@@ -56,7 +72,7 @@ export default function AdminServices() {
             Service Catalog & Rate Master
           </h1>
           <p style={{ color: "var(--color-text-secondary)" }}>
-            Define standard cooperative tariffs, qualified pillar mappings, and standard service categories.
+            Define standard cooperative tariffs, qualified pillar mappings, and maintain service costs.
           </p>
         </div>
         <button 
@@ -98,41 +114,43 @@ export default function AdminServices() {
                   fontSize: "0.85rem",
                   fontWeight: categoryFilter === cat ? "700" : "500",
                   background: categoryFilter === cat ? "var(--color-primary)" : "var(--color-surface-hover)",
-                  color: categoryFilter === cat ? "white" : "var(--color-text-secondary)",
+                  color: categoryFilter === cat ? "white" : "var(--color-text)",
                   border: "none",
                   cursor: "pointer",
-                  transition: "all 0.2s"
+                  textTransform: "capitalize"
                 }}
               >
-                {cat === "all" ? "All Categories" : cat}
+                {cat}
               </button>
             ))}
           </div>
 
-          <div className="input-wrapper" style={{ width: "280px" }}>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Search services..." 
+          {/* Search Box */}
+          <div style={{ position: "relative", width: "260px" }}>
+            <Search size={16} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search services or code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: "32px", height: "36px", fontSize: "0.85rem" }}
             />
-            <Search size={16} className="input-icon" />
           </div>
         </div>
 
-        {/* Services Table */}
+        {/* Table */}
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
             <thead>
               <tr style={{ background: "var(--color-surface-hover)", borderBottom: "1px solid var(--color-border)" }}>
                 <th style={{ padding: "12px 16px", textAlign: "left", color: "var(--color-text-secondary)", fontWeight: "600" }}>Service Name</th>
                 <th style={{ padding: "12px 16px", textAlign: "left", color: "var(--color-text-secondary)", fontWeight: "600" }}>Category</th>
-                <th style={{ padding: "12px 16px", textAlign: "left", color: "var(--color-text-secondary)", fontWeight: "600" }}>Base Tariff</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", color: "var(--color-text-secondary)", fontWeight: "600" }}>Standard Base Cost</th>
                 <th style={{ padding: "12px 16px", textAlign: "left", color: "var(--color-text-secondary)", fontWeight: "600" }}>Est. Duration</th>
                 <th style={{ padding: "12px 16px", textAlign: "left", color: "var(--color-text-secondary)", fontWeight: "600" }}>Active Technicians</th>
                 <th style={{ padding: "12px 16px", textAlign: "left", color: "var(--color-text-secondary)", fontWeight: "600" }}>Status</th>
-                <th style={{ padding: "12px 16px", textAlign: "right", color: "var(--color-text-secondary)", fontWeight: "600" }}>Toggle</th>
+                <th style={{ padding: "12px 16px", textAlign: "right", color: "var(--color-text-secondary)", fontWeight: "600" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -156,8 +174,8 @@ export default function AdminServices() {
                       {s.category}
                     </span>
                   </td>
-                  <td style={{ padding: "12px 16px", fontWeight: "800", color: "var(--color-text)" }}>
-                    ₹{s.base_price}
+                  <td style={{ padding: "12px 16px", fontWeight: "800", color: "#FF7900" }}>
+                    ₹{s.base_price.toFixed(2)}
                   </td>
                   <td style={{ padding: "12px 16px", color: "var(--color-text-secondary)" }}>
                     {s.standard_time}
@@ -178,13 +196,26 @@ export default function AdminServices() {
                     </span>
                   </td>
                   <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                    <button 
-                      onClick={() => toggleStatus(s.id)}
-                      style={{ background: "transparent", border: "none", cursor: "pointer", color: s.active ? "#10B981" : "var(--color-text-muted)" }}
-                      title="Toggle Service Availability"
-                    >
-                      {s.active ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
-                    </button>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                      {/* Edit Price / Tariff Button */}
+                      <button 
+                        onClick={() => setEditingService({ ...s })}
+                        className="btn btn-xs btn-outline"
+                        style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "4px 8px" }}
+                        title="Edit Service Cost & Details"
+                      >
+                        <Edit size={13} /> Edit Cost
+                      </button>
+
+                      {/* Enable/Disable Toggle */}
+                      <button 
+                        onClick={() => toggleStatus(s.id)}
+                        style={{ background: "transparent", border: "none", cursor: "pointer", color: s.active ? "#10B981" : "var(--color-text-muted)", display: "flex", alignItems: "center" }}
+                        title="Toggle Service Availability"
+                      >
+                        {s.active ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -193,7 +224,7 @@ export default function AdminServices() {
         </div>
       </div>
 
-      {/* Add Service Modal */}
+      {/* ─── ADD NEW SERVICE MODAL ─── */}
       {showAddModal && (
         <div style={{
           position: "fixed",
@@ -287,6 +318,108 @@ export default function AdminServices() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Create Service
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── EDIT SERVICE COST & TARIFF MODAL ─── */}
+      {editingService && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1100,
+          padding: "var(--space-4)"
+        }}>
+          <div style={{
+            background: "var(--color-surface)",
+            borderRadius: "var(--radius-lg)",
+            width: "100%",
+            maxWidth: "500px",
+            padding: "var(--space-5)",
+            boxShadow: "var(--shadow-xl)",
+            border: "1px solid var(--color-border)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Edit size={18} color="#FF7900" />
+                <h2 style={{ fontSize: "1.2rem", fontWeight: "800", margin: 0 }}>Edit Service Cost & Tariff</h2>
+              </div>
+              <button onClick={() => setEditingService(null)} style={{ background: "transparent", border: "none", fontSize: "1.3rem", cursor: "pointer", color: "var(--color-text-secondary)" }}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditService} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <div>
+                <label style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+                  Service Name / Title
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingService.name}
+                  onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                <div>
+                  <label style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+                    Category
+                  </label>
+                  <select
+                    className="form-input"
+                    value={editingService.category}
+                    onChange={(e) => setEditingService({ ...editingService, category: e.target.value })}
+                  >
+                    <option value="Electrician">Electrician</option>
+                    <option value="Plumber">Plumber</option>
+                    <option value="Appliance">Appliance</option>
+                    <option value="Cleaning">Cleaning</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+                    Standard Base Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    step="10"
+                    className="form-input"
+                    value={editingService.base_price}
+                    onChange={(e) => setEditingService({ ...editingService, base_price: e.target.value })}
+                    required
+                    style={{ fontWeight: "800", color: "#FF7900" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+                  Estimated Standard Duration
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingService.standard_time}
+                  onChange={(e) => setEditingService({ ...editingService, standard_time: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-3)", marginTop: "var(--space-4)" }}>
+                <button type="button" className="btn btn-outline" onClick={() => setEditingService(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <Save size={15} /> Save & Apply Tariff
                 </button>
               </div>
             </form>

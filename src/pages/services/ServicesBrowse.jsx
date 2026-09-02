@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useServices } from '../../hooks/useServices';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTranslation } from '../../hooks/useTranslation';
+import ServiceCategoryIcon from '../../components/ui/ServiceCategoryIcon';
 
 export default function ServicesBrowse() {
     const { t } = useTranslation();
@@ -39,10 +40,11 @@ export default function ServicesBrowse() {
             {/* Service Grid */}
             {loading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {[1, 2, 3, 4, 5, 6].map(n => (
-                        <div key={n} className="bg-white h-36 rounded-2xl border border-navy-100 flex flex-col items-center justify-center p-4 animate-pulse">
-                            <div className="w-12 h-12 bg-gray-200 rounded-xl mb-3"></div>
-                            <div className="w-16 h-3 bg-gray-200 rounded"></div>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                        <div key={n} className="bg-white h-44 rounded-2xl border border-navy-100 flex flex-col items-center justify-center p-5 animate-pulse">
+                            <div className="w-14 h-14 bg-gray-200 rounded-xl mb-3"></div>
+                            <div className="w-24 h-3.5 bg-gray-200 rounded mb-2"></div>
+                            <div className="w-32 h-2.5 bg-gray-100 rounded"></div>
                         </div>
                     ))}
                 </div>
@@ -72,18 +74,21 @@ export default function ServicesBrowse() {
                         <button
                             key={service.id}
                             onClick={() => navigate(`/services/${service.id}`)}
-                            className="bg-white rounded-2xl border border-navy-100 p-5 flex flex-col items-center text-center hover:-translate-y-1 hover:shadow-lg hover:border-orange-200 transition-all group"
+                            className="bg-white rounded-2xl border border-navy-100 p-5 flex flex-col justify-between text-center hover:-translate-y-1 hover:shadow-lg hover:border-orange-200 transition-all group"
                         >
-                            <div className="w-14 h-14 bg-navy-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-orange-50 transition-colors">
-                                <svg className="w-7 h-7 text-navy-400 group-hover:text-orange-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
+                            <div className="flex flex-col items-center">
+                                <div className="w-14 h-14 bg-navy-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-orange-50 transition-colors">
+                                    <ServiceCategoryIcon category={service.category} name={service.name} />
+                                </div>
+                                <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">{service.name}</h3>
+                                {service.description && (
+                                    <p className="text-xs text-navy-400 mt-1 line-clamp-2">{service.description}</p>
+                                )}
                             </div>
-                            <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">{service.name}</h3>
-                            {service.description && (
-                                <p className="text-xs text-navy-400 mt-1 line-clamp-2">{service.description}</p>
-                            )}
+                            <div className="text-xs font-semibold text-orange-500 mt-3.5 flex items-center justify-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                                <span>Explore</span>
+                                <span>→</span>
+                            </div>
                         </button>
                     ))}
                 </div>

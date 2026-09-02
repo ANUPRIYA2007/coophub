@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../hooks/useTranslation";
 import { Sparkles, Bot, AlertCircle, CheckCircle2, MessageSquare, Send, ShieldCheck, FileText, Lock } from "lucide-react";
 import Hero3D from "../../hero3d/Hero3D";
+import { aiService } from "../../../services/pillar/aiService";
 
 export default function CustomerHeroInteractiveAgent({
   activeField = null,
@@ -131,18 +132,14 @@ export default function CustomerHeroInteractiveAgent({
     setHeroMessage("Analyzing your question...");
 
     try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: q,
-          context: { isAuthenticated: false, route: mode === "login" ? "/login" : "/register", language },
-        }),
+      const res = await aiService.chatWithMascot({
+        message: q,
+        context: { isAuthenticated: false, route: mode === "login" ? "/login" : "/register", language },
       });
-      const data = await res.json();
       setHeroState("speaking");
-      setHeroMessage(data.reply || data.message || "I am right here to assist your booking needs!");
-      onAskHero?.(data.reply || data.message);
+      const reply = res?.reply || "I am right here to assist your booking needs!";
+      setHeroMessage(reply);
+      onAskHero?.(reply);
       setTimeout(() => {
         setHeroState("idle");
       }, 4000);

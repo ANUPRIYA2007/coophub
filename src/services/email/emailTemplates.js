@@ -805,3 +805,149 @@ export function renderClaimRejectionTemplate({
   });
 }
 
+/**
+ * 8. Customer Service Receipt & Tax Invoice Email Template
+ * Dispatched to the customer's email upon service completion and payment settlement.
+ */
+export function renderServiceReceiptTemplate({
+  customer_name = 'Customer',
+  receipt_no = 'CH-2026-000123',
+  booking_id = 'BK-2026-00456',
+  invoice_no = 'INV-2026-00789',
+  service_date = '02 Sep 2026',
+  service_time = '11:30 AM',
+  service_title = 'Electrical Repair',
+  service_description = 'Ceiling fan capacitor replacement and wiring repair',
+  service_location = 'Guindy, Chennai',
+  pillar_name = 'Rajan K. (Verified Pillar)',
+  pillar_id = 'PIL-4892',
+  pillar_trade = 'Electrician',
+  service_charge = '₹800.00',
+  materials_parts = '₹250.00',
+  additional_charges = '₹100.00',
+  subtotal = '₹1,150.00',
+  gst = '₹207.00',
+  total_amount = '₹1,357.00',
+  payment_method = 'UPI / Online',
+  transaction_id = 'TXN000123',
+  receipt_url = 'http://localhost:5173/receipt-template'
+}) {
+  const contentHtml = `
+    <!-- Success Banner -->
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="display: inline-block; background-color: #ECFDF5; border: 1px solid #A7F3D0; color: #059669; font-size: 12px; font-weight: 800; padding: 6px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+        ✓ PAYMENT COMPLETED & SETTLED
+      </div>
+      <h2 style="font-size: 22px; font-weight: 900; color: #162238; margin: 12px 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+        OFFICIAL SERVICE RECEIPT
+      </h2>
+      <p style="font-size: 13px; color: #64748B; margin: 0;">
+        Thank you for choosing COOP HUB. Your service has been successfully completed.
+      </p>
+    </div>
+
+    <!-- Receipt Meta Bar -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 20px;">
+      <tr>
+        <td style="padding: 12px 14px; border-right: 1px solid #E2E8F0; width: 25%;">
+          <span style="font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase;">Receipt No</span>
+          <div style="font-size: 13px; font-weight: 800; color: #162238; margin-top: 2px;">${receipt_no}</div>
+        </td>
+        <td style="padding: 12px 14px; border-right: 1px solid #E2E8F0; width: 25%;">
+          <span style="font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase;">Booking ID</span>
+          <div style="font-size: 13px; font-weight: 700; color: #FF7900; margin-top: 2px;">${booking_id}</div>
+        </td>
+        <td style="padding: 12px 14px; border-right: 1px solid #E2E8F0; width: 25%;">
+          <span style="font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase;">Date</span>
+          <div style="font-size: 13px; font-weight: 600; color: #162238; margin-top: 2px;">${service_date}</div>
+        </td>
+        <td style="padding: 12px 14px; width: 25%;">
+          <span style="font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase;">Payment</span>
+          <div style="font-size: 13px; font-weight: 700; color: #059669; margin-top: 2px;">✓ ${payment_method}</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Service & Parties -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+      <tr>
+        <td width="48%" valign="top" style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px;">
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #162238; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">
+            Billed To (Customer)
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: #162238;">${customer_name}</div>
+          <div style="font-size: 12px; color: #475569; margin-top: 2px;">${service_location}</div>
+        </td>
+        <td width="4%"></td>
+        <td width="48%" valign="top" style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px;">
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #162238; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 8px;">
+            Serviced By (Pillar)
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: #162238;">${pillar_name}</div>
+          <div style="font-size: 12px; color: #475569; margin-top: 2px;">${pillar_trade} • ID: ${pillar_id}</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Itemized Table -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 20px; overflow: hidden;">
+      <tr style="background-color: #162238; color: #FFFFFF;">
+        <th style="padding: 10px 14px; text-align: left; font-size: 11px; text-transform: uppercase;">Description</th>
+        <th style="padding: 10px 14px; text-align: right; font-size: 11px; text-transform: uppercase;">Amount</th>
+      </tr>
+      <tr style="border-bottom: 1px solid #F1F5F9;">
+        <td style="padding: 10px 14px; font-size: 13px; color: #162238;">
+          <strong>${service_title}</strong>
+          <div style="font-size: 11.5px; color: #64748B; margin-top: 2px;">${service_description}</div>
+        </td>
+        <td style="padding: 10px 14px; text-align: right; font-size: 13px; font-weight: 600; color: #162238;">${service_charge}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #F1F5F9; background-color: #FAFAFA;">
+        <td style="padding: 8px 14px; font-size: 12.5px; color: #475569;">Materials / Replacement Parts</td>
+        <td style="padding: 8px 14px; text-align: right; font-size: 12.5px; font-weight: 600; color: #162238;">${materials_parts}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #F1F5F9;">
+        <td style="padding: 8px 14px; font-size: 12.5px; color: #475569;">Additional Service Charges</td>
+        <td style="padding: 8px 14px; text-align: right; font-size: 12.5px; font-weight: 600; color: #162238;">${additional_charges}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #E2E8F0; background-color: #F8FAFC;">
+        <td style="padding: 8px 14px; font-size: 12.5px; color: #64748B;">Subtotal</td>
+        <td style="padding: 8px 14px; text-align: right; font-size: 12.5px; font-weight: 600; color: #162238;">${subtotal}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #E2E8F0; background-color: #F8FAFC;">
+        <td style="padding: 8px 14px; font-size: 12.5px; color: #64748B;">GST (Tax)</td>
+        <td style="padding: 8px 14px; text-align: right; font-size: 12.5px; font-weight: 600; color: #162238;">${gst}</td>
+      </tr>
+      <tr style="background-color: #162238; color: #FFFFFF;">
+        <td style="padding: 12px 14px; font-size: 14px; font-weight: 800; text-transform: uppercase;">TOTAL PAID</td>
+        <td style="padding: 12px 14px; text-align: right; font-size: 18px; font-weight: 900; color: #FF7900;">${total_amount}</td>
+      </tr>
+    </table>
+
+    <!-- Cooperative Guarantee Note -->
+    <div style="background-color: #F8FAFC; border-left: 4px solid #059669; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; font-size: 12px; color: #475569; line-height: 1.5;">
+      <strong style="color: #059669;">Cooperative Guarantee:</strong> Every service booked through COOP HUB is fully insured and guarantees fair wages. 8.5% cooperative contribution directly funds technician health & accident cover.
+    </div>
+
+    <!-- CTA Button -->
+    <div style="text-align: center; margin: 24px 0 28px 0;">
+      <a href="${receipt_url}" class="btn-primary" style="background-color: #FF7900; color: #FFFFFF; text-decoration: none; padding: 14px 36px; font-size: 14px; font-weight: 700; border-radius: 8px; display: inline-block; letter-spacing: 0.5px;">
+        VIEW OFFICIAL RECEIPT ONLINE
+      </a>
+    </div>
+
+    <div style="font-size: 12px; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 16px; text-align: center;">
+      COOP HUB Multi-Purpose Service Cooperative Society<br />
+      Reg. No: TN/COOP/2026/8942 • GSTIN: 33AAATC8942K1Z5<br />
+      Need help? Contact support@coophub.in or call 1800-425-COOP
+    </div>
+  `;
+
+  return baseEmailWrapper({
+    title: 'COOP HUB — Official Service Receipt & Tax Invoice',
+    portalBadge: 'Service Receipt & Billing',
+    contentHtml
+  });
+}
+
+

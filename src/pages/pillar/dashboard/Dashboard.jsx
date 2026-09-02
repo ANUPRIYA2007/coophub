@@ -6,6 +6,7 @@ import { pillarOrderService } from "../../../services/pillar/orderService";
 import { pillarEarningsService } from "../../../services/pillar/earningsService";
 import { Link, useNavigate } from "react-router-dom";
 import gsap from "gsap";
+import { gsap3dEngine } from "../../../services/animation/gsap3dEngine";
 import TypewriterEffect from "../../../components/ui/TypewriterEffect";
 import {
   ClipboardList,
@@ -76,13 +77,17 @@ export default function Dashboard() {
 
       setLoadingMetrics(false);
 
-      // GSAP Stagger Entrance for Dashboard elements
+      // Heavy 3D GSAP Stagger Entrance for Dashboard elements
       setTimeout(() => {
-        gsap.fromTo(
-          ".gsap-fade-card",
-          { opacity: 0, y: 22, scale: 0.98 },
-          { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.07, ease: "power2.out" }
-        );
+        gsap3dEngine.animate3DStaggerEntrance(".gsap-fade-card, .stat-card, .card", {
+          y: 40,
+          rotationX: 18,
+          rotationY: -6,
+          translateZ: -60,
+          stagger: 0.08,
+          duration: 0.75,
+        });
+        gsap3dEngine.refresh();
       }, 50);
     }
 

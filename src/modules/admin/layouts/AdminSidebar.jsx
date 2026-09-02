@@ -33,7 +33,8 @@ import {
   UserCheck,
   TrendingUp,
   Award,
-  Zap
+  Zap,
+  Bot
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
@@ -406,6 +407,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const navItems = [
     { name: t("admin.overview") || "Overview", path: "/admin", icon: LayoutDashboard },
+    { name: t("admin.chatai") || "Chat AI Operations", path: "/admin/chatai", icon: Bot },
     { name: t("admin.forecast") || "AI Demand Forecast", path: "/admin/forecast", icon: TrendingUp },
     { name: t("admin.allocation") || "AI Workforce Allocation", path: "/admin/allocation", icon: Zap },
     { name: t("admin.certifications") || "Skill Certifications", path: "/admin/certifications", icon: Award },
@@ -769,152 +771,132 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                   <Send size={14} />
                 </button>
               </form>
+
+              {/* Quick Link to Full Page Chat AI Workspace */}
+              <div style={{ padding: "0 10px 8px" }}>
+                <Link
+                  to="/admin/chatai"
+                  onClick={() => { if (window.innerWidth <= 1024) toggleSidebar(); }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    width: "100%",
+                    padding: "6px",
+                    background: "rgba(245, 124, 32, 0.15)",
+                    border: "1px solid rgba(245, 124, 32, 0.35)",
+                    borderRadius: "8px",
+                    color: "var(--color-secondary)",
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    textDecoration: "none",
+                  }}
+                >
+                  <Bot size={13} />
+                  <span>Open Full Chat AI Console →</span>
+                </Link>
+              </div>
             </div>
           )}
 
-          {/* Hero Avatar Row — Always Visible */}
+          {/* Hero Mascot & Live Interactive AI Guide — Full Standing Character */}
           <div 
             style={{ 
               display: "flex", 
+              flexDirection: "column",
               alignItems: "center", 
-              padding: "10px 12px",
-              gap: "10px",
+              padding: "8px 12px",
+              gap: "8px",
             }}
           >
-            {/* Interactive 3D Mascot Avatar */}
-            <button
+            {/* Full 3D Hero Mascot Character standing uncropped */}
+            <div 
               onClick={handleHeroClick}
-              className={`hero-mascot-container hero-state-${heroState}`}
+              className="hero-mascot-container"
               style={{
-                width: "72px",
-                height: "72px",
-                borderRadius: "50%",
-                background: "#FFFFFF",
-                border: `3.5px solid ${isSpeaking ? "#10B981" : moodColors[currentMood]}`,
-                boxShadow: `0 0 ${isSpeaking ? "28px" : "22px"} ${isSpeaking ? "rgba(16,185,129,0.5)" : `${moodColors[currentMood]}55`}, 0 6px 16px rgba(0,0,0,0.35)`,
+                width: "100%",
+                height: heroExpanded ? "130px" : "185px",
+                position: "relative",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
-                padding: 0,
-                overflow: "hidden",
-                position: "relative",
-                outline: "none",
-                flexShrink: 0,
                 transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
               }}
-              title={heroExpanded ? "Close Guide Assistant" : "Open Guide Assistant"}
+              title={heroExpanded ? "Click to collapse" : "Click to chat with CoopBot"}
             >
-              <Hero3D mode="avatar" state={isSpeaking ? 'speaking' : isLoadingAi ? 'thinking' : heroState} style={{ width: "100%", height: "100%" }} />
+              <Hero3D 
+                mode="card" 
+                state={isSpeaking ? 'speaking' : isLoadingAi ? 'thinking' : heroState} 
+                style={{ width: "100%", height: "100%" }} 
+              />
 
-              {/* Mood indicator dot */}
-              <div style={{
-                position: "absolute",
-                bottom: "2px",
-                right: "2px",
-                width: "14px",
-                height: "14px",
-                borderRadius: "50%",
-                background: isSpeaking ? "#10B981" : isLoadingAi ? "#3B82F6" : moodColors[currentMood],
-                border: "2px solid white",
-                boxShadow: "0 0 6px rgba(0,0,0,0.3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "7px",
-              }}>
-                {isLoadingAi ? "⏳" : isSpeaking ? "🔊" : currentMood === "happy" ? "😊" : currentMood === "excited" ? "🤩" : currentMood === "helpful" ? "🤝" : "🤔"}
-              </div>
-            </button>
-
-            {/* Speech Bubble / Status */}
-            <div
-              onClick={() => !heroExpanded && setHeroExpanded(true)}
-              style={{
-                flex: 1,
-                background: "rgba(255,255,255,0.1)",
-                backdropFilter: "blur(8px)",
-                color: "white",
-                padding: "10px 14px",
-                borderRadius: "16px",
-                boxShadow: "0 4px 14px rgba(0, 0, 0, 0.15)",
-                fontSize: "12px",
-                fontWeight: "500",
-                lineHeight: "1.45",
-                position: "relative",
-                minHeight: "48px",
-                display: "flex",
-                alignItems: "center",
-                cursor: heroExpanded ? "default" : "pointer",
-                transition: "all 0.2s ease",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              {/* Arrow */}
-              <div style={{
-                position: "absolute",
-                left: "-6px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: 0, height: 0,
-                borderTop: "6px solid transparent",
-                borderBottom: "6px solid transparent",
-                borderRight: "6px solid rgba(255,255,255,0.1)",
-              }} />
-
-              <div style={{ flex: 1 }}>
-                {latestHeroMsg?.emoji && (
-                  <span style={{ marginRight: "4px" }}>{latestHeroMsg.emoji}</span>
-                )}
-                <span style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: heroExpanded ? 1 : 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}>
-                  {latestHeroMsg?.text || "I'm ready to help!"}
+              {/* Status Pill Badge */}
+              <div 
+                style={{
+                  position: "absolute",
+                  bottom: "2px",
+                  background: "rgba(5, 10, 18, 0.9)",
+                  color: "white",
+                  padding: "4px 12px",
+                  borderRadius: "9999px",
+                  fontSize: "10px",
+                  fontWeight: "700",
+                  backdropFilter: "blur(8px)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  border: `1px solid ${isSpeaking ? "#10B981" : moodColors[currentMood]}`,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
+                }}
+              >
+                <span style={{ width: "6px", height: "6px", background: isSpeaking ? "#10B981" : "#FF7900", borderRadius: "50%" }}></span>
+                <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {isLoadingAi ? "Thinking" : isSpeaking ? "Speaking" : heroState}</span>
+                <span style={{ fontSize: "9px", color: "var(--color-secondary)", marginLeft: "2px" }}>
+                  {heroExpanded ? "• Close" : "• Tap to Chat"}
                 </span>
-              </div>
-
-              {/* Expand/Collapse Toggle */}
-              <div style={{
-                marginLeft: "6px",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                color: "rgba(255,255,255,0.5)",
-              }}>
-                {heroExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </div>
             </div>
 
-            {/* Speaker Toggle */}
-            <button
-              onClick={() => {
-                if (isSpeaking) {
-                  window.speechSynthesis?.cancel();
-                  setIsSpeaking(false);
-                  setHeroState("idle");
-                } else if (latestHeroMsg?.text) {
-                  speakResponse(latestHeroMsg.text);
-                }
-              }}
-              style={{
-                background: isSpeaking ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.08)",
-                border: "none",
-                color: isSpeaking ? "#10B981" : "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                padding: "8px",
-                borderRadius: "10px",
-                display: "flex",
-                alignItems: "center",
-                flexShrink: 0,
-                transition: "all 0.15s ease",
-              }}
-              title={isSpeaking ? "Stop speaking" : "Read aloud"}
-            >
-              {isSpeaking ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
+            {/* Quick Greeting / Latest AI Guidance Banner (When collapsed) */}
+            {!heroExpanded && latestHeroMsg?.text && (
+              <div
+                onClick={() => setHeroExpanded(true)}
+                style={{
+                  width: "100%",
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(8px)",
+                  color: "white",
+                  padding: "8px 12px",
+                  borderRadius: "14px",
+                  fontSize: "11px",
+                  fontWeight: "500",
+                  lineHeight: "1.4",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "6px",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                  <span>{latestHeroMsg?.emoji || "💡"}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {latestHeroMsg?.text}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  {isSpeaking ? (
+                    <VolumeX size={12} color="#10B981" onClick={(e) => { e.stopPropagation(); window.speechSynthesis?.cancel(); setIsSpeaking(false); }} />
+                  ) : (
+                    <Volume2 size={12} color="rgba(255,255,255,0.6)" onClick={(e) => { e.stopPropagation(); speakResponse(latestHeroMsg.text); }} />
+                  )}
+                  <ChevronUp size={12} color="rgba(255,255,255,0.6)" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

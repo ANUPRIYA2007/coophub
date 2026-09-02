@@ -3,8 +3,10 @@ import { adminService } from "../services/adminService";
 import { matchingService } from "../../../services/ai/matchingService";
 import { 
   ClipboardList, Search, Filter, Eye, CheckCircle, Clock, 
-  AlertCircle, XCircle, User, MapPin, Phone, RefreshCw, Sparkles, Award, Zap, Check
+  AlertCircle, XCircle, User, MapPin, Phone, RefreshCw, Sparkles, Award, Zap, Check,
+  Calculator, Printer, FileText, Edit2, Save
 } from "lucide-react";
+import OrderReceiptModal from "../../../components/common/OrderReceiptModal";
 
 export default function AdminRequests() {
   const [requests, setRequests] = useState([]);
@@ -15,6 +17,13 @@ export default function AdminRequests() {
   const [matchingResults, setMatchingResults] = useState(null);
   const [matchingLoading, setMatchingLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  // Admin Charges Maintenance State
+  const [isEditingCharges, setIsEditingCharges] = useState(false);
+  const [adminServiceCharge, setAdminServiceCharge] = useState("800");
+  const [adminMaterials, setAdminMaterials] = useState("250");
+  const [adminAdditional, setAdminAdditional] = useState("100");
+  const [showAdminReceipt, setShowAdminReceipt] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -56,6 +65,46 @@ export default function AdminRequests() {
     const res = await matchingService.matchWorkforceForRequest(req);
     setMatchingResults(res);
     setMatchingLoading(false);
+  };
+
+  const handleOpenRequestDetails = (req) => {
+    setSelectedRequest(req);
+    setAdminServiceCharge(String(req.service_charge || req.amount || req.base_amount || 800));
+    setAdminMaterials(String(req.materials_parts || req.extra_charge_amount || 250));
+    setAdminAdditional(String(req.additional_charges || 100));
+    setIsEditingCharges(false);
+  };
+
+  const handleSaveAdminCharges = async () => {
+    if (!selectedRequest) return;
+    const numServ = parseFloat(adminServiceCharge) || 0;
+    const numMat = parseFloat(adminMaterials) || 0;
+    const numAdd = parseFloat(adminAdditional) || 0;
+    const sub = numServ + numMat + numAdd;
+    const gstVal = Math.round(sub * 0.18 * 100) / 100;
+    const tot = Math.round((sub + gstVal) * 100) / 100;
+    const coopComm = Math.round(numServ * 0.0805 * 100) / 100;
+    const pilEarn = Math.round((sub - coopComm) * 100) / 100;
+
+    const updatedFields = {
+      service_charge: numServ,
+      materials_parts: numMat,
+      additional_charges: numAdd,
+      subtotal: sub,
+      gst_amount: gstVal,
+      final_amount: tot,
+      amount: numServ,
+      extra_charge_amount: numMat + numAdd,
+      pillar_earnings: pilEarn,
+      cooperative_commission: coopComm
+    };
+
+    setStatusUpdating(true);
+    await adminService.updateServiceRequest(selectedRequest.id, updatedFields);
+    setSelectedRequest(prev => ({ ...prev, ...updatedFields }));
+    setRequests(prev => prev.map(r => r.id === selectedRequest.id ? { ...r, ...updatedFields } : r));
+    setIsEditingCharges(false);
+    setStatusUpdating(false);
   };
 
   const handleStatusChange = async (requestId, newStatus) => {
@@ -286,7 +335,7 @@ export default function AdminRequests() {
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>
                         <button 
-                          onClick={() => setSelectedRequest(req)} 
+                          onClick={() => handleOpenRequestDetails(req)} 
                           className="btn btn-outline btn-sm"
                           style={{ padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                         >
@@ -437,6 +486,110 @@ export default function AdminRequests() {
               )}
             </div>
 
+            {/* ─── ADMIN CHARGES & TARIFF MAINTENANCE ─── */}
+            <div style={{ background: "var(--color-surface-hover)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: "16px", marginBottom: "var(--space-4)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Calculator size={16} color="#FF7900" />
+                  <span style={{ fontSize: "0.85rem", fontWeight: "800", color: "var(--color-text)" }}>
+                    Charges & Tariffs Maintenance
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    onClick={() => setIsEditingCharges(!isEditingCharges)}
+                    className="btn btn-xs btn-outline"
+                    style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem" }}
+                  >
+                    <Edit2 size={12} /> {isEditingCharges ? "Cancel" : "Edit Tariffs"}
+                  </button>
+                  <button
+                    onClick={() => setShowAdminReceipt(true)}
+                    className="btn btn-xs btn-primary"
+                    style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem" }}
+                  >
+                    <Printer size={12} /> Official Receipt
+                  </button>
+                </div>
+              </div>
+
+              {isEditingCharges ? (
+                <div style={{ background: "var(--color-surface)", padding: "12px", borderRadius: "8px", border: "1px solid var(--color-border)", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                    <div>
+                      <label style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+                        Service Charge (₹)
+                      </label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={adminServiceCharge}
+                        onChange={(e) => setAdminServiceCharge(e.target.value)}
+                        style={{ width: "100%", height: "32px", fontSize: "0.85rem", fontWeight: "700" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+                        Materials / Parts (₹)
+                      </label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={adminMaterials}
+                        onChange={(e) => setAdminMaterials(e.target.value)}
+                        style={{ width: "100%", height: "32px", fontSize: "0.85rem", fontWeight: "700" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+                        Additional Charges (₹)
+                      </label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={adminAdditional}
+                        onChange={(e) => setAdminAdditional(e.target.value)}
+                        style={{ width: "100%", height: "32px", fontSize: "0.85rem", fontWeight: "700" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed var(--color-border)", paddingTop: "8px" }}>
+                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>
+                      Subtotal: <strong>₹{(parseFloat(adminServiceCharge) || 0) + (parseFloat(adminMaterials) || 0) + (parseFloat(adminAdditional) || 0)}</strong> • GST (18%): <strong>₹{(((parseFloat(adminServiceCharge) || 0) + (parseFloat(adminMaterials) || 0) + (parseFloat(adminAdditional) || 0)) * 0.18).toFixed(2)}</strong> • Total: <strong style={{ color: "#FF7900" }}>₹{(((parseFloat(adminServiceCharge) || 0) + (parseFloat(adminMaterials) || 0) + (parseFloat(adminAdditional) || 0)) * 1.18).toFixed(2)}</strong>
+                    </div>
+                    <button
+                      onClick={handleSaveAdminCharges}
+                      disabled={statusUpdating}
+                      className="btn btn-sm btn-primary"
+                      style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.78rem", fontWeight: "700" }}
+                    >
+                      <Save size={13} /> Save & Apply
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", fontSize: "0.8rem" }}>
+                  <div style={{ background: "var(--color-surface)", padding: "8px 10px", borderRadius: "6px", border: "1px solid var(--color-border-light)" }}>
+                    <span style={{ color: "var(--color-text-muted)", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>Service Charge</span>
+                    <strong style={{ color: "var(--color-text)" }}>₹{selectedRequest.service_charge || selectedRequest.amount || 800}</strong>
+                  </div>
+                  <div style={{ background: "var(--color-surface)", padding: "8px 10px", borderRadius: "6px", border: "1px solid var(--color-border-light)" }}>
+                    <span style={{ color: "var(--color-text-muted)", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>Materials / Parts</span>
+                    <strong style={{ color: "var(--color-text)" }}>₹{selectedRequest.materials_parts || selectedRequest.extra_charge_amount || 250}</strong>
+                  </div>
+                  <div style={{ background: "var(--color-surface)", padding: "8px 10px", borderRadius: "6px", border: "1px solid var(--color-border-light)" }}>
+                    <span style={{ color: "var(--color-text-muted)", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>Additional</span>
+                    <strong style={{ color: "var(--color-text)" }}>₹{selectedRequest.additional_charges || 100}</strong>
+                  </div>
+                  <div style={{ background: "#162238", color: "#FFFFFF", padding: "8px 10px", borderRadius: "6px" }}>
+                    <span style={{ color: "#94A3B8", display: "block", fontSize: "0.7rem", textTransform: "uppercase" }}>Total Bill</span>
+                    <strong style={{ color: "#FF7900", fontSize: "0.95rem" }}>₹{selectedRequest.final_amount || selectedRequest.total_amount || 1357}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Status Transition Buttons */}
             <div style={{ marginBottom: "var(--space-4)" }}>
               <label style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "8px" }}>
@@ -475,6 +628,14 @@ export default function AdminRequests() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Official Tax Invoice & Cash Receipt Generator Modal for Admin */}
+      {showAdminReceipt && selectedRequest && (
+        <OrderReceiptModal
+          order={selectedRequest}
+          onClose={() => setShowAdminReceipt(false)}
+        />
       )}
     </div>
   );

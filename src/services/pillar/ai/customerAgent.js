@@ -54,15 +54,20 @@ export const customerAgent = {
     const fallback = routeInfo[language] || routeInfo.en;
 
     try {
+      const isNavTip = query.toLowerCase().includes("just navigated to");
+      const promptText = isNavTip
+        ? `The user is a customer on the COOP HUB Customer Portal on route '${route}'. ${routeInfo.tipPrompt} Give a concise 1-2 sentence friendly tip in ${language === "ta" ? "Tamil" : "English"}.`
+        : `You are CoopBot, the helpful 24/7 AI Service Assistant for COOP HUB customer home services in Chennai. The customer is currently on '${route}' and asks: "${query}". Provide a helpful, clear, and structured response in ${language === "ta" ? "Tamil" : "English"}. If relevant, mention standard rates, how to book or track requests, and cooperative technician guarantees.`;
+
       const aiResponse = await callPillarAiApi({
-        prompt: `The user is a customer on the COOP HUB Customer Portal on route '${route}'. ${routeInfo.tipPrompt} Customer query / context: "${query}". Keep response concise (1-2 sentences), friendly, and directly helpful in ${language === "ta" ? "Tamil" : "English"}.`,
+        prompt: promptText,
         language,
         route,
       });
 
       if (aiResponse && aiResponse.reply) {
-        const clean = aiResponse.reply.split("\n")[0].replace(/[*#_]/g, "").trim();
-        if (clean.length > 15) {
+        const clean = aiResponse.reply.trim();
+        if (clean.length > 5) {
           return {
             reply: clean,
             provider: aiResponse.provider,

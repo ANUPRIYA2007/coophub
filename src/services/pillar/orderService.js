@@ -17,7 +17,25 @@ const DEMO_ORDERS = [
     arrival_otp: "489201",
     status: "inProgress",
     customer: { id: "c-1", full_name: "Meenakshi Sundaram", mobile: "+91 98401 23456" },
-    service: { id: "s-1", name: "Ceiling Fan Installation", category: "Electrician", price: 450 }
+    service: { id: "s-1", name: "Ceiling Fan Installation", category: "Electrician", price: 450 },
+    attachments: [
+      {
+        id: "att-1",
+        name: "Broken_Switchboard_Wiring.jpg",
+        url: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80",
+        type: "image",
+        size: "1.2 MB",
+        uploaded_at: "Today, 10:15 AM"
+      },
+      {
+        id: "att-2",
+        name: "Fan_Model_Specification.pdf",
+        url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        type: "pdf",
+        size: "340 KB",
+        uploaded_at: "Today, 10:18 AM"
+      }
+    ]
   },
   {
     id: "ORD-9843",
@@ -35,7 +53,17 @@ const DEMO_ORDERS = [
     arrival_otp: "612840",
     status: "pending",
     customer: { id: "c-2", full_name: "Karthik Rajan", mobile: "+91 94440 98765" },
-    service: { id: "s-2", name: "Wiring Inspection", category: "Electrician", price: 650 }
+    service: { id: "s-2", name: "Wiring Inspection", category: "Electrician", price: 650 },
+    attachments: [
+      {
+        id: "att-3",
+        name: "MCB_Fuse_Panel_Issue.jpg",
+        url: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80",
+        type: "image",
+        size: "1.8 MB",
+        uploaded_at: "Today, 01:45 PM"
+      }
+    ]
   },
   {
     id: "ORD-9801",
@@ -200,13 +228,48 @@ export const pillarOrderService = {
             total_amount: r.services?.price || 450,
             base_amount: r.services?.price || 450,
             service_address: [r.address_line, r.area, r.city].filter(Boolean).join(", ") || "Chennai Service Zone",
+            landmark: r.landmark || "",
+            pincode: r.pincode || "",
+            description: r.customer_description || r.description || r.problem_description || "Standard service request.",
+            photo_urls: r.photo_urls || r.photos || [],
+            attachments: (() => {
+              const raw = r.attachments || r.photo_urls || r.photos || [];
+              const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+              if (list.length === 0) {
+                return [];
+              }
+              return list.map((att, idx) => {
+                if (typeof att === "object" && att !== null) return att;
+                const str = String(att);
+                const isPdf = str.toLowerCase().endsWith(".pdf") || str.includes("application/pdf");
+                const url = (str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:"))
+                  ? str
+                  : `https://aqzkzaswckfoazpqeeti.supabase.co/storage/v1/object/public/request_attachments/${str}`;
+                const name = str.split("/").pop() || `Attachment_${idx + 1}`;
+                return {
+                  id: `att-${idx}`,
+                  name,
+                  url,
+                  type: isPdf ? "pdf" : "image",
+                  size: isPdf ? "PDF Document" : "Photo",
+                  uploaded_at: r.created_at ? new Date(r.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Uploaded"
+                };
+              });
+            })(),
+            scheduled_date: r.scheduled_date || (r.created_at ? new Date(r.created_at).toLocaleDateString() : "Today"),
+            scheduled_time: r.scheduled_time || r.preferred_time || "Flexible Time Slot",
+            payment_method: r.payment_method || "Cash on Service / UPI",
+            payment_status: r.payment_status || "Pending Completion",
+            latitude: r.latitude || 13.0067,
+            longitude: r.longitude || 80.2025,
             customer_latitude: r.latitude || 13.0067,
             customer_longitude: r.longitude || 80.2025,
             arrival_otp: r.arrival_otp || "489201",
             extra_charge_status: r.extra_charge_status || "none",
             extra_charge_amount: r.extra_charge_amount || 0,
             created_at: r.created_at,
-            pillar_id: r.pillar_id
+            pillar_id: r.pillar_id,
+            raw_data: r
           });
         });
       }

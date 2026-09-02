@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
-import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare, Send, Mic, MicOff, ChevronUp, ChevronDown, Bell } from 'lucide-react';
 import Hero3D from '../hero3d/Hero3D';
 import { aiService } from '../../services/pillar/aiService';
+import { heroNotificationHub } from '../../services/ai/heroNotificationHub';
 
 export default function GlobalHeroAgent({ inline = false }) {
     const { t, language } = useTranslation();
@@ -15,6 +16,39 @@ export default function GlobalHeroAgent({ inline = false }) {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [activeInputName, setActiveInputName] = useState(null);
     const [isBubbleOpen, setIsBubbleOpen] = useState(false);
+    const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+    // Interactive Sidebar Chat State
+    const [heroMessages, setHeroMessages] = useState([]);
+    const [heroInput, setHeroInput] = useState('');
+    const [isLoadingAi, setIsLoadingAi] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const heroMsgEndRef = useRef(null);
+    const heroInputRef = useRef(null);
+
+    // Realtime Hero AI Notification Subscription
+    useEffect(() => {
+        const unsubscribe = heroNotificationHub.subscribe(({ latest, unreadCount }) => {
+            setUnreadNotifCount(unreadCount);
+            if (latest) {
+                setAnimState('speaking');
+                setHeroGreeting(`🔔 ${latest.title}: ${latest.message}`);
+                setHeroMessages((prev) => [
+                    ...prev,
+                    {
+                        id: `notif-${latest.id}`,
+                        sender: 'bot',
+                        isNotification: true,
+                        text: `🔔 **${latest.title}**\n${latest.message}`,
+                        timestamp: latest.timestamp
+                    }
+                ]);
+                setTimeout(() => setAnimState('idle'), 5000);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     // Dynamic Context & Route Tracking per page
     const routeGuidanceMap = useMemo(() => ({
@@ -341,56 +375,235 @@ export default function GlobalHeroAgent({ inline = false }) {
     const publicRoutes = ['/', '/login', '/register', '/verify-otp', '/forgot-password', '/reset-password'];
     const hasSidebar = !publicRoutes.includes(location.pathname);
 
+    // Voice recognition toggle
+    const toggleVoice = () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+        if (isListening) { setIsListening(false); return; }
+        try {
+            const recognition = new SR();
+            const langCodeMap = { ta: 'ta-IN', hi: 'hi-IN', te: 'te-IN', kn: 'kn-IN', en: 'en-US' };
+            recognition.lang = langCodeMap[language] || 'en-US';
+            recognition.interimResults = false;
+            recognition.onstart = () => setIsListening(true);
+            recognition.onend = () => setIsListening(false);
+            recognition.onerror = () => setIsListening(false);
+            recognition.onresult = (e) => {
+                const transcript = e.results[0][0].transcript;
+                if (transcript) {
+                    setHeroInput(transcript);
+                    setIsBubbleOpen(true);
+                }
+            };
+            recognition.start();
+        } catch {
+            setIsListening(false);
+        }
+    };
+
+    // Send chat to Live AI
+    const handleHeroSend = async (e) => {
+        e?.preventDefault();
+        const text = heroInput.trim();
+        if (!text || isLoadingAi) return;
+
+        setHeroInput('');
+        const userMsg = {
+            id: `user-${Date.now()}`,
+            sender: 'user',
+            text,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setHeroMessages(prev => [...prev, userMsg]);
+        setAnimState('thinking');
+        setIsLoadingAi(true);
+
+        try {
+            const res = await aiService.chatWithMascot({
+                message: text,
+                context: {
+                    route: location.pathname,
+                    language,
+                    module: location.pathname.split('/')[1] || 'home'
+                }
+            });
+
+            const reply = res?.reply || "I am right here to help you!";
+            const clean = reply.split('\n')[0].replace(/[*#_]/g, '').trim();
+
+            setHeroMessages(prev => [...prev, {
+                id: `hero-${Date.now()}`,
+                sender: 'hero',
+                text: clean,
+                route: res?.route,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }]);
+            setHeroGreeting(clean);
+            setAnimState('idle');
+            speakGreeting(null, clean);
+        } catch (err) {
+            setHeroMessages(prev => [...prev, {
+                id: `err-${Date.now()}`,
+                sender: 'hero',
+                text: "I am ready to help! Ask me anything about home services.",
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }]);
+            setAnimState('idle');
+        } finally {
+            setIsLoadingAi(false);
+        }
+    };
+
+    const sendQuickAction = (query) => {
+        setHeroInput(query);
+        setIsBubbleOpen(true);
+        setTimeout(() => {
+            const fakeEvent = { preventDefault: () => {} };
+            // send directly
+            setHeroInput('');
+            const userMsg = {
+                id: `user-${Date.now()}`,
+                sender: 'user',
+                text: query,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setHeroMessages(prev => [...prev, userMsg]);
+            setAnimState('thinking');
+            setIsLoadingAi(true);
+            aiService.chatWithMascot({
+                message: query,
+                context: { route: location.pathname, language, module: 'home' }
+            }).then(res => {
+                const clean = (res?.reply || "").split('\n')[0].replace(/[*#_]/g, '').trim();
+                setHeroMessages(prev => [...prev, {
+                    id: `hero-${Date.now()}`,
+                    sender: 'hero',
+                    text: clean || "I can help with that!",
+                    route: res?.route,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }]);
+                setHeroGreeting(clean);
+                setAnimState('idle');
+                speakGreeting(null, clean);
+            }).catch(() => {
+                setAnimState('idle');
+            }).finally(() => {
+                setIsLoadingAi(false);
+            });
+        }, 100);
+    };
+
     if (inline) {
         return (
-            <div 
-                className="mx-3 my-2 relative select-none flex flex-col items-center"
-            >
-                {/* Expandable Speech Bubble (Only when user clicks) */}
+            <div className="mx-3 my-2 relative select-none flex flex-col items-center">
+                {/* Expandable Interactive Chat Drawer */}
                 {isBubbleOpen && (
                     <div 
-                        style={{ background: "rgba(22, 34, 56, 0.95)", borderColor: "rgba(255, 121, 0, 0.3)" }}
-                        className="w-full border rounded-2xl p-3 mb-2 relative shadow-xl backdrop-blur-md animate-fadeIn"
+                        style={{ background: "rgba(15, 23, 42, 0.95)", borderColor: "rgba(255, 121, 0, 0.35)" }}
+                        className="w-full border rounded-2xl p-2.5 mb-2 relative shadow-2xl backdrop-blur-md animate-fadeIn flex flex-col gap-2 max-h-[260px]"
                     >
-                        <div className="flex items-center justify-between border-b border-navy-700 pb-1.5 mb-1.5">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5 px-1">
                             <span className="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1">
-                                <Sparkles size={12} /> CoopBot Guide
+                                <Sparkles size={12} /> CoopBot Assistant
                             </span>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        speakGreeting(e);
-                                    }}
+                                    onClick={(e) => { e.stopPropagation(); speakGreeting(e); }}
                                     className={`p-1 rounded transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-slate-400 hover:text-orange-400'}`}
                                     title={isSpeaking ? "Mute speech" : "Read aloud"}
                                 >
                                     {isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
                                 </button>
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsBubbleOpen(false);
-                                    }}
+                                    onClick={(e) => { e.stopPropagation(); setIsBubbleOpen(false); }}
                                     className="text-slate-400 hover:text-white p-0.5 text-xs font-bold"
-                                    title="Close Bubble"
+                                    title="Close"
                                 >
                                     ✕
                                 </button>
                             </div>
                         </div>
-                        <p className="text-[11px] text-slate-200 font-medium leading-relaxed">
-                            "{heroGreeting || 'Hello! I am CoopBot, your live service guide.'}"
-                        </p>
-                        <div className="mt-2 pt-1 border-t border-navy-700/60 flex items-center justify-between text-[10px]">
+
+                        {/* Message list */}
+                        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[120px] text-[11px]">
+                            {heroMessages.length === 0 ? (
+                                <p className="text-slate-200 font-medium leading-relaxed p-1">
+                                    "{heroGreeting || 'Hello! I am CoopBot, your live service guide. How may I assist your home today?'}"
+                                </p>
+                            ) : (
+                                heroMessages.map(m => (
+                                    <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`p-1.5 px-2.5 rounded-xl max-w-[90%] leading-relaxed ${
+                                            m.sender === 'user'
+                                                ? 'bg-orange-500 text-white rounded-br-none'
+                                                : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700'
+                                        }`}>
+                                            {m.text}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                            {isLoadingAi && (
+                                <div className="text-[10px] text-orange-300 italic flex items-center gap-1">
+                                    <Sparkles size={10} className="animate-spin" /> Thinking...
+                                </div>
+                            )}
+                            <div ref={heroMsgEndRef} />
+                        </div>
+
+                        {/* Quick Action Chips */}
+                        <div className="flex gap-1 overflow-x-auto py-1 no-scrollbar border-t border-slate-700/50">
+                            {[
+                                { label: '⚡ Electrician', q: 'I need an electrician' },
+                                { label: '💧 Plumbing', q: 'I need plumbing repair' },
+                                { label: '📦 Orders', q: 'Show my bookings' },
+                                { label: '🆘 Support', q: 'Help with service' },
+                            ].map(chip => (
+                                <button
+                                    key={chip.label}
+                                    onClick={() => sendQuickAction(chip.q)}
+                                    className="text-[10px] whitespace-nowrap px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium transition-colors"
+                                >
+                                    {chip.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Mini Input Box */}
+                        <form onSubmit={handleHeroSend} className="flex items-center gap-1 pt-1 border-t border-slate-700/50">
                             <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenChat();
-                                }}
-                                className="text-orange-400 hover:text-orange-300 font-bold flex items-center gap-1"
+                                type="button"
+                                onClick={toggleVoice}
+                                className={`p-1 rounded-md transition-colors ${isListening ? 'bg-red-500/20 text-red-400' : 'text-slate-400 hover:text-white'}`}
+                                title="Voice speech recognition"
                             >
-                                <MessageSquare size={10} /> Open AI Chat →
+                                {isListening ? <MicOff size={13} /> : <Mic size={13} />}
+                            </button>
+                            <input
+                                ref={heroInputRef}
+                                type="text"
+                                value={heroInput}
+                                onChange={(e) => setHeroInput(e.target.value)}
+                                placeholder="Ask CoopBot anything..."
+                                className="flex-1 bg-slate-800/90 text-white placeholder-slate-400 text-[11px] px-2 py-1 rounded-md border border-slate-700 focus:outline-none focus:border-orange-500"
+                            />
+                            <button
+                                type="submit"
+                                disabled={isLoadingAi || !heroInput.trim()}
+                                className="p-1 rounded-md bg-orange-500 text-white disabled:opacity-40 hover:bg-orange-600 transition-colors"
+                            >
+                                <Send size={12} />
+                            </button>
+                        </form>
+
+                        {/* Link to Full Chat Drawer */}
+                        <div className="pt-1 text-center">
+                            <button
+                                onClick={handleOpenChat}
+                                className="text-[10px] text-orange-400 hover:text-orange-300 font-bold flex items-center justify-center gap-1 w-full py-0.5"
+                            >
+                                <MessageSquare size={10} /> Open Full AI Chat Window →
                             </button>
                         </div>
                     </div>
@@ -400,11 +613,14 @@ export default function GlobalHeroAgent({ inline = false }) {
                 <div 
                     onClick={() => {
                         setIsBubbleOpen(prev => !prev);
+                        if (!isBubbleOpen) {
+                            setTimeout(() => heroInputRef.current?.focus(), 300);
+                        }
                     }}
                     className="w-full h-48 sm:h-52 relative flex items-center justify-center cursor-pointer group transition-transform transform hover:scale-105"
-                    title={isBubbleOpen ? "Click to collapse bubble" : "Click to talk with CoopBot"}
+                    title={isBubbleOpen ? "Click to collapse" : "Click to chat with CoopBot"}
                 >
-                    <Hero3D mode="card" state={isSpeaking ? 'speaking' : animState} style={{ width: "100%", height: "100%" }} />
+                    <Hero3D mode="card" state={isSpeaking ? 'speaking' : isLoadingAi ? 'thinking' : animState} style={{ width: "100%", height: "100%" }} />
 
                     {/* Live Active Status Aura Pill */}
                     <div 
@@ -426,9 +642,9 @@ export default function GlobalHeroAgent({ inline = false }) {
                         }}
                     >
                         <span className="status-dot available" style={{ width: "6px", height: "6px", background: "#10B981", borderRadius: "50%" }}></span>
-                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {animState}</span>
+                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {isLoadingAi ? 'thinking' : animState}</span>
                         <span className="text-[9px] text-orange-400 font-normal ml-1">
-                            {isBubbleOpen ? "• Close" : "• Click"}
+                            {isBubbleOpen ? "• Close" : "• Tap to Chat"}
                         </span>
                     </div>
                 </div>

@@ -19,11 +19,15 @@ import {
   User,
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye,
+  Printer
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import FinalizeBillModal from "../../../components/pillar/orders/FinalizeBillModal";
+import OrderDetailsModal from "../../../components/pillar/orders/OrderDetailsModal";
+import OrderReceiptModal from "../../../components/common/OrderReceiptModal";
 
 export default function OrdersList() {
   const { t } = useTranslation();
@@ -36,6 +40,8 @@ export default function OrdersList() {
   const [selectedBookingForOtp, setSelectedBookingForOtp] = useState(null);
   const [selectedBookingForExtra, setSelectedBookingForExtra] = useState(null);
   const [selectedOrderForCompletion, setSelectedOrderForCompletion] = useState(null);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
+  const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState(null);
   const [expandedMapOrderId, setExpandedMapOrderId] = useState(null);
 
   const fetchOrders = async () => {
@@ -70,6 +76,13 @@ export default function OrdersList() {
       metadata.pillar_id = user.id;
     }
     await pillarOrderService.updateOrderStatus(bookingId, newStatus, metadata);
+    if (newStatus === "accepted") {
+      setActiveTab("accepted");
+    } else if (newStatus === "onTheWay" || newStatus === "inProgress") {
+      setActiveTab("inProgress");
+    } else if (newStatus === "completed") {
+      setActiveTab("completed");
+    }
     fetchOrders();
   };
 
@@ -170,9 +183,58 @@ export default function OrdersList() {
                       {order.sub_service_name}
                     </p>
                   )}
+                  {order.attachments && order.attachments.length > 0 && (
+                    <div style={{ marginTop: "6px" }}>
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOrderForDetails(order);
+                        }}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          background: "rgba(245, 124, 32, 0.12)",
+                          color: "var(--color-secondary)",
+                          border: "1px solid rgba(245, 124, 32, 0.3)",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          padding: "2px 8px",
+                          borderRadius: "10px",
+                          cursor: "pointer"
+                        }}
+                        title="Customer uploaded photos / documents — Click to view"
+                      >
+                        📎 {order.attachments.length} {order.attachments.length === 1 ? "Photo/PDF" : "Photos/PDFs"} Attached
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: "bold", color: "var(--color-secondary)" }}>
-                  ₹{order.total_amount || order.base_amount || "0"}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                  <div style={{ fontSize: "var(--font-size-xl)", fontWeight: "bold", color: "var(--color-secondary)" }}>
+                    ₹{order.total_amount || order.base_amount || "0"}
+                  </div>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      padding: "4px 10px",
+                      borderRadius: "14px",
+                      color: "var(--color-primary)",
+                      borderColor: "var(--color-border-light)"
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOrderForDetails(order);
+                    }}
+                    title="View Full Order Details"
+                  >
+                    <Eye size={13} /> View Details
+                  </button>
                 </div>
               </div>
 
@@ -262,18 +324,18 @@ export default function OrdersList() {
                 {order.status === "pending" && (
                   <>
                     <button
-                      className="btn btn-outline"
-                      style={{ flex: 1, color: "var(--color-error)", borderColor: "var(--color-error)" }}
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1, color: "var(--color-error)", borderColor: "var(--color-error)", fontWeight: "600", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
                       onClick={() => handleStatusChange(order.id, "rejected")}
                     >
-                      <X size={16} /> {t("orders.reject")}
+                      <X size={14} /> {t("orders.reject")}
                     </button>
                     <button
-                      className="btn btn-success"
-                      style={{ flex: 1 }}
+                      className="btn btn-success btn-sm"
+                      style={{ flex: 1.5, fontWeight: "700", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
                       onClick={() => handleStatusChange(order.id, "accepted")}
                     >
-                      <Check size={16} /> {t("orders.accept")}
+                      <Check size={14} /> {t("orders.accept")}
                     </button>
                   </>
                 )}
@@ -282,7 +344,7 @@ export default function OrdersList() {
                   <>
                     <button
                       className="btn btn-primary"
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                       onClick={() => handleStatusChange(order.id, "onTheWay")}
                     >
                       <Navigation size={16} /> {t("orders.startTravel")}
@@ -309,7 +371,7 @@ export default function OrdersList() {
                   <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
                     <button
                       className="btn btn-warning"
-                      style={{ flex: 3 }}
+                      style={{ flex: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                       onClick={() => setSelectedBookingForOtp(order.id)}
                     >
                       <MapPin size={16} /> {t("orders.markArrived")} (Enter OTP)
@@ -330,26 +392,32 @@ export default function OrdersList() {
                 {(order.status === "arrived" || order.status === "inProgress") && (
                   <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
                     <button
-                      className="btn btn-outline"
-                      style={{ flex: 1 }}
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
                       onClick={() => setSelectedBookingForExtra(order.id)}
                     >
-                      <DollarSign size={16} /> + Extra Charge
+                      <DollarSign size={16} /> + Extra
                     </button>
                     <button
-                      className="btn btn-success"
-                      style={{ flex: 1.5, fontWeight: "bold" }}
+                      className="btn btn-success btn-sm"
+                      style={{ flex: 2, fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                       onClick={() => setSelectedOrderForCompletion(order)}
                     >
-                      <Check size={16} /> Complete & Finalize Bill
+                      <Check size={16} /> Complete & Finalize
                     </button>
                   </div>
                 )}
 
                 {order.status === "completed" && (
-                  <button className="btn btn-outline" style={{ width: "100%", fontWeight: "bold" }} disabled>
-                    ✓ Job Completed (₹{order.final_amount || order.total_amount || 450})
-                  </button>
+                  <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontWeight: "700", padding: "10px 16px" }}
+                      onClick={() => setSelectedOrderForReceipt(order)}
+                    >
+                      <Printer size={16} /> Generate & View Official Receipt
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -362,7 +430,10 @@ export default function OrdersList() {
         <ArrivalOTPModal
           bookingId={selectedBookingForOtp}
           onClose={() => setSelectedBookingForOtp(null)}
-          onSuccess={fetchOrders}
+          onSuccess={() => {
+            setActiveTab("inProgress");
+            fetchOrders();
+          }}
         />
       )}
 
@@ -380,7 +451,42 @@ export default function OrdersList() {
         <FinalizeBillModal
           order={selectedOrderForCompletion}
           onClose={() => setSelectedOrderForCompletion(null)}
-          onSuccess={fetchOrders}
+          onSuccess={() => {
+            setActiveTab("completed");
+            fetchOrders();
+          }}
+        />
+      )}
+
+      {/* Complete Order Details Modal */}
+      {selectedOrderForDetails && (
+        <OrderDetailsModal
+          order={selectedOrderForDetails}
+          onClose={() => setSelectedOrderForDetails(null)}
+          onStatusChange={handleStatusChange}
+          onTriggerOtp={(id) => {
+            setSelectedBookingForOtp(id);
+            setSelectedOrderForDetails(null);
+          }}
+          onTriggerExtra={(order) => {
+            setSelectedBookingForExtra(order.id);
+            setSelectedOrderForDetails(null);
+          }}
+          onTriggerComplete={(order) => {
+            setSelectedOrderForCompletion(order);
+            setSelectedOrderForDetails(null);
+          }}
+          onTriggerReceipt={(order) => {
+            setSelectedOrderForReceipt(order);
+          }}
+        />
+      )}
+
+      {/* Official Tax Invoice & Cash Receipt Generator Modal */}
+      {selectedOrderForReceipt && (
+        <OrderReceiptModal
+          order={selectedOrderForReceipt}
+          onClose={() => setSelectedOrderForReceipt(null)}
         />
       )}
     </div>
