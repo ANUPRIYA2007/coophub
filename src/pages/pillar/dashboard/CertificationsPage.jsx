@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { certificationService } from "../../../services/pillar/certificationService";
 import { useAuth } from "../../../context/AuthContext";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { 
   Award, CheckCircle2, Clock, XCircle, Plus, UploadCloud, 
-  ExternalLink, FileText, Building2, ShieldCheck, AlertCircle, RefreshCw
+  ExternalLink, FileText, Building2, ShieldCheck, AlertCircle, RefreshCw, ArrowLeft
 } from "lucide-react";
 
 export default function CertificationsPage() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, profile } = useAuth();
   const [certifications, setCertifications] = useState([]);
@@ -118,15 +120,20 @@ export default function CertificationsPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-5)", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
             <span style={{ 
-              background: "rgba(255, 121, 0, 0.12)", color: "#FF7900", 
-              fontSize: "0.75rem", fontWeight: "800", padding: "3px 8px", borderRadius: "8px", textTransform: "uppercase" 
+              background: "rgba(255, 121, 0, 0.15)", color: "#FF7900", 
+              fontSize: "0.75rem", fontWeight: "800", padding: "2px 8px", borderRadius: "6px", letterSpacing: "0.5px" 
             }}>
-              Professional Credentials
-            </span>
-            <span style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
-              Boost matching rank by up to +20 points
+              PROFESSIONAL CREDENTIALS
             </span>
           </div>
           <h1 style={{ fontSize: "1.6rem", fontWeight: "800", color: "var(--color-text)", margin: 0 }}>

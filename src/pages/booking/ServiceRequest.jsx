@@ -7,7 +7,7 @@ import { serviceRequestService } from '../../services/customer/serviceRequestSer
 import { attachmentService } from '../../services/customer/attachmentService';
 import { locationService } from '../../services/customer/locationService';
 import LocationPickerModal from '../../components/maps/LocationPickerModal';
-import { MapPin, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { MapPin, AlertTriangle, CheckCircle2, Home, ShoppingBag } from 'lucide-react';
 
 export default function ServiceRequest() {
     const params = useParams();
@@ -20,10 +20,16 @@ export default function ServiceRequest() {
     const targetServiceId = params.id || params.serviceId;
     const targetSubServiceId = params.subServiceId || searchParams.get('sub');
 
-    const serviceInfo = services.find(s => s.id === targetServiceId || s.category?.toLowerCase() === targetServiceId?.toLowerCase()) || services[0];
-    const subServiceInfo = subServices.find(s => s.id === targetSubServiceId) ||
-                           subServices.find(s => s.service_id === serviceInfo?.id) ||
-                           subServices[0];
+    const serviceInfo = (services || []).find(s => 
+        s.id === targetServiceId || 
+        s.service_code?.toLowerCase() === targetServiceId?.toLowerCase() ||
+        s.category?.toLowerCase() === targetServiceId?.toLowerCase() ||
+        s.name?.toLowerCase() === targetServiceId?.toLowerCase()
+    ) || (services && services.length > 0 ? services[0] : null);
+
+    const subServiceInfo = (subServices || []).find(s => s.id === targetSubServiceId) ||
+                           (subServices || []).find(s => s.service_id === serviceInfo?.id) ||
+                           null;
 
     // Form States
     const [step, setStep] = useState(1);
@@ -43,8 +49,35 @@ export default function ServiceRequest() {
     const [error, setError] = useState(null);
 
     // Navigate to step 1 logic
-    if (catLoading) return <div className="p-10 text-center">Loading catalogue...</div>;
-    if (!serviceInfo) return <div className="p-10 text-center">Service not found.</div>;
+    if (catLoading) {
+        return (
+            <div className="min-h-screen bg-surface p-8 flex items-center justify-center">
+                <div className="text-center font-bold text-navy-600">Loading booking catalogue...</div>
+            </div>
+        );
+    }
+
+    if (!serviceInfo) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-surface p-6 text-center">
+                <div className="card p-8 max-w-md w-full shadow-xl bg-white rounded-3xl border border-navy-100">
+                    <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                        <AlertTriangle size={32} />
+                    </div>
+                    <h2 className="text-xl font-bold text-navy-900 mb-2">Service Unavailable</h2>
+                    <p className="text-navy-500 text-sm mb-6">The requested service is not currently available for booking.</p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <button type="button" onClick={() => navigate('/services')} className="btn-primary py-3 px-5 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                            <ShoppingBag size={16} /> Browse Services
+                        </button>
+                        <button type="button" onClick={() => navigate('/home')} className="py-3 px-5 rounded-xl border border-navy-200 text-navy-700 hover:bg-navy-50 font-bold text-sm flex items-center justify-center gap-2 transition-colors">
+                            <Home size={16} /> Back to Home
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const handleFormChange = (e) => {
         const { name, value, type, checked } = e.target;

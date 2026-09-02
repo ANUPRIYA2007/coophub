@@ -21,7 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
-  Printer
+  Printer,
+  ArrowLeft
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -104,6 +105,16 @@ export default function OrdersList() {
     <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
       <div className="page-header">
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("orders.title")}</h1>
           <p className="page-subtitle">Manage customer bookings, dispatch transit, and record completion</p>
         </div>

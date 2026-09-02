@@ -1,14 +1,26 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
-import { Globe, Bell, Shield, HelpCircle, Moon, Smartphone } from "lucide-react";
+import { Globe, Bell, Shield, HelpCircle, Moon, Smartphone, ArrowLeft } from "lucide-react";
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const { t, language, changeLanguage, supportedLanguages } = useTranslation();
 
   return (
     <div className="container" style={{ paddingTop: "var(--space-6)" }}>
       <div className="page-header">
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("settings.title")}</h1>
           <p className="page-subtitle">Configure app preferences, notifications, and security</p>
         </div>

@@ -34,7 +34,8 @@ import {
   TrendingUp,
   Award,
   Zap,
-  Bot
+  Bot,
+  Layers
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
@@ -425,6 +426,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { name: t("admin.support") || "Support", path: "/admin/support", icon: HelpCircle },
     { name: t("admin.welfare") || "Welfare & PF", path: "/admin/welfare", icon: Shield },
     { name: t("admin.settings") || "Settings", path: "/admin/settings", icon: Settings },
+    { name: "Portal Hub (Home)", path: "/", icon: Layers },
   ];
 
   const handleLogout = async () => {
@@ -475,7 +477,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           justifyContent: "space-between",
           borderBottom: "1px solid rgba(255,255,255,0.1)"
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+          <Link to="/admin" title="CoopHub Admin Overview Home" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", textDecoration: "none" }}>
             <img src="/assets/images/coophub-logo.jpg" alt="Logo" style={{ height: "32px", borderRadius: "4px" }} />
             <GradientText
               colors={["#FF7900","#FFFFFF","#FF7900"]}
@@ -486,7 +488,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             >
               COOP HUB
             </GradientText>
-          </div>
+          </Link>
           <button className="btn-icon hide-on-desktop" onClick={toggleSidebar} style={{ color: "white" }}>
             <X size={24} />
           </button>

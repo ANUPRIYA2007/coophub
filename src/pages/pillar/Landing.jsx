@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, LayoutDashboard, Sparkles } from 'lucide-react';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -24,6 +25,81 @@ export default function Landing() {
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
+      {/* Top Header Bar with Back to Home/Portals */}
+      <header
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          padding: '18px 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          zIndex: 20,
+        }}
+      >
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            color: '#1B2A4A',
+            border: '1px solid rgba(27, 42, 74, 0.15)',
+            padding: '8px 18px',
+            borderRadius: '9999px',
+            backdropFilter: 'blur(10px)',
+            fontSize: '13px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.background = '#1B2A4A';
+            e.currentTarget.style.color = '#FFFFFF';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
+            e.currentTarget.style.color = '#1B2A4A';
+          }}
+        >
+          <ArrowLeft size={16} /> Back to Portal Selection
+        </button>
+
+        <button
+          onClick={handleGetStarted}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(245, 124, 32, 0.1)',
+            color: '#F57C20',
+            border: '1px solid rgba(245, 124, 32, 0.25)',
+            padding: '8px 16px',
+            borderRadius: '9999px',
+            fontSize: '12.5px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#F57C20';
+            e.currentTarget.style.color = '#FFFFFF';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(245, 124, 32, 0.1)';
+            e.currentTarget.style.color = '#F57C20';
+          }}
+        >
+          <LayoutDashboard size={14} /> Direct Dashboard Access
+        </button>
+      </header>
+
       {/* Subtle Ambient Background Lighting Elements */}
       <div
         style={{
@@ -54,12 +130,14 @@ export default function Landing() {
       >
         {/* Exact CoopHub Logo */}
         <div
+          onClick={() => navigate('/')}
+          title="Click to return to Portal Selection"
           style={{
             marginBottom: '32px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            cursor: 'default',
+            cursor: 'pointer',
             userSelect: 'none',
           }}
         >

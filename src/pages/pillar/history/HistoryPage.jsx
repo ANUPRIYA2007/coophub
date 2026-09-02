@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarOrderService } from "../../../services/pillar/orderService";
-import { CheckCircle2, Clock, XCircle, Loader2, ClipboardList } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Loader2, ClipboardList, ArrowLeft } from "lucide-react";
 
 export default function HistoryPage() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
   const [historyItems, setHistoryItems] = useState([]);
@@ -29,6 +31,16 @@ export default function HistoryPage() {
     <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
       <div className="page-header">
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("history.title")}</h1>
           <p className="page-subtitle">Past service assignments, completed jobs, and logs</p>
         </div>

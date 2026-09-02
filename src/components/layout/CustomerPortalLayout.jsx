@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -86,7 +86,7 @@ export default function CustomerPortalLayout() {
                 `}
             >
                 {/* Logo */}
-                <div className="flex items-center space-x-3 px-5 py-5 border-b border-navy-800">
+                <Link to="/home" title="CoopHub Customer Dashboard Home" className="flex items-center space-x-3 px-5 py-5 border-b border-navy-800 hover:bg-navy-800/40 transition-colors">
                     <img src={coopHubLogo} alt="COOP HUB" className="w-9 h-auto" />
                     <GradientText
                         colors={["#FF7900","#FFFFFF","#FF7900"]}
@@ -96,7 +96,7 @@ export default function CustomerPortalLayout() {
                     >
                         COOP HUB
                     </GradientText>
-                </div>
+                </Link>
 
                 {/* Portal Label */}
                 <div className="px-5 py-4 border-b border-navy-800">

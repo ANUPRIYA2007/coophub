@@ -6,6 +6,8 @@ import authService from '../../services/auth/authService';
 import PasswordInput from '../../components/ui/PasswordInput';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 import CustomerHeroInteractiveAgent from '../../components/customer/ai/CustomerHeroInteractiveAgent';
+import LanguageSelector from '../../components/ui/LanguageSelector';
+import { ArrowLeft } from 'lucide-react';
 
 export default function Register() {
     const { t } = useTranslation();
@@ -104,6 +106,17 @@ export default function Register() {
             className="min-h-screen flex items-center justify-center px-4 py-8 relative"
             style={{ background: "linear-gradient(135deg, #050A12 0%, #162238 50%, #050A12 100%)" }}
         >
+            {/* Top Navigation & Language Selector */}
+            <div className="absolute top-4 left-4 z-10">
+                <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-orange-600 transition-colors bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-navy-100 shadow-xs">
+                    <ArrowLeft size={14} /> Back to Portals
+                </Link>
+            </div>
+
+            <div className="absolute top-4 right-4 w-40 z-10">
+                <LanguageSelector />
+            </div>
+
             {/* Main Responsive Grid Container */}
             <div
                 style={{

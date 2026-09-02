@@ -7,16 +7,18 @@
 // ==============================================================================
 
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { welfareService } from "../../../modules/admin/services/welfareService";
 import { 
   Heart, Shield, AlertTriangle, CheckCircle, Clock, FileText, 
   Download, ExternalLink, ChevronRight, Landmark, Info, User, 
   TrendingUp, RefreshCw, X, ShieldCheck, HeartHandshake, Loader2,
-  Calendar, Award, CheckCircle2, DollarSign
+  Calendar, Award, CheckCircle2, DollarSign, ArrowLeft
 } from "lucide-react";
 
 export default function WelfarePage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const pillarId = user?.id || "p-1";
 
@@ -86,7 +88,15 @@ export default function WelfarePage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-5)", flexWrap: "wrap", gap: "var(--space-3)" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
             <span style={{ 
               background: "rgba(255, 121, 0, 0.15)", color: "var(--color-secondary)", 
               fontSize: "0.75rem", fontWeight: "800", padding: "2px 8px", borderRadius: "6px", letterSpacing: "0.5px" 

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarProfileService } from "../../../services/pillar/profileService";
-import { User, ShieldCheck, Mail, Phone, MapPin, Briefcase, Award, Save, Building2, CreditCard, CheckCircle2, Lock, FileText, UploadCloud, Loader2 } from "lucide-react";
+import { User, ShieldCheck, Mail, Phone, MapPin, Briefcase, Award, Save, Building2, CreditCard, CheckCircle2, Lock, FileText, UploadCloud, Loader2, ArrowLeft } from "lucide-react";
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, profile } = useAuth();
 
@@ -212,6 +214,16 @@ export default function ProfilePage() {
     <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
       <div className="page-header" style={{ marginBottom: "var(--space-6)" }}>
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("profile.title")}</h1>
           <p className="page-subtitle">Manage your verified Pillar credentials, trade specializations, and direct bank payout details</p>
         </div>

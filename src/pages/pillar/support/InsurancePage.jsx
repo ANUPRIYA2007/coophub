@@ -1,9 +1,11 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
-import { Shield, AlertTriangle, FileHeart, BriefcaseMedical } from "lucide-react";
+import { Shield, AlertTriangle, FileHeart, BriefcaseMedical, ArrowLeft } from "lucide-react";
 
 export default function InsurancePage() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
   
@@ -16,6 +18,16 @@ export default function InsurancePage() {
     <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
       <div className="page-header" style={{ marginBottom: "var(--space-6)" }}>
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">Insurance & Coverage</h1>
           <p className="page-subtitle">Your active cooperative insurance policies and claims</p>
         </div>

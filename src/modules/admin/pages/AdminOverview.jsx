@@ -86,21 +86,18 @@ export default function AdminOverview() {
     }
     setLoading(false);
 
-    // Heavy 3D GSAP Stagger Entrance
+    // Smooth GSAP Stagger Entrance
     setTimeout(() => {
       gsap3dEngine.animate3DStaggerEntrance(".admin-kpi-card, .card, .admin-stat-card", {
-        y: 45,
-        rotationX: 20,
-        rotationY: -8,
-        translateZ: -70,
-        stagger: 0.08,
-        duration: 0.8,
+        y: 12,
+        stagger: 0.04,
+        duration: 0.4,
       });
 
       gsap.fromTo(
         ".admin-bar-col",
         { scaleY: 0, transformOrigin: "bottom" },
-        { scaleY: 1, duration: 0.75, stagger: 0.08, ease: "back.out(1.5)" }
+        { scaleY: 1, duration: 0.4, stagger: 0.04, ease: "power2.out" }
       );
 
       gsap3dEngine.refresh();

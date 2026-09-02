@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarEarningsService } from "../../../services/pillar/earningsService";
-import { Wallet, TrendingUp, Clock, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Wallet, TrendingUp, Clock, CheckCircle2, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
 
 export default function EarningsPage() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
   const [data, setData] = useState({
@@ -33,6 +35,16 @@ export default function EarningsPage() {
     <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
       <div className="page-header">
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("earnings.title")}</h1>
           <p className="page-subtitle">Track your revenue, payouts, and incentives</p>
         </div>

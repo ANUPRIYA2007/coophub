@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarSupportService } from "../../../services/pillar/supportService";
 import CreateTicketModal from "../../../components/pillar/support/CreateTicketModal";
-import { LifeBuoy, Plus, MessageCircle, Clock, CheckCircle2 } from "lucide-react";
+import { LifeBuoy, Plus, MessageCircle, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
 
 export default function SupportPage() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
   const [tickets, setTickets] = useState([]);
@@ -27,6 +29,16 @@ export default function SupportPage() {
     <div className="container" style={{ paddingTop: "var(--space-6)" }}>
       <div className="page-header">
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("support.title")}</h1>
           <p className="page-subtitle">Get fast help from our administrative and technical support team</p>
         </div>

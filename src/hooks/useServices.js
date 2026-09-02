@@ -388,4 +388,5 @@ export function useServices() {
     return { services, subServices, getSubServices, loading, error };
 }
 
+export { MASTER_SERVICES, MASTER_SUB_SERVICES };
 export default useServices;

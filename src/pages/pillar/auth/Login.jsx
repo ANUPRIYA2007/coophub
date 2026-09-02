@@ -4,7 +4,7 @@ import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarAuthService } from "../../../services/pillar/authService";
 import HeroInteractiveAgent from "../../../components/pillar/ai/HeroInteractiveAgent";
-import { ShieldCheck, ChevronRight, Loader2, AlertCircle, Eye, EyeOff, Globe, KeyRound, Clock } from "lucide-react";
+import { ShieldCheck, ChevronRight, Loader2, AlertCircle, Eye, EyeOff, Globe, KeyRound, Clock, ArrowLeft } from "lucide-react";
 
 export default function Login() {
   const { t, language, changeLanguage, supportedLanguages } = useTranslation();
@@ -223,6 +223,45 @@ export default function Login() {
         alignItems: "stretch",
       }}
     >
+      {/* Top Header Bar for Back to Portals & Language Switching */}
+      <div
+        style={{
+          position: "absolute",
+          top: "16px",
+          left: "24px",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "rgba(255, 255, 255, 0.1)",
+            color: "white",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            padding: "7px 16px",
+            borderRadius: "9999px",
+            backdropFilter: "blur(8px)",
+            fontSize: "13px",
+            fontWeight: "700",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        >
+          <ArrowLeft size={16} /> Back to Portals
+        </button>
+      </div>
+
       {/* Top Header Bar for Language Switching */}
       <div
         style={{
@@ -807,12 +846,17 @@ export default function Login() {
 
             {/* Footer */}
             <div style={{ marginTop: "24px", textAlign: "center", borderTop: "1px solid var(--color-border-light)", paddingTop: "16px" }}>
-              <p style={{ fontSize: "13.5px", color: "var(--color-text-secondary)" }}>
+              <p style={{ fontSize: "13.5px", color: "var(--color-text-secondary)", margin: 0 }}>
                 {t("auth.newPillar")}{" "}
                 <Link to="/pillar/register" style={{ color: "var(--color-secondary)", fontWeight: "700" }}>
                   {t("auth.registerHere")}
                 </Link>
               </p>
+              <div style={{ marginTop: "12px", display: "flex", justifyContent: "center" }}>
+                <Link to="/" style={{ color: "#64748B", fontSize: "12.5px", fontWeight: "600", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <ArrowLeft size={14} /> Back to Portal Selection
+                </Link>
+              </div>
             </div>
           </div>
         </div>

@@ -13,41 +13,32 @@ export default function Landing() {
     const cardsContainerRef = useRef(null);
 
     useEffect(() => {
-        // 1. Cinematic 3D entrance timeline
-        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
 
         if (heroBadgeRef.current) {
             tl.fromTo(
                 heroBadgeRef.current,
-                { opacity: 0, y: -20, scale: 0.8, rotationX: 20 },
-                { opacity: 1, y: 0, scale: 1, rotationX: 0, duration: 0.7 }
+                { opacity: 0, y: -10 },
+                { opacity: 1, y: 0, duration: 0.5 }
             );
         }
 
         if (titleRef.current) {
             tl.fromTo(
                 titleRef.current,
-                { opacity: 0, y: 30, rotationX: 15, transformPerspective: 1000 },
-                { opacity: 1, y: 0, rotationX: 0, duration: 0.8 },
-                '-=0.4'
+                { opacity: 0, y: 15 },
+                { opacity: 1, y: 0, duration: 0.5 },
+                '-=0.2'
             );
         }
 
         if (cardsContainerRef.current) {
             const cards = cardsContainerRef.current.children;
             gsap3dEngine.animate3DStaggerEntrance(cards, {
-                y: 60,
-                rotationX: 25,
-                rotationY: -10,
-                translateZ: -100,
-                stagger: 0.14,
-                duration: 0.9,
+                y: 15,
+                stagger: 0.06,
+                duration: 0.45,
             });
-        }
-
-        // 2. 3D Floating Bob on Hero Badge
-        if (heroBadgeRef.current) {
-            gsap3dEngine.animate3DFloat(heroBadgeRef.current, { y: -6, duration: 3 });
         }
     }, []);
 

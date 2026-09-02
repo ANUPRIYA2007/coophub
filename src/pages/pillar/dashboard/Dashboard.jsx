@@ -77,15 +77,12 @@ export default function Dashboard() {
 
       setLoadingMetrics(false);
 
-      // Heavy 3D GSAP Stagger Entrance for Dashboard elements
+      // Smooth Stagger Entrance for Dashboard elements
       setTimeout(() => {
         gsap3dEngine.animate3DStaggerEntrance(".gsap-fade-card, .stat-card, .card", {
-          y: 40,
-          rotationX: 18,
-          rotationY: -6,
-          translateZ: -60,
-          stagger: 0.08,
-          duration: 0.75,
+          y: 12,
+          stagger: 0.04,
+          duration: 0.4,
         });
         gsap3dEngine.refresh();
       }, 50);

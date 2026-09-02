@@ -224,7 +224,7 @@ export default function NotificationsList() {
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-navy-100/60 pb-4">
                     <div className="flex items-center space-x-3">
-                        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-navy-50 rounded-xl transition-colors text-navy-600">
+                        <button onClick={() => navigate('/home')} title="Back to Home Dashboard" className="p-1.5 hover:bg-navy-50 rounded-xl transition-colors text-navy-600">
                             <ArrowLeft size={20} />
                         </button>
                         <div>

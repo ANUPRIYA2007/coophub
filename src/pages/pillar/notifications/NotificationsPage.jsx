@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarNotificationService } from "../../../services/pillar/notificationService";
-import { Bell, Check, CheckCheck, Trash2, X } from "lucide-react";
+import { Bell, Check, CheckCheck, Trash2, X, ArrowLeft } from "lucide-react";
 
 export default function NotificationsPage() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
@@ -34,6 +36,16 @@ export default function NotificationsPage() {
     <div className="container" style={{ paddingTop: "var(--space-6)" }}>
       <div className="page-header">
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("notifications.title")}</h1>
           <p className="page-subtitle">Stay up to date with new bookings, alerts, and system updates</p>
         </div>

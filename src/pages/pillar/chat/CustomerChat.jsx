@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarChatService } from "../../../services/pillar/chatService";
-import { Send, Phone, User, CheckCircle2 } from "lucide-react";
+import { Send, Phone, User, CheckCircle2, ArrowLeft } from "lucide-react";
 
 export default function CustomerChat() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { profile } = useAuth();
   const [activeChat, setActiveChat] = useState("CUST-1");
@@ -163,6 +165,16 @@ export default function CustomerChat() {
     <div className="container" style={{ paddingTop: "var(--space-6)", height: "calc(100vh - 100px)", display: "flex", flexDirection: "column" }}>
       <div className="page-header" style={{ marginBottom: "var(--space-4)" }}>
         <div>
+          <div style={{ marginBottom: "6px" }}>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="btn btn-outline btn-sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
+              title="Back to Pillar Dashboard Home"
+            >
+              <ArrowLeft size={14} /> Back to Dashboard
+            </button>
+          </div>
           <h1 className="page-title">{t("nav.chat")}</h1>
           <p className="page-subtitle">Real-time messaging with your customers</p>
         </div>
