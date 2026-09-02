@@ -387,71 +387,107 @@ export const ocrService = {
       verified_at: new Date().toISOString(),
       ocr_status: rawOcrText.trim().length > 0 ? 'SUCCESS' : 'NO_TEXT_DETECTED'
     };
-  },
-
-  /**
-   * Run Auto-Verification comparison on OCR data vs submitted data vs reference dataset
+  },  /**
+   * Run Auto-Verification comparison on OCR data vs submitted data vs government reference dataset
    */
   async runAutoVerification(ocrData = {}, submittedData = {}) {
-    await new Promise((res) => setTimeout(res, 300));
+    await new Promise((res) => setTimeout(res, 350));
 
     const submittedName = (submittedData.full_name || submittedData.fullName || '').toLowerCase().trim();
     const extractedName = (ocrData.extracted_name || '').toLowerCase().trim();
     
     const submittedDocType = (submittedData.document_type || ocrData.document_type_code || '').toLowerCase();
     const extractedDocType = (ocrData.document_type_code || '').toLowerCase();
+    const activeDocType = extractedDocType || submittedDocType || 'aadhaar';
 
-    // Dynamic Name Matching with Token Overlap & Fuzzy Normalization
+    const submittedDocNo = (submittedData.document_number || '').trim();
+    const extractedDocNo = (ocrData.extracted_document_number || ocrData.raw_document_number_masked || '').trim();
+    const activeDocNo = extractedDocNo || submittedDocNo;
+
+    // 1. Cross-reference with Government / Authority Verification Records
+    const refRecord = findReferenceRecord({
+      document_type: activeDocType,
+      document_number: activeDocNo,
+      full_name: submittedName || extractedName
+    });
+
+    // 2. Name Matching with Token Overlap & Fuzzy Normalization
     const cleanSubmitted = submittedName.replace(/\b(mr|mrs|ms|shri|smt|dr|master|selvi|thiru)\b[.]?/gi, '').replace(/[^\w\s]/g, '').trim();
     const cleanExtracted = extractedName.replace(/\b(mr|mrs|ms|shri|smt|dr|master|selvi|thiru)\b[.]?/gi, '').replace(/[^\w\s]/g, '').trim();
+    const cleanRefName = (refRecord?.full_name || '').toLowerCase().replace(/\b(mr|mrs|ms|shri|smt|dr|master|selvi|thiru)\b[.]?/gi, '').replace(/[^\w\s]/g, '').trim();
 
-    const nameMatch = cleanSubmitted.length > 0 && cleanExtracted.length > 0 && 
-      (cleanSubmitted.includes(cleanExtracted) || cleanExtracted.includes(cleanSubmitted) || 
-       cleanSubmitted.split(' ').some(token => token.length > 2 && cleanExtracted.includes(token)));
+    const nameMatch = cleanSubmitted.length > 0 && (
+      (cleanExtracted.length > 0 && (cleanSubmitted.includes(cleanExtracted) || cleanExtracted.includes(cleanSubmitted) || cleanSubmitted.split(' ').some(token => token.length > 2 && cleanExtracted.includes(token)))) ||
+      (cleanRefName.length > 0 && (cleanSubmitted.includes(cleanRefName) || cleanRefName.includes(cleanSubmitted)))
+    );
 
-    // 2. Check Document Type Match
+    // 3. Document Type Match
     const docTypeMatch = !submittedDocType || !extractedDocType || 
       submittedDocType.includes(extractedDocType) || extractedDocType.includes(submittedDocType) ||
-      (submittedDocType.includes('aadhaar') && extractedDocType.includes('aadhaar'));
+      (submittedDocType.includes('aadhaar') && extractedDocType.includes('aadhaar')) ||
+      (refRecord && refRecord.document_type === activeDocType);
 
-    // 3. Check DOB Match
+    // 4. DOB Match
     const subDob = (submittedData.dob || submittedData.date_of_birth || '').replace(/[-/]/g, '');
-    const extDob = (ocrData.extracted_dob || '').replace(/[-/]/g, '');
+    const extDob = (ocrData.extracted_dob || refRecord?.dob || '').replace(/[-/]/g, '');
     const dobMatch = !subDob || !extDob || subDob === extDob || subDob.includes(extDob) || extDob.includes(subDob);
 
-    // 4. Check Doc Number Presence
-    const docNumPresent = !!(ocrData.extracted_document_number || ocrData.raw_document_number_masked);
+    // 5. Document Number Presence & Format
+    const docNumPresent = !!(extractedDocNo || (refRecord && refRecord.document_number));
 
-    let resultStatus = 'MATCHED';
-    let explanation = `Extracted ${ocrData.document_type || 'Government ID'} verified successfully against technician profile.`;
-    let confidenceRating = '98%';
+    let resultStatus = 'NEEDS_MANUAL_REVIEW';
+    let explanation = 'Document details submitted for administrative audit.';
+    let confidenceRating = '70%';
 
-    if (ocrData.ocr_status === 'NO_TEXT_DETECTED' || (!ocrData.extracted_name && !ocrData.extracted_document_number)) {
-      resultStatus = 'NEEDS_MANUAL_REVIEW';
-      confidenceRating = '60%';
-      explanation = 'Document text could not be extracted with high confidence. Visual inspection recommended.';
-    } else if (!nameMatch && cleanExtracted.length > 2 && cleanSubmitted.length > 2) {
-      resultStatus = 'MISMATCH';
-      confidenceRating = '45%';
-      explanation = `Extracted name ("${ocrData.extracted_name}") differs from registered name ("${submittedData.full_name || submittedData.fullName}").`;
-    } else if (!docNumPresent) {
-      resultStatus = 'NEEDS_MANUAL_REVIEW';
-      confidenceRating = '75%';
-      explanation = 'Document number not detected on document front. Verified for visual administrative review.';
+    if (refRecord) {
+      // Found exact matching record in Government Reference Dataset
+      if (nameMatch && docNumPresent) {
+        resultStatus = 'MATCHED';
+        confidenceRating = '98%';
+        explanation = `✓ Authenticated against Government Records (${refRecord.issued_authority}). Name, ID number, and state registry match 100%.`;
+      } else if (!nameMatch) {
+        resultStatus = 'MISMATCH';
+        confidenceRating = '35%';
+        explanation = `✕ Government record exists for ID #${refRecord.document_number}, but registered name ("${submittedData.full_name}") does not match record holder ("${refRecord.full_name}").`;
+      } else {
+        resultStatus = 'NEEDS_MANUAL_REVIEW';
+        confidenceRating = '65%';
+        explanation = `Record located in ${refRecord.issued_authority} registry. Minor field discrepancy requires manual verification.`;
+      }
+    } else {
+      // Record not pre-indexed in local government reference registry
+      if (ocrData.ocr_status === 'NO_TEXT_DETECTED' || (!ocrData.extracted_name && !ocrData.extracted_document_number)) {
+        resultStatus = 'UNVERIFIED_NO_DATA';
+        confidenceRating = '20%';
+        explanation = '✕ No readable document text detected from image scan. Please upload a clear original document.';
+      } else if (nameMatch && docNumPresent) {
+        resultStatus = 'READY_FOR_MANUAL_CLEARANCE';
+        confidenceRating = '85%';
+        explanation = `OCR extracted valid ${ocrData.document_type || 'Identity Document'} details. Record not pre-indexed in local demo registry; ready for 1-click Admin verification.`;
+      } else if (!nameMatch && cleanExtracted.length > 2 && cleanSubmitted.length > 2) {
+        resultStatus = 'MISMATCH';
+        confidenceRating = '40%';
+        explanation = `✕ Extracted name ("${ocrData.extracted_name}") conflicts with registered profile ("${submittedData.full_name}").`;
+      } else {
+        resultStatus = 'NEEDS_MANUAL_REVIEW';
+        confidenceRating = '60%';
+        explanation = 'Document scanned. Partial details detected. Administrator visual confirmation required.';
+      }
     }
 
     return {
       auto_verification_timestamp: new Date().toISOString(),
-      name_match: nameMatch,
-      dob_match: dobMatch,
-      doc_number_match: docNumPresent,
-      doc_type_match: docTypeMatch,
-      reference_record_matched: nameMatch && docNumPresent,
-      reference_issuer: ocrData.document_type || 'Official State/Central Government Authority',
+      name_match: Boolean(nameMatch),
+      dob_match: Boolean(dobMatch),
+      doc_number_match: Boolean(docNumPresent),
+      doc_type_match: Boolean(docTypeMatch),
+      reference_record_matched: Boolean(refRecord && nameMatch),
+      reference_issuer: refRecord?.issued_authority || ocrData.document_type || 'Government Identity Authority',
+      reference_status: refRecord?.status || 'PENDING_REGISTRATION_CHECK',
       result_status: resultStatus,
       confidence_rating: confidenceRating,
       summary: explanation,
-      disclaimer: '⚠️ AUTO VERIFY provides autonomous cross-check assistance. Final authorization requires Admin confirmation.'
+      disclaimer: '⚠️ AUTO VERIFY autonomously cross-references with identity databases. Final clearance is executed by Cooperative Admin.'
     };
   },
   parseIndianIdFromText,

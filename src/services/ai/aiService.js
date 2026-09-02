@@ -5,12 +5,12 @@
 // for Real-Time Multimodal Document Extraction, Verification, and Administrative Intelligence.
 
 const NVIDIA_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_API_KEY : null) || 
-                       (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_API_KEY : null) ||
-                       "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";
+                       (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_API_KEY : null) || null;
 const rawNvidiaModel = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_MODEL : null) || 
                        (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_MODEL : null);
 const NVIDIA_MODEL = (rawNvidiaModel && !rawNvidiaModel.includes('nemotron-parse')) ? rawNvidiaModel : "meta/llama-3.2-11b-vision-instruct";
-const GEMINI_API_KEY = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_GEMINI_API_KEY : null;
+const GEMINI_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_GEMINI_API_KEY : null) ||
+                       (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : null) || null;
 
 /**
  * Call NVIDIA NIM API directly
@@ -285,7 +285,7 @@ You MUST output ONLY a valid JSON object without markdown formatting or codebloc
   const cleanApp = applicantName.toLowerCase().replace(/[^a-z0-9]/g, '');
   const cleanExt = extractedName.toLowerCase().replace(/[^a-z0-9]/g, '');
   const isNameMatched = cleanApp.includes(cleanExt) || cleanExt.includes(cleanApp) || cleanApp === cleanExt;
-  const isMatched = (autoVerifyResult?.result_status === 'MATCHED') || (isNameMatched && cleanDigits.length >= 8);
+  const isMatched = (autoVerifyResult?.result_status === 'MATCHED');
 
   return {
     ai_provider: "NVIDIA NIM (Llama 3.2 Vision & Cooperative AI)",

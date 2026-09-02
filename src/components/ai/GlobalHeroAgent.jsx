@@ -328,32 +328,37 @@ export default function GlobalHeroAgent({ inline = false }) {
     // Voice Speech Synthesis
     const speakGreeting = (e) => {
         e?.stopPropagation();
-        if (!('speechSynthesis' in window) || !heroGreeting) return;
+        if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis || !heroGreeting) return;
 
-        if (isSpeaking) {
+        try {
+            if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                setIsSpeaking(false);
+                return;
+            }
+
             window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(heroGreeting.replace(/[^\w\s\u0B80-\u0BFF\u0900-\u097F\u0C00-\u0C7F\u0C80-\u0CFF]/gi, ''));
+            const langCodeMap = {
+                ta: 'ta-IN',
+                hi: 'hi-IN',
+                te: 'te-IN',
+                kn: 'kn-IN',
+                en: 'en-US'
+            };
+            utterance.lang = langCodeMap[language] || 'en-US';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.05;
+
+            utterance.onstart = () => setIsSpeaking(true);
+            utterance.onend = () => setIsSpeaking(false);
+            utterance.onerror = () => setIsSpeaking(false);
+
+            window.speechSynthesis.speak(utterance);
+        } catch (err) {
+            console.warn("Speech synthesis unavailable:", err.message);
             setIsSpeaking(false);
-            return;
         }
-
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(heroGreeting.replace(/[^\w\s\u0B80-\u0BFF\u0900-\u097F\u0C00-\u0C7F\u0C80-\u0CFF]/gi, ''));
-        const langCodeMap = {
-            ta: 'ta-IN',
-            hi: 'hi-IN',
-            te: 'te-IN',
-            kn: 'kn-IN',
-            en: 'en-US'
-        };
-        utterance.lang = langCodeMap[language] || 'en-US';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.05;
-
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-
-        window.speechSynthesis.speak(utterance);
     };
 
     const handleOpenChat = () => {
@@ -377,6 +382,7 @@ export default function GlobalHeroAgent({ inline = false }) {
 
     // Voice recognition toggle
     const toggleVoice = () => {
+        if (typeof window === 'undefined') return;
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return;
         if (isListening) { setIsListening(false); return; }
@@ -389,7 +395,7 @@ export default function GlobalHeroAgent({ inline = false }) {
             recognition.onend = () => setIsListening(false);
             recognition.onerror = () => setIsListening(false);
             recognition.onresult = (e) => {
-                const transcript = e.results[0][0].transcript;
+                const transcript = e.results?.[0]?.[0]?.transcript;
                 if (transcript) {
                     setHeroInput(transcript);
                     setIsBubbleOpen(true);

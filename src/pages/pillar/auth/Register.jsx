@@ -23,6 +23,7 @@ export default function Register() {
   const [activeField, setActiveField] = useState(null);
   const [success, setSuccess] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
+  const [submittedAppId, setSubmittedAppId] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -272,18 +273,19 @@ export default function Register() {
       return;
     }
 
-    const { user, error: regError } = await register(submissionPayload);
+    const { user, applicationId, error: regError } = await register(submissionPayload);
 
     setLoading(false);
 
     if (regError) {
       setError(regError.message || t("common.error"));
     } else {
+      if (applicationId) {
+        setSubmittedAppId(applicationId);
+      }
       setSuccess(true);
     }
   };
-
-  const [submittedAppId, setSubmittedAppId] = useState("");
 
   if (success) {
     return (

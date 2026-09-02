@@ -4,16 +4,14 @@
 // ============================================================
 
 const NVIDIA_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_API_KEY : null) || 
-                       (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_API_KEY : null) ||
-                       "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";
+                       (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_API_KEY : null) || null;
 
 const rawModel = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_NVIDIA_MODEL : null) || 
                    (typeof process !== 'undefined' && process.env ? process.env.NVIDIA_MODEL : null);
 const NVIDIA_MODEL = (rawModel && !rawModel.includes('nemotron-parse')) ? rawModel : "meta/llama-3.2-11b-vision-instruct";
 
 const GEMINI_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_GEMINI_API_KEY : null) ||
-                       (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : null) ||
-                       "AQ.Ab8RN6J24z0pu89-nym7TCiEJx5QHtO8_gYdrnfxRN_RCh9kTA";
+                       (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : null) || null;
 
 export async function callPillarAiApi({ prompt, language = "en", route = "/" }) {
   const langName = language === "ta" ? "Tamil" : language === "hi" ? "Hindi" : language === "te" ? "Telugu" : language === "kn" ? "Kannada" : "English";

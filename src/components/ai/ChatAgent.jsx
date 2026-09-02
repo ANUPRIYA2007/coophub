@@ -86,14 +86,20 @@ export default function ChatAgent({ contextData }) {
         utterance.onend = () => setSpeakingMsgId(null);
         utterance.onerror = () => setSpeakingMsgId(null);
 
-        window.speechSynthesis.speak(utterance);
+        try {
+            window.speechSynthesis.speak(utterance);
+        } catch (err) {
+            console.warn("Speech synthesis error:", err.message);
+            setSpeakingMsgId(null);
+        }
     };
 
     // Speech-To-Text (Voice input)
     const toggleListening = () => {
+        if (typeof window === 'undefined') return;
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            alert('Voice speech recognition is not supported in this browser.');
+            console.warn('Voice speech recognition is not supported in this browser.');
             return;
         }
 
@@ -118,7 +124,7 @@ export default function ChatAgent({ contextData }) {
             recognition.onend = () => setIsListening(false);
             recognition.onerror = () => setIsListening(false);
             recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
+                const transcript = event.results?.[0]?.[0]?.transcript;
                 if (transcript) {
                     setInput(transcript);
                 }
@@ -126,7 +132,7 @@ export default function ChatAgent({ contextData }) {
 
             recognition.start();
         } catch (err) {
-            console.error('STT error:', err);
+            console.warn('STT error:', err);
             setIsListening(false);
         }
     };

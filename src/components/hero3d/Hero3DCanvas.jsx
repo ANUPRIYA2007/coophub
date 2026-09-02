@@ -527,6 +527,20 @@ export default function Hero3DCanvas({
 
       if (mixer) mixer.stopAllAction();
 
+      const handleContextLost = (e) => {
+        e.preventDefault();
+        console.warn("[Hero3DCanvas] WebGL context lost. Pausing render loop.");
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      };
+
+      const handleContextRestored = () => {
+        console.log("[Hero3DCanvas] WebGL context restored.");
+        renderLoop();
+      };
+
+      renderer.domElement.addEventListener('webglcontextlost', handleContextLost, false);
+      renderer.domElement.addEventListener('webglcontextrestored', handleContextRestored, false);
+
       scene.traverse((obj) => {
         if (obj.isMesh) {
           obj.geometry?.dispose();
@@ -538,6 +552,8 @@ export default function Hero3DCanvas({
         }
       });
 
+      renderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
+      renderer.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
       renderer.dispose();
       if (renderer.domElement && renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
@@ -547,8 +563,15 @@ export default function Hero3DCanvas({
 
   if (loadError) {
     return (
-      <div className={`flex items-center justify-center text-xs text-orange-500 p-2 ${className}`}>
-        <span>3D Hero</span>
+      <div className={`flex items-center justify-center p-2 ${className}`} style={{ width: '100%', height: '100%', ...style }}>
+        <img
+          src="/assets/images/mascot-hero.png"
+          alt="CoopBot Mascot"
+          className="w-full h-full object-contain max-h-48 drop-shadow-md"
+          onError={(e) => {
+            e.target.style.display = 'none';
+          }}
+        />
       </div>
     );
   }
