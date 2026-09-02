@@ -4,7 +4,7 @@ import { useTranslation } from './useTranslation';
 
 const MASTER_SERVICES = [
     {
-        id: 'srv-1',
+        id: 'a0000000-0000-0000-0000-000000000001',
         name: 'Electrical Repair',
         category: 'Electrical',
         icon: '⚡',
@@ -24,7 +24,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-2',
+        id: 'a0000000-0000-0000-0000-000000000003',
         name: 'AC Repair & Service',
         category: 'Cooling',
         icon: '❄️',
@@ -33,7 +33,7 @@ const MASTER_SERVICES = [
             ta: 'ஏசி பழுது மற்றும் பராமரிப்பு',
             hi: 'एसी मरम्मत और सर्विसिंग',
             te: 'AC మరమ్మత్తు & సర్వీసింగ్',
-            kn: 'ಎಸಿ ದುರಸ್ತಿ ಮತ್ತು ಸೇವೆ'
+            kn: 'ಎಸಿ ದುರಸ್ತಿ மற்றும் ಸೇವೆ'
         },
         description_translations: {
             en: 'Gas leak repair, deep jet pump cleaning, cooling issues and PCB service.',
@@ -44,7 +44,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-3',
+        id: 'a0000000-0000-0000-0000-000000000002',
         name: 'Plumbing & Pipe Fixing',
         category: 'Plumbing',
         icon: '🔧',
@@ -64,7 +64,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-4',
+        id: 'a0000000-0000-0000-0000-000000000004',
         name: 'Appliance Repair',
         category: 'Appliances',
         icon: '🧺',
@@ -84,7 +84,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-5',
+        id: 'a0000000-0000-0000-0000-000000000005',
         name: 'House Painting & Polish',
         category: 'Painting',
         icon: '🎨',
@@ -104,7 +104,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-domestic',
+        id: 'a0000000-0000-0000-0000-000000000010',
         name: 'Domestic Helpers',
         category: 'Domestic',
         icon: '🍲',
@@ -124,7 +124,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-caregiver',
+        id: 'a0000000-0000-0000-0000-000000000011',
         name: 'Caregiver Services',
         category: 'Healthcare',
         icon: '🩺',
@@ -144,7 +144,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-gardening',
+        id: 'a0000000-0000-0000-0000-000000000012',
         name: 'Gardening & Landscaping',
         category: 'Outdoor',
         icon: '🌿',
@@ -159,12 +159,12 @@ const MASTER_SERVICES = [
             en: 'Garden maintenance, plant care, pruning and landscaping.',
             ta: 'தோட்ட பராமரிப்பு, செடி வளர்ப்பு, கவாத்து மற்றும் வடிவமைப்பு.',
             hi: 'बगीचे का रखरखाव, पौधों की देखभाल, छंटाई और लैंडस्केपिंग।',
-            te: 'గార్డెన్ నిర్వహణ, మొక్కల సంరక్షణ మరియు ల్యాండ్‌స్కేపింగ్.',
+            te: 'గార్డెన్ నిర్వహణ, మొక్కల సంరక్షణ మరియు ల్యాండ్‌స్కేపిಂಗ್.',
             kn: 'ತೋಟ ನಿರ್ವಹಣೆ, ಸಸ್ಯ ಆರೈಕೆ ಮತ್ತು ಭೂದೃಶ್ಯ ವಿನ್ಯಾಸ.'
         }
     },
     {
-        id: 'srv-technician',
+        id: 'a0000000-0000-0000-0000-000000000013',
         name: 'Technician Services',
         category: 'Technical',
         icon: '🔧',
@@ -184,7 +184,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-emergency',
+        id: 'a0000000-0000-0000-0000-000000000014',
         name: 'Emergency Services',
         category: 'Emergency',
         icon: '🚨',
@@ -204,7 +204,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-ondemand',
+        id: 'a0000000-0000-0000-0000-000000000015',
         name: 'On-Demand Services',
         category: 'On-Demand',
         icon: '⚡',
@@ -224,7 +224,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-coop-workers',
+        id: 'a0000000-0000-0000-0000-000000000016',
         name: 'Verified Cooperative Workers',
         category: 'Cooperative',
         icon: '🛡️',
@@ -244,7 +244,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-training',
+        id: 'a0000000-0000-0000-0000-000000000017',
         name: 'Training & Certification',
         category: 'Training',
         icon: '🎓',
@@ -264,7 +264,7 @@ const MASTER_SERVICES = [
         }
     },
     {
-        id: 'srv-driver',
+        id: 'a0000000-0000-0000-0000-000000000007',
         name: 'Professional Driver Services',
         category: 'Transport',
         icon: '🚗',
@@ -286,30 +286,26 @@ const MASTER_SERVICES = [
 ];
 
 const MASTER_SUB_SERVICES = [
-    { id: 'sub-1', service_id: 'srv-1', name: 'Ceiling Fan & Switchboard Wiring', base_price: 350 },
-    { id: 'sub-2', service_id: 'srv-1', name: 'MCB Trip & Short Circuit Inspection', base_price: 450 },
-    { id: 'sub-3', service_id: 'srv-1', name: 'Inverter & Battery Setup', base_price: 800 },
-    { id: 'sub-4', service_id: 'srv-2', name: 'AC Jet Cleaning & Filter Wash', base_price: 600 },
-    { id: 'sub-5', service_id: 'srv-2', name: 'AC Gas Leak Refill & Check', base_price: 1800 },
-    { id: 'sub-6', service_id: 'srv-3', name: 'Tap & Mixer Replacement', base_price: 250 },
-    { id: 'sub-7', service_id: 'srv-3', name: 'Water Leakage & Clog Removal', base_price: 400 },
-    { id: 'sub-8', service_id: 'srv-4', name: 'Washing Machine Drum & Motor Service', base_price: 650 },
-    { id: 'sub-9', service_id: 'srv-5', name: 'Single Room Wall Painting & Primer', base_price: 2400 },
-    { id: 'sub-dom-1', service_id: 'srv-domestic', name: 'Daily Cooking & Meal Preparation', base_price: 350 },
-    { id: 'sub-dom-2', service_id: 'srv-domestic', name: 'Household Assistance & Maid Service', base_price: 500 },
-    { id: 'sub-care-1', service_id: 'srv-caregiver', name: 'Elder Care & Daily Patient Assistance', base_price: 800 },
-    { id: 'sub-care-2', service_id: 'srv-caregiver', name: 'Home Nursing & Medication Support', base_price: 1200 },
-    { id: 'sub-gard-1', service_id: 'srv-gardening', name: 'Garden Maintenance & Lawn Mowing', base_price: 450 },
-    { id: 'sub-gard-2', service_id: 'srv-gardening', name: 'Plant Care, Pruning & Landscaping', base_price: 650 },
-    { id: 'sub-tech-1', service_id: 'srv-technician', name: 'CCTV & Security Camera Setup', base_price: 850 },
-    { id: 'sub-tech-2', service_id: 'srv-technician', name: 'Electronics & Equipment Maintenance', base_price: 550 },
-    { id: 'sub-emerg-1', service_id: 'srv-emergency', name: '24/7 Urgent Plumbing & Pipe Burst Fix', base_price: 600 },
-    { id: 'sub-emerg-2', service_id: 'srv-emergency', name: '24/7 Emergency Electrical Short Circuit', base_price: 700 },
-    { id: 'sub-ondem-1', service_id: 'srv-ondemand', name: 'Instant 30-Min Priority Dispatch', base_price: 400 },
-    { id: 'sub-coop-1', service_id: 'srv-coop-workers', name: 'Verified Skilled Cooperative Technician', base_price: 500 },
-    { id: 'sub-train-1', service_id: 'srv-training', name: 'Worker Skill Assessment & Certification', base_price: 0 },
-    { id: 'sub-driver-1', service_id: 'srv-driver', name: 'Personal City Chauffeur (Local Trip)', base_price: 450 },
-    { id: 'sub-driver-2', service_id: 'srv-driver', name: 'Outstation / Full-Day Driver', base_price: 1200 }
+    { id: 'b0000000-0000-0000-0000-000000000004', service_id: 'a0000000-0000-0000-0000-000000000001', name: 'Ceiling Fan & Switchboard Wiring', base_price: 350 },
+    { id: 'b0000000-0000-0000-0000-000000000005', service_id: 'a0000000-0000-0000-0000-000000000002', name: 'Pipe Leak Repair & Tap Fixing', base_price: 250 },
+    { id: 'b0000000-0000-0000-0000-000000000006', service_id: 'a0000000-0000-0000-0000-000000000003', name: 'Split AC Master Service & Jet Cleaning', base_price: 600 },
+    { id: 'b0000000-0000-0000-0000-000000000007', service_id: 'a0000000-0000-0000-0000-000000000004', name: 'Washing Machine Drum & Motor Service', base_price: 650 },
+    { id: 'b0000000-0000-0000-0000-000000000008', service_id: 'a0000000-0000-0000-0000-000000000005', name: 'Single Room Wall Painting & Primer', base_price: 2400 },
+    { id: 'b0000000-0000-0000-0000-000000000010', service_id: 'a0000000-0000-0000-0000-000000000010', name: 'Daily Cooking & Meal Preparation', base_price: 350 },
+    { id: 'b0000000-0000-0000-0000-000000000011', service_id: 'a0000000-0000-0000-0000-000000000010', name: 'Household Assistance & Maid Service', base_price: 500 },
+    { id: 'b0000000-0000-0000-0000-000000000020', service_id: 'a0000000-0000-0000-0000-000000000011', name: 'Elder Care & Daily Patient Assistance', base_price: 800 },
+    { id: 'b0000000-0000-0000-0000-000000000021', service_id: 'a0000000-0000-0000-0000-000000000011', name: 'Home Nursing & Medication Support', base_price: 1200 },
+    { id: 'b0000000-0000-0000-0000-000000000030', service_id: 'a0000000-0000-0000-0000-000000000012', name: 'Garden Maintenance & Lawn Mowing', base_price: 450 },
+    { id: 'b0000000-0000-0000-0000-000000000031', service_id: 'a0000000-0000-0000-0000-000000000012', name: 'Plant Care, Pruning & Landscaping', base_price: 650 },
+    { id: 'b0000000-0000-0000-0000-000000000040', service_id: 'a0000000-0000-0000-0000-000000000013', name: 'CCTV & Security Camera Setup', base_price: 850 },
+    { id: 'b0000000-0000-0000-0000-000000000041', service_id: 'a0000000-0000-0000-0000-000000000013', name: 'Electronics & Equipment Maintenance', base_price: 550 },
+    { id: 'b0000000-0000-0000-0000-000000000050', service_id: 'a0000000-0000-0000-0000-000000000014', name: '24/7 Urgent Plumbing & Pipe Burst Fix', base_price: 600 },
+    { id: 'b0000000-0000-0000-0000-000000000051', service_id: 'a0000000-0000-0000-0000-000000000014', name: '24/7 Emergency Electrical Short Circuit', base_price: 700 },
+    { id: 'b0000000-0000-0000-0000-000000000060', service_id: 'a0000000-0000-0000-0000-000000000015', name: 'Instant 30-Min Priority Dispatch', base_price: 400 },
+    { id: 'b0000000-0000-0000-0000-000000000070', service_id: 'a0000000-0000-0000-0000-000000000016', name: 'Verified Skilled Cooperative Technician', base_price: 500 },
+    { id: 'b0000000-0000-0000-0000-000000000080', service_id: 'a0000000-0000-0000-0000-000000000017', name: 'Worker Skill Assessment & Certification', base_price: 0 },
+    { id: 'b0000000-0000-0000-0000-000000000001', service_id: 'a0000000-0000-0000-0000-000000000007', name: 'Personal City Chauffeur (Local Trip)', base_price: 450 },
+    { id: 'b0000000-0000-0000-0000-000000000002', service_id: 'a0000000-0000-0000-0000-000000000007', name: 'Outstation / Full-Day Driver', base_price: 1200 }
 ];
 
 export function useServices() {
