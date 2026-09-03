@@ -404,7 +404,8 @@ export const ocrService = {
     const extractedDocNo = (ocrData.extracted_document_number || ocrData.raw_document_number_masked || '').trim();
     const activeDocNo = extractedDocNo || submittedDocNo;
 
-    // 1. Cross-reference with Government / Authority Verification Records
+    // 1. Cross-reference Check
+    // Core Mandate: NEVER treat OCR or local datasets as official government-backed verification
     const refRecord = findReferenceRecord({
       document_type: activeDocType,
       document_number: activeDocNo,
@@ -435,59 +436,64 @@ export const ocrService = {
     // 5. Document Number Presence & Format
     const docNumPresent = !!(extractedDocNo || (refRecord && refRecord.document_number));
 
-    let resultStatus = 'NEEDS_MANUAL_REVIEW';
+    // Determine Truthful Verification Classification
+    let resultStatus = 'MANUAL_REVIEW';
+    let verificationStatus = 'manual_review';
     let explanation = 'Document details submitted for administrative audit.';
     let confidenceRating = '70%';
+    const qrDetected = Boolean(ocrData.raw_full_text && /QR|UIDAI|AADHAAR/i.test(ocrData.raw_full_text));
 
-    if (refRecord) {
-      // Found exact matching record in Government Reference Dataset
-      if (nameMatch && docNumPresent) {
-        resultStatus = 'MATCHED';
-        confidenceRating = '98%';
-        explanation = `✓ Authenticated against Government Records (${refRecord.issued_authority}). Name, ID number, and state registry match 100%.`;
-      } else if (!nameMatch) {
-        resultStatus = 'MISMATCH';
-        confidenceRating = '35%';
-        explanation = `✕ Government record exists for ID #${refRecord.document_number}, but registered name ("${submittedData.full_name}") does not match record holder ("${refRecord.full_name}").`;
-      } else {
-        resultStatus = 'NEEDS_MANUAL_REVIEW';
-        confidenceRating = '65%';
-        explanation = `Record located in ${refRecord.issued_authority} registry. Minor field discrepancy requires manual verification.`;
-      }
+    if (ocrData.ocr_status === 'NO_TEXT_DETECTED' || (!ocrData.extracted_name && !ocrData.extracted_document_number)) {
+      resultStatus = 'VERIFICATION_FAILED';
+      verificationStatus = 'verification_failed';
+      confidenceRating = '20%';
+      explanation = '✕ No readable document text detected from image scan. Please upload a clear original document.';
+    } else if (nameMatch && docNumPresent) {
+      // OCR & AI extraction matched profile, but NO authoritative government issuer verified it
+      resultStatus = 'AI_ASSISTED';
+      verificationStatus = 'ai_assisted';
+      confidenceRating = '85%';
+      explanation = `🟡 AI-Assisted Extraction: Extracted ${ocrData.document_type || 'Identity Document'} details match registered technician profile. Notice: Official government/issuer verification has not occurred; requires Cooperative Admin review.`;
+    } else if (!nameMatch && cleanExtracted.length > 2 && cleanSubmitted.length > 2) {
+      resultStatus = 'MISMATCH';
+      verificationStatus = 'manual_review';
+      confidenceRating = '40%';
+      explanation = `✕ Mismatch Detected: Extracted name ("${ocrData.extracted_name}") conflicts with registered profile ("${submittedData.full_name}"). Routed to Administrator for manual inspection.`;
     } else {
-      // Record not pre-indexed in local government reference registry
-      if (ocrData.ocr_status === 'NO_TEXT_DETECTED' || (!ocrData.extracted_name && !ocrData.extracted_document_number)) {
-        resultStatus = 'UNVERIFIED_NO_DATA';
-        confidenceRating = '20%';
-        explanation = '✕ No readable document text detected from image scan. Please upload a clear original document.';
-      } else if (nameMatch && docNumPresent) {
-        resultStatus = 'READY_FOR_MANUAL_CLEARANCE';
-        confidenceRating = '85%';
-        explanation = `OCR extracted valid ${ocrData.document_type || 'Identity Document'} details. Record not pre-indexed in local demo registry; ready for 1-click Admin verification.`;
-      } else if (!nameMatch && cleanExtracted.length > 2 && cleanSubmitted.length > 2) {
-        resultStatus = 'MISMATCH';
-        confidenceRating = '40%';
-        explanation = `✕ Extracted name ("${ocrData.extracted_name}") conflicts with registered profile ("${submittedData.full_name}").`;
-      } else {
-        resultStatus = 'NEEDS_MANUAL_REVIEW';
-        confidenceRating = '60%';
-        explanation = 'Document scanned. Partial details detected. Administrator visual confirmation required.';
-      }
+      resultStatus = 'MANUAL_REVIEW';
+      verificationStatus = 'manual_review';
+      confidenceRating = '60%';
+      explanation = 'Document scanned. Partial details detected. Administrator visual confirmation required.';
     }
 
     return {
       auto_verification_timestamp: new Date().toISOString(),
+      verification_status: verificationStatus, // 'officially_verified' | 'digitally_verified' | 'ai_assisted' | 'manual_review' | 'verification_failed'
+      verification_method: 'ocr_ai', // 'government_api' | 'digilocker' | 'ocr_ai' | 'admin_manual'
+      authoritative_verified: false, // Strictly false: AI/OCR is NOT government-authoritative
       name_match: Boolean(nameMatch),
       dob_match: Boolean(dobMatch),
       doc_number_match: Boolean(docNumPresent),
       doc_type_match: Boolean(docTypeMatch),
-      reference_record_matched: Boolean(refRecord && nameMatch),
-      reference_issuer: refRecord?.issued_authority || ocrData.document_type || 'Government Identity Authority',
-      reference_status: refRecord?.status || 'PENDING_REGISTRATION_CHECK',
+      qr_code: {
+        detected: qrDetected,
+        authoritative_verified: false,
+        status: qrDetected ? 'QR_DETECTED_UNVERIFIED' : 'NO_QR_DETECTED',
+        notice: qrDetected 
+          ? 'QR detected. UIDAI cryptographic signature verification is unavailable in current client. Classified as AI-Assisted.' 
+          : 'No cryptographic QR code processed.'
+      },
+      digilocker: {
+        configured: false,
+        is_digilocker_issued: false,
+        status: 'NOT_CONFIGURED',
+        notice: 'DigiLocker integration not configured in this environment.'
+      },
       result_status: resultStatus,
       confidence_rating: confidenceRating,
+      confidence_score: parseFloat(confidenceRating) / 100,
       summary: explanation,
-      disclaimer: '⚠️ AUTO VERIFY autonomously cross-references with identity databases. Final clearance is executed by Cooperative Admin.'
+      disclaimer: '⚠️ NEVER treat OCR or AI extraction alone as government-authoritative verification. Final clearance must be executed by Cooperative Admin or an official issuer API.'
     };
   },
   parseIndianIdFromText,

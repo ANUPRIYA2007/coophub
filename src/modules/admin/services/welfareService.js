@@ -1359,7 +1359,30 @@ export const welfareService = {
   },
 
   /**
-   * 13. Realtime Subscription Handler for Welfare updates
+   * 13. Welfare Assistance Requests
+   */
+  async getWelfareAssistanceRequests(statusFilter = 'all') {
+    try {
+      const { welfareAssistanceService } = await import('../../../services/welfare/welfareAssistanceService.js');
+      return await welfareAssistanceService.getAllAssistanceRequests(statusFilter);
+    } catch (e) {
+      console.error("Error fetching assistance requests:", e);
+      return { data: [], error: e.message };
+    }
+  },
+
+  async updateWelfareAssistanceStatus(requestId, options) {
+    try {
+      const { welfareAssistanceService } = await import('../../../services/welfare/welfareAssistanceService.js');
+      return await welfareAssistanceService.updateAssistanceStatus(requestId, options);
+    } catch (e) {
+      console.error("Error updating assistance status:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  /**
+   * 14. Realtime Subscription Handler for Welfare updates
    */
   subscribeToWelfareUpdates(callback) {
     try {
@@ -1368,11 +1391,17 @@ export const welfareService = {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pf_accounts' }, (payload) => {
           callback && callback({ table: 'pf_accounts', payload });
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pf_contributions' }, (payload) => {
+          callback && callback({ table: 'pf_contributions', payload });
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'pf_transactions' }, (payload) => {
           callback && callback({ table: 'pf_transactions', payload });
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'insurance_claims' }, (payload) => {
           callback && callback({ table: 'insurance_claims', payload });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'welfare_assistance_requests' }, (payload) => {
+          callback && callback({ table: 'welfare_assistance_requests', payload });
         })
         .subscribe();
 

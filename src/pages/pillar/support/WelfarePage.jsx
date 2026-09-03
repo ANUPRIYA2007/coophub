@@ -10,11 +10,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { welfareService } from "../../../modules/admin/services/welfareService";
+import { welfareEligibilityEngine } from "../../../services/welfare/welfareEligibilityEngine";
+import { welfareAssistanceService } from "../../../services/welfare/welfareAssistanceService";
+import { supabase } from "../../../lib/supabase";
 import { 
   Heart, Shield, AlertTriangle, CheckCircle, Clock, FileText, 
   Download, ExternalLink, ChevronRight, Landmark, Info, User, 
   TrendingUp, RefreshCw, X, ShieldCheck, HeartHandshake, Loader2,
-  Calendar, Award, CheckCircle2, DollarSign, ArrowLeft
+  Calendar, Award, CheckCircle2, DollarSign, ArrowLeft, Send
 } from "lucide-react";
 
 export default function WelfarePage() {
@@ -30,11 +33,17 @@ export default function WelfarePage() {
   const [insuranceData, setInsuranceData] = useState(null);
   const [claims, setClaims] = useState([]);
   const [schemes, setSchemes] = useState([]);
+  const [pillarProfile, setPillarProfile] = useState(null);
+  const [assistanceRequests, setAssistanceRequests] = useState([]);
 
   // Modals
   const [showStatementModal, setShowStatementModal] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [selectedScheme, setSelectedScheme] = useState(null);
+  const [showAssistModal, setShowAssistModal] = useState(false);
+  const [assistScheme, setAssistScheme] = useState(null);
+  const [assistNotes, setAssistNotes] = useState("");
+  const [submittingAssist, setSubmittingAssist] = useState(false);
 
   useEffect(() => {
     loadPillarWelfareData();
@@ -69,11 +78,49 @@ export default function WelfarePage() {
       const schemesList = await welfareService.getGovernmentWelfareSchemes();
       setSchemes(schemesList || []);
 
+      // 5. Fetch Profile for Eligibility rules
+      const { data: profile } = await supabase
+        .from('pillar_profiles')
+        .select('*')
+        .eq('id', pillarId)
+        .maybeSingle();
+      setPillarProfile(profile || {});
+
+      // 6. Fetch Pillar Welfare Assistance Requests
+      const { data: assistList } = await welfareAssistanceService.getPillarAssistanceRequests(pillarId);
+      setAssistanceRequests(assistList || []);
+
       setLoading(false);
     } catch (err) {
       console.error("Error loading Pillar Welfare Data:", err);
       setError("Unable to load live welfare records. Please retry.");
       setLoading(false);
+    }
+  };
+
+  const handleOpenAssistModal = (scheme) => {
+    setAssistScheme(scheme);
+    setAssistNotes("");
+    setShowAssistModal(true);
+  };
+
+  const handleSubmitAssist = async (e) => {
+    e.preventDefault();
+    if (!assistScheme) return;
+    setSubmittingAssist(true);
+    const res = await welfareAssistanceService.requestAssistance({
+      pillarId,
+      schemeId: assistScheme.id,
+      schemeCode: assistScheme.scheme_code,
+      notes: assistNotes
+    });
+    setSubmittingAssist(false);
+    if (res.success) {
+      alert("Application assistance requested! Cooperative support will review your documentation.");
+      setShowAssistModal(false);
+      loadPillarWelfareData();
+    } else {
+      alert("Assistance request notice: " + (res.error || "Unable to submit request."));
     }
   };
 
@@ -513,69 +560,164 @@ export default function WelfarePage() {
               Government Welfare Schemes
             </h2>
             <p style={{ color: "var(--color-text-secondary)", fontSize: "0.85rem", margin: "2px 0 0 0" }}>
-              Official social security & pension programs for unorganised tradesmen. Check requirements and apply on official portals.
+              Official social security & pension programs for unorganised tradesmen. Pre-screen your eligibility and request cooperative paperwork support.
             </p>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "var(--space-4)" }}>
-          {schemes.map((s) => (
-            <div 
-              key={s.id} 
-              style={{ 
-                background: "var(--color-surface-hover)", 
-                borderRadius: "8px", 
-                border: "1px solid var(--color-border)", 
-                padding: "var(--space-4)",
-                display: "flex", flexDirection: "column", justifyContent: "space-between"
-              }}
-            >
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "0.72rem", fontWeight: "800", color: "var(--color-secondary)", background: "rgba(255, 121, 0, 0.12)", padding: "2px 6px", borderRadius: "4px" }}>
-                    {s.category}
-                  </span>
-                  <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>
-                    Ref: {s.scheme_code}
-                  </span>
-                </div>
-
-                <h3 style={{ fontSize: "0.98rem", fontWeight: "800", color: "var(--color-text)", margin: "0 0 4px 0" }}>
-                  {s.scheme_name}
-                </h3>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: "8px" }}>
-                  🏛️ {s.department}
-                </div>
-
-                <p style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)", lineHeight: "1.4", marginBottom: "10px" }}>
-                  {s.description}
-                </p>
-
-                <div style={{ background: "rgba(16, 185, 129, 0.08)", padding: "8px", borderRadius: "6px", fontSize: "0.78rem", marginBottom: "10px" }}>
-                  <strong style={{ color: "#10B981" }}>Benefits: </strong> {s.benefits}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--color-border)", paddingTop: "10px" }}>
-                <a 
-                  href={s.official_source_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  style={{ fontSize: "0.75rem", color: "var(--color-secondary)", fontWeight: "700", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  Official Portal <ExternalLink size={12} />
-                </a>
-                <button 
-                  onClick={() => setSelectedScheme(s)}
-                  className="btn btn-outline btn-sm" 
-                  style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                >
-                  View Eligibility
-                </button>
-              </div>
-            </div>
-          ))}
+        {/* Truthful Government Scheme Disclaimer */}
+        <div style={{
+          background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.25)",
+          padding: "10px 14px", borderRadius: "8px", fontSize: "0.8rem", color: "var(--color-text-secondary)",
+          marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px"
+        }}>
+          <Info size={16} color="#3B82F6" />
+          <span>
+            <strong>External Application Required:</strong> Direct government portal submission API is <strong>NOT CONFIGURED</strong>. COOP HUB provides pre-eligibility screening and documentation assistance only. Final enrollment occurs via official state/central portals.
+          </span>
         </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "var(--space-4)" }}>
+          {schemes.map((s) => {
+            const evalResult = welfareEligibilityEngine.evaluateScheme(pillarProfile, s);
+            const existingAssist = (assistanceRequests || []).find(a => a.scheme_id === s.id || a.scheme_code === s.scheme_code);
+
+            return (
+              <div 
+                key={s.id} 
+                style={{ 
+                  background: "var(--color-surface-hover)", 
+                  borderRadius: "8px", 
+                  border: "1px solid var(--color-border)", 
+                  padding: "var(--space-4)",
+                  display: "flex", flexDirection: "column", justifyContent: "space-between"
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px", flexWrap: "wrap", gap: "4px" }}>
+                    <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: "800", color: "var(--color-secondary)", background: "rgba(255, 121, 0, 0.12)", padding: "2px 6px", borderRadius: "4px" }}>
+                        {s.category}
+                      </span>
+                      <span style={{
+                        fontSize: "0.68rem", fontWeight: "800", padding: "2px 6px", borderRadius: "4px",
+                        background: evalResult.status === 'ELIGIBLE' ? "rgba(16, 185, 129, 0.15)" : evalResult.status === 'NOT_ELIGIBLE' ? "rgba(239, 68, 68, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                        color: evalResult.status === 'ELIGIBLE' ? "#10B981" : evalResult.status === 'NOT_ELIGIBLE' ? "#EF4444" : "#F59E0B"
+                      }}>
+                        {evalResult.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>
+                      Ref: {s.scheme_code}
+                    </span>
+                  </div>
+
+                  <h3 style={{ fontSize: "0.98rem", fontWeight: "800", color: "var(--color-text)", margin: "0 0 4px 0" }}>
+                    {s.scheme_name}
+                  </h3>
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: "8px" }}>
+                    🏛️ {s.department}
+                  </div>
+
+                  <p style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)", lineHeight: "1.4", marginBottom: "10px" }}>
+                    {s.description}
+                  </p>
+
+                  <div style={{ background: "rgba(16, 185, 129, 0.08)", padding: "8px", borderRadius: "6px", fontSize: "0.78rem", marginBottom: "10px" }}>
+                    <strong style={{ color: "#10B981" }}>Benefits: </strong> {s.benefits}
+                  </div>
+                </div>
+
+                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "10px" }}>
+                  {existingAssist ? (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "0.72rem", color: "var(--color-text-secondary)" }}>Assistance:</span>
+                      <span style={{ 
+                        fontSize: "0.7rem", fontWeight: "800", textTransform: "uppercase",
+                        padding: "2px 6px", borderRadius: "4px", background: "rgba(59, 130, 246, 0.15)", color: "#3B82F6"
+                      }}>
+                        {existingAssist.status}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
+                    <a 
+                      href={s.official_source_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ fontSize: "0.72rem", color: "var(--color-secondary)", fontWeight: "700", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px" }}
+                    >
+                      Official Portal <ExternalLink size={12} />
+                    </a>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      {!existingAssist && (
+                        <button 
+                          onClick={() => handleOpenAssistModal(s)}
+                          className="btn btn-primary btn-xs" 
+                          style={{ fontSize: "0.72rem", padding: "4px 8px" }}
+                        >
+                          Request Support
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedScheme(s)}
+                        className="btn btn-outline btn-xs" 
+                        style={{ fontSize: "0.72rem", padding: "4px 8px" }}
+                      >
+                        Eligibility
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 6. ACTIVE WELFARE ASSISTANCE REQUESTS SECTION */}
+        {assistanceRequests && assistanceRequests.length > 0 && (
+          <div style={{ marginTop: "var(--space-6)", borderTop: "1px solid var(--color-border)", paddingTop: "var(--space-5)" }}>
+            <h3 style={{ fontSize: "1.05rem", fontWeight: "800", marginBottom: "var(--space-3)", display: "flex", alignItems: "center", gap: "8px" }}>
+              <HeartHandshake size={18} color="var(--color-secondary)" />
+              My Welfare Assistance Requests ({assistanceRequests.length})
+            </h3>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <thead>
+                  <tr style={{ background: "var(--color-surface)", borderBottom: "1px solid var(--color-border)" }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--color-text-secondary)" }}>Request ID</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--color-text-secondary)" }}>Scheme</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--color-text-secondary)" }}>Date</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--color-text-secondary)" }}>Status</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--color-text-secondary)" }}>Cooperative Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assistanceRequests.map((a) => (
+                    <tr key={a.id} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
+                      <td style={{ padding: "8px 12px", fontWeight: "700" }}>{a.id.slice(0, 8)}</td>
+                      <td style={{ padding: "8px 12px", fontWeight: "600" }}>{a.scheme?.scheme_name || a.scheme_code}</td>
+                      <td style={{ padding: "8px 12px", color: "var(--color-text-secondary)" }}>{new Date(a.created_at).toLocaleDateString()}</td>
+                      <td style={{ padding: "8px 12px" }}>
+                        <span style={{
+                          padding: "2px 8px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: "800", textTransform: "uppercase",
+                          background: a.status === 'completed' ? "rgba(16, 185, 129, 0.15)" : a.status === 'rejected' ? "rgba(239, 68, 68, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                          color: a.status === 'completed' ? "#10B981" : a.status === 'rejected' ? "#EF4444" : "#3B82F6"
+                        }}>
+                          {a.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: "8px 12px", fontSize: "0.78rem", color: "var(--color-text-secondary)" }}>
+                        {a.admin_notes || "Under review by cooperative team."}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ============================================================================== */}
@@ -733,6 +875,33 @@ export default function WelfarePage() {
             </div>
 
             <div style={{ padding: "var(--space-5)", overflowY: "auto", flex: 1, fontSize: "0.88rem", lineHeight: "1.5" }}>
+              {(() => {
+                const evalResult = welfareEligibilityEngine.evaluateScheme(pillarProfile, selectedScheme);
+                return (
+                  <div style={{
+                    background: evalResult.status === 'ELIGIBLE' ? "rgba(16, 185, 129, 0.08)" : evalResult.status === 'NOT_ELIGIBLE' ? "rgba(239, 68, 68, 0.08)" : "rgba(245, 158, 11, 0.08)",
+                    border: `1px solid ${evalResult.status === 'ELIGIBLE' ? "#10B981" : evalResult.status === 'NOT_ELIGIBLE' ? "#EF4444" : "#F59E0B"}`,
+                    padding: "12px", borderRadius: "8px", marginBottom: "16px"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <strong style={{ fontSize: "0.82rem", textTransform: "uppercase", color: evalResult.status === 'ELIGIBLE' ? "#10B981" : evalResult.status === 'NOT_ELIGIBLE' ? "#EF4444" : "#F59E0B" }}>
+                        Pre-Screening Status: {evalResult.status.replace('_', ' ')}
+                      </strong>
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "0.8rem" }}>
+                      {evalResult.reasons?.map((r, idx) => (
+                        <li key={idx} style={{ marginBottom: "2px" }}>{r}</li>
+                      ))}
+                    </ul>
+                    {evalResult.missingRequirements && evalResult.missingRequirements.length > 0 && (
+                      <div style={{ marginTop: "6px", fontSize: "0.78rem", color: "#EF4444" }}>
+                        <strong>Missing Requirements: </strong> {evalResult.missingRequirements.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div style={{ marginBottom: "12px" }}>
                 <h4 style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--color-text-secondary)", textTransform: "uppercase", margin: "0 0 4px 0" }}>Eligibility Criteria</h4>
                 <p style={{ margin: 0 }}>{selectedScheme.eligibility}</p>
@@ -755,25 +924,118 @@ export default function WelfarePage() {
               </div>
 
               <div>
-                <h4 style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--color-text-secondary)", textTransform: "uppercase", margin: "0 0 4px 0" }}>How to Apply</h4>
+                <h4 style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--color-text-secondary)", textTransform: "uppercase", margin: "0 0 4px 0" }}>Official Application Process</h4>
                 <p style={{ margin: 0 }}>{selectedScheme.application_process}</p>
               </div>
             </div>
 
-            <div style={{ padding: "var(--space-4) var(--space-5)", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <a 
-                href={selectedScheme.official_source_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
+            <div style={{ padding: "var(--space-4) var(--space-5)", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+              <button
+                onClick={() => {
+                  const s = selectedScheme;
+                  setSelectedScheme(null);
+                  handleOpenAssistModal(s);
+                }}
                 className="btn btn-primary btn-sm"
                 style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
-                <ExternalLink size={14} /> Visit Official Portal
-              </a>
-              <button onClick={() => setSelectedScheme(null)} className="btn btn-outline btn-sm">
-                Close
+                <HeartHandshake size={14} /> Request Application Support
+              </button>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <a 
+                  href={selectedScheme.official_source_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-outline btn-sm"
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <ExternalLink size={14} /> Portal
+                </a>
+                <button onClick={() => setSelectedScheme(null)} className="btn btn-outline btn-sm">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================================== */}
+      {/* MODAL 4: WELFARE ASSISTANCE REQUEST FORM */}
+      {/* ============================================================================== */}
+      {showAssistModal && assistScheme && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.8)", zIndex: 10000,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-4)"
+        }}>
+          <div style={{
+            background: "var(--color-surface)", width: "100%", maxWidth: "520px",
+            borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)",
+            display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "var(--shadow-xl)"
+          }}>
+            <div style={{ padding: "var(--space-4) var(--space-5)", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <HeartHandshake size={20} color="var(--color-secondary)" />
+                <h3 style={{ fontSize: "1.1rem", fontWeight: "800", margin: 0 }}>Request Welfare Application Support</h3>
+              </div>
+              <button onClick={() => setShowAssistModal(false)} className="btn btn-ghost btn-xs">
+                <X size={16} />
               </button>
             </div>
+
+            <form onSubmit={handleSubmitAssist} style={{ padding: "var(--space-5)" }}>
+              <div style={{ background: "var(--color-surface-hover)", padding: "12px", borderRadius: "8px", marginBottom: "14px" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>Selected Program:</div>
+                <strong style={{ fontSize: "0.95rem", color: "var(--color-text)" }}>{assistScheme.scheme_name}</strong>
+                <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                  Department: {assistScheme.department}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "14px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", display: "block", marginBottom: "4px" }}>
+                  Notes or Questions for Cooperative Support:
+                </label>
+                <textarea
+                  rows="3"
+                  value={assistNotes}
+                  onChange={(e) => setAssistNotes(e.target.value)}
+                  placeholder="e.g. Please assist me with preparing bank passbook and Aadhaar documents for online submission."
+                  style={{
+                    width: "100%", padding: "10px", borderRadius: "8px",
+                    border: "1px solid var(--color-border)", background: "var(--color-surface-hover)",
+                    fontSize: "0.85rem", color: "var(--color-text)"
+                  }}
+                />
+              </div>
+
+              <div style={{
+                background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.2)",
+                padding: "10px", borderRadius: "8px", fontSize: "0.75rem", color: "var(--color-text-secondary)",
+                marginBottom: "16px"
+              }}>
+                ℹ️ The COOP HUB welfare team will help verify your documents and guide you through the official government portal enrollment.
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAssistModal(false)}
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAssist}
+                  className="btn btn-primary"
+                  style={{ flex: 2, fontWeight: "700", display: "flex", justifyContent: "center", alignItems: "center", gap: "6px" }}
+                >
+                  <Send size={14} /> {submittingAssist ? "Submitting..." : "Submit Support Request"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

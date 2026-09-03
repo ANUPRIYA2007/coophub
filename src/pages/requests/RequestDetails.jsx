@@ -12,6 +12,7 @@ import {
     CreditCard, ArrowLeft, Sparkles
 } from 'lucide-react';
 import OrderReceiptModal from '../../components/common/OrderReceiptModal';
+import CustomerChatDrawer from '../../components/chat/CustomerChatDrawer';
 
 export default function RequestDetails() {
     const { id } = useParams();
@@ -30,6 +31,7 @@ export default function RequestDetails() {
     const [showCheckoutModal, setShowCheckoutModal] = useState(false);
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
     const [showReceiptModal, setShowReceiptModal] = useState(false);
+    const [showChatDrawer, setShowChatDrawer] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
 
     const handleInitiatePayment = () => {
@@ -335,7 +337,7 @@ export default function RequestDetails() {
                         {/* Quick Contact Buttons */}
                         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-navy-50">
                             <button
-                                onClick={() => navigate(`/requests/${id}/chat`)}
+                                onClick={() => setShowChatDrawer(true)}
                                 className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold transition-all shadow-xs"
                             >
                                 <MessageSquare size={16} />
@@ -573,7 +575,7 @@ export default function RequestDetails() {
 
                 {/* ─── OPTIONAL RATING & FEEDBACK ─── */}
                 {requestData.status === 'completed' && (
-                    <ReviewForm requestId={id} />
+                    <ReviewForm requestId={id} pillarId={requestData?.pillar_id || requestData?.pillar?.id} />
                 )}
 
                 {/* ─── MASKED CALL MODAL (Privacy Preserving) ─── */}
@@ -676,6 +678,18 @@ export default function RequestDetails() {
                     }}
                 />
             )}
+
+            {/* Smart Customer ↔ Pillar Job Collaboration Drawer */}
+            <CustomerChatDrawer
+                isOpen={showChatDrawer}
+                onClose={() => setShowChatDrawer(false)}
+                requestId={id}
+                pillar={pillar || {}}
+                orderStatus={requestData?.status}
+                onChargeApproved={(newTotal) => {
+                    setRequestData(prev => prev ? { ...prev, final_amount: newTotal, extra_charge_status: 'accepted' } : prev);
+                }}
+            />
         </div>
     );
 }

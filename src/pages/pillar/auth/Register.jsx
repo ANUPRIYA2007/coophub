@@ -80,9 +80,17 @@ export default function Register() {
     if (error) setError(null);
   };
 
+  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Strict MIME type validation
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      setError("Invalid file format. Please upload a valid JPG, PNG, WEBP image, or PDF document.");
+      return;
+    }
 
     if (file.size > 10 * 1024 * 1024) {
       setError("File size exceeds 10MB limit. Please upload a smaller document.");
@@ -98,7 +106,7 @@ export default function Register() {
       setFormData((prev) => ({
         ...prev,
         documentFile: file,
-        documentFileName: file.name,
+        documentFileName: file.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
         documentFileSize: sizeFormatted,
         documentPreviewUrl: dataUrl,
       }));
@@ -126,6 +134,12 @@ export default function Register() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Strict MIME type validation
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      setError("Invalid certificate format. Please upload a valid JPG, PNG, WEBP image, or PDF document.");
+      return;
+    }
+
     if (file.size > 10 * 1024 * 1024) {
       setError("Certificate file size exceeds 10MB limit.");
       return;
@@ -139,7 +153,7 @@ export default function Register() {
       setFormData((prev) => ({
         ...prev,
         certificateFile: file,
-        certificateFileName: file.name,
+        certificateFileName: file.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
         certificateFileSize: sizeFormatted,
         certificatePreviewUrl: dataUrl,
       }));

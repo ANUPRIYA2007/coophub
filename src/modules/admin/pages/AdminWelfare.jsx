@@ -91,6 +91,11 @@ export default function AdminWelfare() {
   const [withdrawalRejectReason, setWithdrawalRejectReason] = useState("");
   const [withdrawalAdminNotes, setWithdrawalAdminNotes] = useState("");
 
+  // Tab 7: Welfare Assistance Requests State
+  const [assistanceRequests, setAssistanceRequests] = useState([]);
+  const [assistFilter, setAssistFilter] = useState("all");
+  const [assistActionLoading, setAssistActionLoading] = useState(false);
+
   // Load all data on mount
   useEffect(() => {
     loadAllWelfareData();
@@ -139,6 +144,10 @@ export default function AdminWelfare() {
       // 7. Fetch PF Withdrawal Requests
       const withdrawalsList = await welfareService.getPFWithdrawalRequests(withdrawalFilter);
       setPfWithdrawals(withdrawalsList);
+
+      // 8. Fetch Welfare Assistance Requests
+      const assistList = await welfareService.getWelfareAssistanceRequests(assistFilter);
+      setAssistanceRequests(assistList.data || []);
 
       setLoading(false);
     } catch (err) {
@@ -202,6 +211,23 @@ export default function AdminWelfare() {
       alert("Failed to reject withdrawal: " + res.error);
     }
     setWithdrawalActionLoading(false);
+  };
+
+  const handleUpdateAssist = async (id, status) => {
+    const notes = prompt(`Enter notes for marking assistance request as "${status}":`, `Cooperative paperwork assistance updated to ${status}`);
+    if (notes === null) return;
+    setAssistActionLoading(true);
+    const res = await welfareService.updateWelfareAssistanceStatus(id, {
+      status,
+      adminNotes: notes,
+      rejectionReason: status === 'rejected' ? notes : ''
+    });
+    setAssistActionLoading(false);
+    if (res.success) {
+      loadAllWelfareData();
+    } else {
+      alert("Failed to update assistance request: " + res.error);
+    }
   };
 
   const handleOpenPillarPFDetails = async (pillarId) => {
@@ -439,6 +465,7 @@ export default function AdminWelfare() {
           { id: "pf_fund", label: "💰 PF Fund Overview" },
           { id: "pillar_pf", label: "👥 Pillar PF Accounts" },
           { id: "withdrawals", label: `💸 PF Withdrawal Requests ${pfWithdrawals.filter(w => w.status === 'pending').length > 0 ? `(${pfWithdrawals.filter(w => w.status === 'pending').length})` : ""}` },
+          { id: "assistance", label: `🤝 Welfare Assistance ${assistanceRequests.filter(a => a.status === 'requested').length > 0 ? `(${assistanceRequests.filter(a => a.status === 'requested').length})` : ""}` },
           { id: "insurance", label: "🛡️ Group Insurance" },
           { id: "claims", label: `📋 Insurance Claims ${kpiStats.pendingClaims > 0 ? `(${kpiStats.pendingClaims})` : ""}` },
           { id: "schemes", label: "🏛️ Government Welfare Schemes" }
@@ -1155,6 +1182,155 @@ export default function AdminWelfare() {
                   <tr>
                     <td colSpan={7} style={{ padding: "30px", textAlign: "center", color: "var(--color-text-muted)" }}>
                       No PF withdrawal requests found matching the current filter.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================================== */}
+      {/* TAB 7: WELFARE ASSISTANCE REQUESTS */}
+      {/* ============================================================================== */}
+      {activeTab === "assistance" && (
+        <div>
+          {/* Header & Truthful Notice */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-4)", flexWrap: "wrap", gap: "12px" }}>
+            <div>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: "800", margin: 0 }}>
+                Pillar Scheme Assistance Control
+              </h2>
+              <p style={{ color: "var(--color-text-secondary)", fontSize: "0.85rem", margin: "4px 0 0 0" }}>
+                Review and support Pillar applications for state & central unorganised worker welfare schemes.
+              </p>
+            </div>
+            {/* Filter Tabs */}
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              {["all", "requested", "under_review", "documents_required", "submitted", "completed", "rejected"].map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setAssistFilter(st)}
+                  className={`btn btn-xs ${assistFilter === st ? "btn-primary" : "btn-outline"}`}
+                  style={{ textTransform: "capitalize", fontSize: "0.75rem" }}
+                >
+                  {st.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{
+            background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.25)",
+            padding: "10px 14px", borderRadius: "8px", fontSize: "0.8rem", color: "var(--color-text-secondary)",
+            marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "8px"
+          }}>
+            <Info size={16} color="#3B82F6" />
+            <span>
+              <strong>Truthful Operational Status:</strong> External government portal APIs remain <strong>NOT CONFIGURED</strong>. Marking an assistance request as "submitted" or "completed" indicates manual cooperative facilitation, documentation assistance, or offline e-Seva submission.
+            </span>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
+              <thead>
+                <tr style={{ background: "var(--color-surface-hover)", borderBottom: "1px solid var(--color-border)" }}>
+                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Request Ref</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Pillar</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Scheme Name</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Submitted</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center" }}>Status</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Cooperative Notes</th>
+                  <th style={{ padding: "12px 16px", textAlign: "right" }}>Workflow Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assistanceRequests
+                  .filter(r => assistFilter === 'all' || r.status === assistFilter)
+                  .map((req) => (
+                    <tr key={req.id} style={{ borderBottom: "1px solid var(--color-border-light)" }}>
+                      <td style={{ padding: "12px 16px", fontWeight: "700" }}>{req.id.slice(0, 8)}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ fontWeight: "700" }}>{req.pillar?.full_name || "Pillar " + req.pillar_id.slice(0, 6)}</div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>{req.pillar?.mobile || "ID: " + req.pillar_id.slice(0, 8)}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ fontWeight: "700", color: "var(--color-secondary)" }}>{req.scheme?.scheme_name || req.scheme_code}</div>
+                        <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>{req.scheme?.department || "Statutory Board"}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "var(--color-text-secondary)" }}>
+                        {new Date(req.created_at).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                        <span style={{
+                          padding: "3px 10px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: "800", textTransform: "uppercase",
+                          background: req.status === "completed" ? "rgba(16, 185, 129, 0.15)" : req.status === "rejected" ? "rgba(239, 68, 68, 0.15)" : req.status === "submitted" ? "rgba(139, 92, 246, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                          color: req.status === "completed" ? "#10B981" : req.status === "rejected" ? "#EF4444" : req.status === "submitted" ? "#8B5CF6" : "#F59E0B"
+                        }}>
+                          {req.status?.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td style={{ padding: "12px 16px", fontSize: "0.8rem", color: "var(--color-text-secondary)", maxWidth: "220px" }}>
+                        {req.admin_notes || req.rejection_reason || "No notes"}
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                        <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                          {req.status === "requested" && (
+                            <button
+                              onClick={() => handleUpdateAssist(req.id, "under_review")}
+                              disabled={assistActionLoading}
+                              className="btn btn-primary btn-xs"
+                            >
+                              Review
+                            </button>
+                          )}
+                          {req.status === "under_review" && (
+                            <>
+                              <button
+                                onClick={() => handleUpdateAssist(req.id, "documents_required")}
+                                disabled={assistActionLoading}
+                                className="btn btn-outline btn-xs"
+                              >
+                                Need Docs
+                              </button>
+                              <button
+                                onClick={() => handleUpdateAssist(req.id, "submitted")}
+                                disabled={assistActionLoading}
+                                className="btn btn-primary btn-xs"
+                              >
+                                Mark Submitted
+                              </button>
+                            </>
+                          )}
+                          {req.status === "submitted" && (
+                            <button
+                              onClick={() => handleUpdateAssist(req.id, "completed")}
+                              disabled={assistActionLoading}
+                              className="btn btn-primary btn-xs"
+                              style={{ background: "#10B981", borderColor: "#10B981" }}
+                            >
+                              Complete
+                            </button>
+                          )}
+                          {req.status !== "completed" && req.status !== "rejected" && (
+                            <button
+                              onClick={() => handleUpdateAssist(req.id, "rejected")}
+                              disabled={assistActionLoading}
+                              className="btn btn-outline btn-xs"
+                              style={{ color: "#EF4444", borderColor: "rgba(239, 68, 68, 0.4)" }}
+                            >
+                              Decline
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                {assistanceRequests.filter(r => assistFilter === 'all' || r.status === assistFilter).length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: "30px", textAlign: "center", color: "var(--color-text-muted)" }}>
+                      No welfare assistance requests found matching the current filter.
                     </td>
                   </tr>
                 )}

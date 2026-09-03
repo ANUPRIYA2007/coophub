@@ -27,6 +27,7 @@ function loadEnv() {
 loadEnv();
 
 const PORT = process.env.PORT || 5000;
+const INSTANCE_ID = process.env.INSTANCE_ID || 'api-standalone';
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "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";
 const NVIDIA_MODEL = (process.env.NVIDIA_MODEL && !process.env.NVIDIA_MODEL.includes("nemotron-parse"))
   ? process.env.NVIDIA_MODEL 
@@ -162,7 +163,25 @@ const server = http.createServer(async (req, res) => {
   // Health check
   if (req.url === "/api/health" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }));
+    res.end(JSON.stringify({
+      status: "ok",
+      service: "coop-hub-api",
+      timestamp: new Date().toISOString(),
+      instance: INSTANCE_ID,
+      uptime: process.uptime()
+    }));
+    return;
+  }
+
+  // Readiness check
+  if (req.url === "/api/ready" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      ready: true,
+      service: "coop-hub-api",
+      instance: INSTANCE_ID,
+      timestamp: new Date().toISOString()
+    }));
     return;
   }
 

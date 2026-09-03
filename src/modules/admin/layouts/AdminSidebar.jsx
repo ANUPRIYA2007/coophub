@@ -35,7 +35,8 @@ import {
   Award,
   Zap,
   Bot,
-  Layers
+  Layers,
+  Radio
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, toggleSidebar }) {
@@ -416,6 +417,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { name: t("admin.customers") || "Customers", path: "/admin/customers", icon: UserCheck },
     { name: t("admin.services") || "Services", path: "/admin/services", icon: Wrench },
     { name: t("admin.requests") || "Service Requests", path: "/admin/requests", icon: ClipboardList },
+    { name: "Live Operations", path: "/admin/operations", icon: Radio },
     { name: t("admin.tracking") || "Live Tracking", path: "/admin/tracking", icon: Clock },
     { name: t("admin.finance") || "Financials & Payouts", path: "/admin/finance", icon: Wallet },
     { name: t("admin.feedback") || "Customer Feedback", path: "/admin/feedback", icon: Star },

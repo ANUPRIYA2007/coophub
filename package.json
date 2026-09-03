@@ -8,7 +8,22 @@
     "dev:backend": "node server/server.js",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "node scripts/lint.mjs",
+    "syntax:check": "node --check server/server.js && node --check server/index.js",
+    "security:check": "node scripts/lint.mjs",
+    "test:journey": "node scripts/test_customer_pillar_journey.cjs",
+    "test:admin": "node scripts/test_admin_integration.cjs",
+    "test:kyc": "node scripts/test_kyc_authoritative_verification.cjs",
+    "test:forecast": "node scripts/test_demand_forecasting_and_allocation.cjs",
+    "test:doc-intel": "node scripts/test_kyc_document_intelligence.cjs",
+    "test:emergency": "node scripts/test_emergency_dispatch_operations.cjs",
+    "test:communication": "node scripts/test_smart_communication.cjs",
+    "test:finance": "node scripts/test_financial_completion.cjs",
+    "test:welfare": "node scripts/test_welfare_completion.cjs",
+    "test": "node scripts/test-advanced-features.cjs && node scripts/test-demand-forecast.cjs && node scripts/test-google-maps.cjs && node scripts/test_complete_application_wiring.mjs && node scripts/test_customer_pillar_journey.cjs && node scripts/test_admin_integration.cjs && node scripts/test_kyc_authoritative_verification.cjs && node scripts/test_demand_forecasting_and_allocation.cjs && node scripts/test_kyc_document_intelligence.cjs && node scripts/test_emergency_dispatch_operations.cjs && node scripts/test_smart_communication.cjs && node scripts/test_financial_completion.cjs && node scripts/test_welfare_completion.cjs",
+    "cluster:demo": "node scripts/test_load_balancing.mjs",
+    "cluster:proxy": "node scripts/load_balancer.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",

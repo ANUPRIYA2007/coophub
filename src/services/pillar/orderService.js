@@ -305,6 +305,27 @@ export const pillarOrderService = {
     }
   },
 
+  // State Machine Validation (Phase 15 Database Integrity)
+  isValidStatusTransition(currentStatus, newStatus) {
+    if (!currentStatus || currentStatus === newStatus) return true;
+    const normCurrent = currentStatus.replace(/([A-Z])/g, '_$1').toLowerCase();
+    const normNew = newStatus.replace(/([A-Z])/g, '_$1').toLowerCase();
+
+    const allowed = {
+      pending: ['matching', 'assigned', 'accepted', 'cancelled'],
+      matching: ['assigned', 'pending', 'cancelled'],
+      assigned: ['accepted', 'declined', 'cancelled', 'pending'],
+      accepted: ['on_the_way', 'cancelled'],
+      on_the_way: ['arrived', 'cancelled'],
+      arrived: ['in_progress', 'cancelled'],
+      in_progress: ['completed', 'cancelled'],
+      completed: [],
+      cancelled: []
+    };
+
+    return allowed[normCurrent]?.includes(normNew) ?? false;
+  },
+
   async updateOrderStatus(bookingId, status, metadata = {}) {
     const isDemo = localStorage.getItem("coophub_demo_user") === "true";
     if (isDemo) {
@@ -319,13 +340,27 @@ export const pillarOrderService = {
       if (status === "onTheWay") dbStatus = "on_the_way";
       if (status === "inProgress") dbStatus = "in_progress";
 
+      // 1. Fetch current status to enforce state transition rules
+      const { data: currentReq } = await supabase
+        .from("service_requests")
+        .select("status, customer_id, arrival_otp, otp_attempts")
+        .eq("id", bookingId)
+        .maybeSingle();
+
+      if (currentReq?.status && !this.isValidStatusTransition(currentReq.status, dbStatus)) {
+        return {
+          data: null,
+          error: new Error(`Invalid status transition from '${currentReq.status}' to '${dbStatus}'.`)
+        };
+      }
+
       const updates = {
         status: dbStatus,
         updated_at: new Date().toISOString(),
         ...metadata,
       };
 
-      // 1. Update in service_requests
+      // 2. Update in service_requests
       const { data: sData } = await supabase
         .from("service_requests")
         .update(updates)
@@ -333,7 +368,7 @@ export const pillarOrderService = {
         .select()
         .maybeSingle();
 
-      // 2. Update in bookings
+      // 3. Update in bookings
       await supabase
         .from("bookings")
         .update(updates)
@@ -360,12 +395,23 @@ export const pillarOrderService = {
     }
 
     try {
+      // Fetch request to check approved extra charges
+      const { data: req } = await supabase
+        .from("service_requests")
+        .select("*")
+        .eq("id", orderId)
+        .maybeSingle();
+
+      const baseAmount = Number(payload.amount || req?.amount || 450);
+      const isExtraApproved = req?.extra_charge_status === 'accepted';
+      const extraAmount = isExtraApproved ? Number(req?.extra_charge_amount || payload.extra_charge_amount || 0) : 0;
+      const taxAmount = Math.round((baseAmount + extraAmount) * 0.18 * 100) / 100;
+      const totalAmount = Math.round((baseAmount + extraAmount + taxAmount) * 100) / 100;
+
       const updates = {
         status: "completed",
-        final_amount: payload.final_amount,
-        extra_charge_amount: payload.extra_charge_amount || 0,
-        extra_charge_reason: payload.extra_charge_reason || null,
-        extra_charge_status: payload.extra_charge_status || "none",
+        final_amount: totalAmount,
+        completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
@@ -383,23 +429,18 @@ export const pillarOrderService = {
         .update(updates)
         .eq("id", orderId);
 
-      // 3. Create or update invoice in invoices table
+      // 3. Create or update authoritative invoice in invoices table
       try {
-        const baseAmount = Number(payload.amount || sData?.amount || 450);
-        const extraAmount = Number(payload.extra_charge_amount || 0);
-        const taxAmount = Math.round((baseAmount + extraAmount) * 0.18 * 100) / 100;
-        const totalAmount = Math.round((baseAmount + extraAmount + taxAmount) * 100) / 100;
-
         await supabase.from('invoices').upsert([{
           request_id: orderId,
           booking_id: orderId,
           invoice_number: `INV-${orderId.slice(0, 6).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
-          customer_id: sData?.customer_id || null,
-          pillar_id: sData?.pillar_id || null,
+          customer_id: sData?.customer_id || req?.customer_id || null,
+          pillar_id: sData?.pillar_id || req?.pillar_id || null,
           base_amount: baseAmount,
           extra_charges: extraAmount,
           tax_amount: taxAmount,
-          total_amount: payload.final_amount || totalAmount,
+          total_amount: totalAmount,
           currency: 'INR',
           invoice_status: 'pending'
         }], { onConflict: 'request_id' });
@@ -407,7 +448,22 @@ export const pillarOrderService = {
         console.warn("Invoice generation note:", ie.message);
       }
 
-      return { success: true, error: null };
+      // 4. If booking was already prepaid, trigger automatic PF contribution
+      if (sData?.payment_status === 'completed' || req?.payment_status === 'completed') {
+        try {
+          const { pfContributionService } = await import('../welfare/pfContributionService.js');
+          await pfContributionService.processBookingPFContribution({
+            pillarId: sData?.pillar_id || req?.pillar_id,
+            bookingId: orderId,
+            baseAmount: baseAmount,
+            isPrepaid: true
+          });
+        } catch (pfErr) {
+          console.warn("PF contribution completion check notice:", pfErr);
+        }
+      }
+
+      return { success: true, error: null, totalAmount };
     } catch (error) {
       console.error("completeOrderAndFinalizeBill error:", error);
       return { success: false, error };
@@ -415,35 +471,54 @@ export const pillarOrderService = {
   },
 
   async verifyArrivalOTP(bookingId, enteredOtp) {
-    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
-    if (isDemo || enteredOtp === "123456" || enteredOtp === "489201") {
-      await this.updateOrderStatus(bookingId, "arrived", { arrived_at: new Date().toISOString() });
-      return { success: true, error: null };
-    }
-
     try {
       const cleanEntered = String(enteredOtp || "").trim();
-      const expectedOtp = getDeterministicArrivalOtp(bookingId);
-
-      // Check deterministic code or demo bypass
-      if (cleanEntered === expectedOtp || cleanEntered === "123456" || cleanEntered === "489201") {
-        await this.updateOrderStatus(bookingId, "arrived", { arrived_at: new Date().toISOString() });
-        return { success: true, error: null };
+      if (!cleanEntered || cleanEntered.length < 4) {
+        return { success: false, error: "Please enter a valid 6-digit PIN." };
       }
 
-      // Check in bookings
-      const { data: bData } = await supabase
-        .from("bookings")
-        .select("arrival_otp")
+      // Check service_requests for live arrival_otp
+      const { data: sData } = await supabase
+        .from("service_requests")
+        .select("id, arrival_otp, otp_attempts, status")
         .eq("id", bookingId)
         .maybeSingle();
 
-      if (bData?.arrival_otp === cleanEntered) {
-        await this.updateOrderStatus(bookingId, "arrived", { arrived_at: new Date().toISOString() });
+      const { data: bData } = await supabase
+        .from("bookings")
+        .select("id, arrival_otp, otp_attempts, status")
+        .eq("id", bookingId)
+        .maybeSingle();
+
+      const realOtp = sData?.arrival_otp || bData?.arrival_otp;
+      const currentAttempts = (sData?.otp_attempts || bData?.otp_attempts || 0);
+
+      // Attempt limit protection (max 5 tries)
+      if (currentAttempts >= 5) {
+        return { success: false, error: "Too many failed OTP attempts. Please contact cooperative support." };
+      }
+
+      // Strict verification against actual database OTP
+      if (realOtp && realOtp.trim() === cleanEntered) {
+        // Valid OTP -> Transition to in_progress & record start time
+        await this.updateOrderStatus(bookingId, "in_progress", {
+          started_at: new Date().toISOString(),
+          arrived_at: new Date().toISOString(),
+          otp_attempts: 0
+        });
         return { success: true, error: null };
       }
 
-      return { success: false, error: "Invalid OTP. Please check the 6-digit PIN on the customer's phone." };
+      // Increment attempt counter on mismatch
+      await supabase
+        .from("service_requests")
+        .update({ otp_attempts: currentAttempts + 1 })
+        .eq("id", bookingId);
+
+      return {
+        success: false,
+        error: `Invalid OTP PIN (${4 - currentAttempts} attempts remaining). Please check the customer's phone.`
+      };
     } catch (error) {
       console.error("Verify arrival OTP error:", error);
       return { success: false, error: error.message };
@@ -451,28 +526,62 @@ export const pillarOrderService = {
   },
 
   async requestExtraCharge(bookingId, amount, reason) {
-    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
-    if (isDemo) {
-      return { data: { id: `ext-${Date.now()}`, amount, reason, status: "pending_approval" }, error: null };
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return { data: null, error: new Error("Please enter a valid positive extra charge amount.") };
     }
 
     try {
-      const { data, error } = await supabase
-        .from("extra_charges")
-        .insert([
-          {
-            booking_id: bookingId,
-            amount: parseFloat(amount),
-            reason,
-            status: "pending_approval",
-            created_at: new Date().toISOString(),
-          },
-        ])
-        .select()
-        .single();
+      const updates = {
+        extra_charge_amount: numAmount,
+        extra_charge_reason: reason,
+        extra_charge_status: "pending",
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
-      return { data, error: null };
+      // 1. Update service_requests so customer immediately gets realtime prompt
+      const { data: sData, error: sErr } = await supabase
+        .from("service_requests")
+        .update(updates)
+        .eq("id", bookingId)
+        .select()
+        .maybeSingle();
+
+      // 2. Update bookings
+      await supabase
+        .from("bookings")
+        .update(updates)
+        .eq("id", bookingId);
+
+      // 3. Record in extra_charges table
+      try {
+        await supabase
+          .from("extra_charges")
+          .insert([{
+            booking_id: bookingId,
+            amount: numAmount,
+            reason,
+            status: "pending",
+            created_at: new Date().toISOString()
+          }]);
+      } catch (ece) {}
+
+      // 4. Create customer notification
+      if (sData?.customer_id) {
+        try {
+          await supabase.from("notifications").insert([{
+            customer_id: sData.customer_id,
+            request_id: bookingId,
+            type: "extra_charge_requested",
+            message_translations: {
+              en: `Technician requested ₹${numAmount} extra for parts/labor: ${reason}`,
+              ta: `தொழில்நுட்ப வல்லுநர் உதிரிபாகங்களுக்காக ₹${numAmount} கூடுதல் கட்டணம் கோரியுள்ளார்: ${reason}`
+            }
+          }]);
+        } catch (ne) {}
+      }
+
+      return { data: sData || updates, error: sErr };
     } catch (error) {
       console.error("Request extra charge error:", error);
       return { data: null, error };
@@ -499,6 +608,8 @@ export const pillarOrderService = {
       )
       .subscribe();
 
-    return channel;
+    return {
+      unsubscribe: () => supabase.removeChannel(channel)
+    };
   }
 };

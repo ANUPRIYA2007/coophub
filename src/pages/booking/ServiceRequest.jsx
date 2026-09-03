@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useAuth } from '../../context/AuthContext';
@@ -6,8 +6,12 @@ import { useServices } from '../../hooks/useServices';
 import { serviceRequestService } from '../../services/customer/serviceRequestService';
 import { attachmentService } from '../../services/customer/attachmentService';
 import { locationService } from '../../services/customer/locationService';
+import { workerService } from '../../services/workers/workerService';
 import LocationPickerModal from '../../components/maps/LocationPickerModal';
-import { MapPin, AlertTriangle, CheckCircle2, Home, ShoppingBag } from 'lucide-react';
+import {
+    MapPin, AlertTriangle, CheckCircle2, Home, ShoppingBag,
+    Star, ShieldCheck, Sparkles, UserCheck, Check, Clock
+} from 'lucide-react';
 
 export default function ServiceRequest() {
     const params = useParams();
@@ -19,6 +23,7 @@ export default function ServiceRequest() {
 
     const targetServiceId = params.id || params.serviceId;
     const targetSubServiceId = params.subServiceId || searchParams.get('sub');
+    const paramPillarId = searchParams.get('pillar') || 'auto_match';
 
     const serviceInfo = (services || []).find(s => 
         s.id === targetServiceId || 
@@ -48,7 +53,32 @@ export default function ServiceRequest() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
-    // Navigate to step 1 logic
+    // Pillar Discovery States (Phase 2)
+    const [availablePillars, setAvailablePillars] = useState([]);
+    const [selectedPillarId, setSelectedPillarId] = useState(paramPillarId);
+    const [loadingPillars, setLoadingPillars] = useState(false);
+
+    // Load available pillars when reaching step 3 or when service/coords ready
+    const loadPillars = async () => {
+        setLoadingPillars(true);
+        try {
+            const data = await workerService.getAvailablePillars({
+                category: serviceInfo?.category || serviceInfo?.name || '',
+                serviceName: serviceInfo?.name || '',
+                lat: formData.latitude || 13.0067,
+                lng: formData.longitude || 80.2025
+            });
+            setAvailablePillars(data || []);
+            if (paramPillarId !== 'auto_match' && data.some(p => p.id === paramPillarId)) {
+                setSelectedPillarId(paramPillarId);
+            }
+        } catch (err) {
+            console.warn('Pillars load note:', err);
+        } finally {
+            setLoadingPillars(false);
+        }
+    };
+
     if (catLoading) {
         return (
             <div className="min-h-screen bg-surface p-8 flex items-center justify-center">
@@ -98,26 +128,6 @@ export default function ServiceRequest() {
         }));
     };
 
-    const handleGetLocation = async () => {
-        setIsLocating(true);
-        setError(null);
-        try {
-            const coords = await locationService.getCurrentPosition();
-            setFormData(prev => ({
-                ...prev,
-                location_type: 'geolocation',
-                latitude: coords.latitude,
-                longitude: coords.longitude
-            }));
-            setShowMapPicker(true);
-        } catch (err) {
-            setError(err.message);
-            setFormData(prev => ({ ...prev, location_type: 'manual' }));
-        } finally {
-            setIsLocating(false);
-        }
-    };
-
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -134,13 +144,16 @@ export default function ServiceRequest() {
         setError(null);
         if (step === 1) { // Validate Location
             if (!formData.address_line && !formData.latitude) {
-                setError('Please choose your service location on Google Map or enter your address.'); return;
+                setError('Please choose your service location on Google Map or enter your address.');
+                return;
             }
         }
         if (step === 2) { // Validate Schedule
             if (!formData.is_emergency && !formData.flexible_timing && (!formData.preferred_date || !formData.preferred_time)) {
-                setError('Please provide preferred date and time, or check flexible timing.'); return;
+                setError('Please provide preferred date and time, or check flexible timing.');
+                return;
             }
+            loadPillars();
         }
         setStep(p => p + 1);
     };
@@ -151,13 +164,20 @@ export default function ServiceRequest() {
         try {
             let uploadedAttachments = [];
             if (selectedFile) {
-                const path = await attachmentService.uploadAttachment(selectedFile, profile.user_id);
+                const path = await attachmentService.uploadAttachment(selectedFile, profile?.user_id);
                 uploadedAttachments.push(path);
             }
+
+            const chosenPillar = availablePillars.find(p => p.id === selectedPillarId);
 
             const payload = {
                 service_id: serviceInfo?.id || targetServiceId,
                 sub_service_id: subServiceInfo?.id || targetSubServiceId || null,
+                service_name: serviceInfo.name,
+                category: serviceInfo.category || serviceInfo.name,
+                pillar_id: selectedPillarId !== 'auto_match' ? selectedPillarId : null,
+                pillar_name: chosenPillar?.full_name || null,
+                amount: chosenPillar?.starting_price || subServiceInfo?.base_price || 450,
                 ...formData,
                 attachments: uploadedAttachments
             };
@@ -171,6 +191,8 @@ export default function ServiceRequest() {
         }
     };
 
+    const chosenPillarDetails = availablePillars.find(p => p.id === selectedPillarId);
+
     return (
         <div className="min-h-screen bg-surface pb-20 px-4 pt-6">
             <div className="max-w-2xl mx-auto">
@@ -180,7 +202,14 @@ export default function ServiceRequest() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </button>
-                    <h1 className="font-bold text-navy-800 text-lg">{t('booking.request_service')}</h1>
+                    <div className="flex-1">
+                        <h1 className="font-bold text-navy-800 text-lg">{t('booking.request_service')}</h1>
+                        <div className="flex items-center gap-1.5 text-[11px] text-navy-400 font-semibold">
+                            <span>Step {step} of 4</span>
+                            <span>•</span>
+                            <span>{step === 1 ? 'Location' : step === 2 ? 'Schedule' : step === 3 ? 'Select Pillar' : 'Confirm'}</span>
+                        </div>
+                    </div>
                 </header>
 
                 <div className="mb-6">
@@ -196,6 +225,7 @@ export default function ServiceRequest() {
                 )}
 
                 <div className="card p-6 shadow-lg shadow-navy-900/5">
+                    {/* Step 1: Location */}
                     {step === 1 && (
                         <div className="space-y-5 animate-fade-in">
                             <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2">{t('booking.location')}</h2>
@@ -331,13 +361,129 @@ export default function ServiceRequest() {
 
                             <div className="flex gap-3 pt-4">
                                 <button onClick={() => setStep(1)} className="btn-secondary flex-1 py-3.5">Back</button>
-                                <button onClick={nextStep} className="btn-primary flex-1 py-3.5 shadow-lg shadow-orange-500/20">Review Summary</button>
+                                <button onClick={nextStep} className="btn-primary flex-1 py-3.5 shadow-lg shadow-orange-500/20">Select Pillar</button>
                             </div>
                         </div>
                     )}
 
-                    {/* Step 3: Summary */}
+                    {/* Step 3: Select Available Pillar (Phase 2) */}
                     {step === 3 && (
+                        <div className="space-y-5 animate-fade-in">
+                            <div>
+                                <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2 mb-2">Select Your Cooperative Technician</h2>
+                                <p className="text-xs text-navy-500">
+                                    Browse certified Pillars in your vicinity, or let the AI allocation engine match the top-rated available specialist.
+                                </p>
+                            </div>
+
+                            {/* Option 1: AI Auto-Match */}
+                            <div
+                                onClick={() => setSelectedPillarId('auto_match')}
+                                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-4 ${
+                                    selectedPillarId === 'auto_match'
+                                        ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                                        : 'border-navy-100 hover:border-navy-200 bg-white'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3.5">
+                                    <div className="w-12 h-12 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
+                                        <Sparkles size={22} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-navy-900 text-sm">⚡ AI Auto-Match Best Pillar</span>
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                                Recommended
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-navy-500 mt-0.5">
+                                            Dispatches nearest verified specialist with highest trade score and fastest ETA.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                    selectedPillarId === 'auto_match' ? 'border-orange-500 bg-orange-500 text-white' : 'border-navy-300'
+                                }`}>
+                                    {selectedPillarId === 'auto_match' && <Check size={12} strokeWidth={3} />}
+                                </div>
+                            </div>
+
+                            {/* Option 2: Live Pillars from Database */}
+                            <div className="space-y-3 pt-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-navy-400 block">
+                                    Available Technicians Nearby ({availablePillars.length})
+                                </span>
+
+                                {loadingPillars ? (
+                                    <div className="text-center py-8 text-xs font-semibold text-navy-400 animate-pulse">
+                                        Querying live cooperative database for active technicians...
+                                    </div>
+                                ) : availablePillars.length === 0 ? (
+                                    <div className="p-4 rounded-xl bg-navy-50 text-xs text-navy-600 text-center">
+                                        No individual technicians found matching criteria. AI Auto-Dispatch will handle matching.
+                                    </div>
+                                ) : (
+                                    availablePillars.map(p => (
+                                        <div
+                                            key={p.id}
+                                            onClick={() => setSelectedPillarId(p.id)}
+                                            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                                selectedPillarId === p.id
+                                                    ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                                                    : 'border-navy-100 hover:border-navy-200 bg-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                                                <div className="w-12 h-12 rounded-xl bg-navy-100 text-navy-700 font-bold flex items-center justify-center text-base shrink-0">
+                                                    {p.full_name.charAt(0)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-bold text-navy-900 text-sm truncate">{p.full_name}</span>
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                                            {p.role}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy-500 mt-1">
+                                                        <span className="flex items-center gap-1 font-bold text-amber-500">
+                                                            <Star size={12} fill="currentColor" /> {p.rating}
+                                                        </span>
+                                                        <span>•</span>
+                                                        <span>{p.completed_jobs} completed jobs</span>
+                                                        <span>•</span>
+                                                        <span className="flex items-center gap-1 text-navy-600 font-semibold">
+                                                            <MapPin size={12} /> ~{p.distance} km
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-right shrink-0">
+                                                <span className="font-mono font-black text-navy-900 text-sm block">₹{p.starting_price}</span>
+                                                <span className="text-[10px] text-emerald-600 font-bold uppercase block">
+                                                    {p.is_available ? 'Available' : 'Busy'}
+                                                </span>
+                                            </div>
+
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ml-1 ${
+                                                selectedPillarId === p.id ? 'border-orange-500 bg-orange-500 text-white' : 'border-navy-300'
+                                            }`}>
+                                                {selectedPillarId === p.id && <Check size={12} strokeWidth={3} />}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-navy-100">
+                                <button onClick={() => setStep(2)} className="btn-secondary flex-1 py-3.5">Back</button>
+                                <button onClick={() => setStep(4)} className="btn-primary flex-1 py-3.5 shadow-lg shadow-orange-500/20">Review Summary</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 4: Summary & Confirm */}
+                    {step === 4 && (
                         <div className="space-y-6 animate-fade-in">
                             <h2 className="font-semibold text-xl text-navy-800 border-b border-navy-100 pb-3">{t('booking.confirm_title')}</h2>
 
@@ -352,6 +498,19 @@ export default function ServiceRequest() {
                                 <div className="bg-navy-50 p-4 rounded-xl">
                                     <p className="text-xs text-muted mb-1">Service Requested</p>
                                     <p className="font-medium text-navy-800">{serviceInfo.name}{subServiceInfo ? ` - ${subServiceInfo.name}` : ''}</p>
+                                </div>
+                                <div className="bg-navy-50 p-4 rounded-xl">
+                                    <p className="text-xs text-muted mb-1">Assigned Pillar / Technician</p>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-navy-800">
+                                            {selectedPillarId === 'auto_match' ? '⚡ AI Auto-Match (Nearest Certified Pillar)' : chosenPillarDetails?.full_name}
+                                        </span>
+                                        {chosenPillarDetails && (
+                                            <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                                <Star size={12} fill="currentColor" /> {chosenPillarDetails.rating}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="bg-navy-50 p-4 rounded-xl">
                                     <p className="text-xs text-muted mb-1">Location</p>
@@ -375,14 +534,18 @@ export default function ServiceRequest() {
                                 )}
                             </div>
 
-                            <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 mt-4">
-                                <p className="text-sm text-orange-800 font-medium text-center">
-                                    Price will be determined according to the service/order process.
-                                </p>
+                            <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 mt-4 flex items-center justify-between">
+                                <div>
+                                    <span className="text-xs text-orange-800/80 block">Estimated Service Base</span>
+                                    <span className="text-sm font-bold text-orange-950">Standard Cooperative Tariff</span>
+                                </div>
+                                <span className="font-mono font-black text-xl text-orange-600">
+                                    ₹{chosenPillarDetails?.starting_price || subServiceInfo?.base_price || 450}
+                                </span>
                             </div>
 
                             <div className="flex gap-3 pt-6 mt-6 border-t border-navy-100">
-                                <button onClick={() => setStep(2)} disabled={isSubmitting} className="btn-secondary flex-1 py-3.5">Back</button>
+                                <button onClick={() => setStep(3)} disabled={isSubmitting} className="btn-secondary flex-1 py-3.5">Back</button>
                                 <button onClick={submitRequest} disabled={isSubmitting} className="btn-primary flex-[2] py-3.5 shadow-lg shadow-orange-500/20">
                                     {isSubmitting ? 'Submitting...' : t('booking.confirm_btn')}
                                 </button>

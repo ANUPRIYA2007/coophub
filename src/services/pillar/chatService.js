@@ -60,14 +60,19 @@ export const pillarChatService = {
   // Fetch messages for a specific booking / request
   async getMessages(bookingId) {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("messages")
         .select("*")
-        .eq("booking_id", bookingId)
         .order("created_at", { ascending: true });
 
+      if (bookingId) {
+        query = query.or(`booking_id.eq.${bookingId},request_id.eq.${bookingId}`);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
-      return { data: data || [], error: null };
+      return { data: (data || []).map(m => ({ ...m, content: m.content || m.message })), error: null };
     } catch (error) {
       console.error("Chat fetch error:", error);
       return { data: [], error };
@@ -79,7 +84,9 @@ export const pillarChatService = {
     try {
       const payload = {
         booking_id: bookingId && bookingId.length === 36 ? bookingId : null,
+        request_id: bookingId && bookingId.length === 36 ? bookingId : null,
         sender_type: senderType || 'pillar',
+        content: messageText,
         message: messageText
       };
 
@@ -97,7 +104,13 @@ export const pillarChatService = {
         console.warn("Retrying sendMessage with minimal payload:", error.message);
         const { data: fallbackData, error: fbError } = await supabase
           .from("messages")
-          .insert([{ sender_type: senderType, message: messageText }])
+          .insert([{
+            booking_id: bookingId,
+            request_id: bookingId,
+            sender_type: senderType,
+            content: messageText,
+            message: messageText
+          }])
           .select()
           .single();
         if (fbError) throw fbError;
@@ -119,9 +132,9 @@ export const pillarChatService = {
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
           if (!payload.new) return;
-          // Filter if booking_id matches or if unassigned
-          if (!bookingId || payload.new.booking_id === bookingId || !payload.new.booking_id) {
-            if (callback) callback(payload.new);
+          const msg = payload.new;
+          if (!bookingId || msg.booking_id === bookingId || msg.request_id === bookingId) {
+            if (callback) callback({ ...msg, content: msg.content || msg.message });
           }
         }
       )

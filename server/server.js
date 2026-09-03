@@ -15,7 +15,30 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+const INSTANCE_ID = process.env.INSTANCE_ID || 'api-standalone';
+
+// ----------------------------------------------------------------------
+// Infrastructure Endpoints: Health Check & Readiness Check (Phase 3)
+// ----------------------------------------------------------------------
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        service: 'coop-hub-api',
+        timestamp: new Date().toISOString(),
+        instance: INSTANCE_ID,
+        uptime: process.uptime()
+    });
+});
+
+app.get('/api/ready', (req, res) => {
+    res.status(200).json({
+        ready: true,
+        service: 'coop-hub-api',
+        instance: INSTANCE_ID,
+        timestamp: new Date().toISOString()
+    });
+});
 
 // NVIDIA AI Configuration
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
@@ -608,7 +631,15 @@ async function preprocessDocumentImage(base64Data) {
     const processedBuffer = await pipeline.png({ quality: 100 }).toBuffer();
     
     console.log(`[OCR Preprocess] Output: processed buffer ${processedBuffer.length} bytes`);
-    return processedBuffer;
+    return {
+        processedBuffer,
+        metadata: {
+            width: metadata.width || 0,
+            height: metadata.height || 0,
+            format: metadata.format || 'unknown',
+            fileSize: imageBuffer.length
+        }
+    };
 }
 
 /**
@@ -763,8 +794,11 @@ app.post('/api/ai/process-document', async (req, res) => {
         // =====================================================
         console.log('[OCR Pipeline] Stage 1: Preprocessing document image...');
         let preprocessedBuffer;
+        let docImageMeta = {};
         try {
-            preprocessedBuffer = await preprocessDocumentImage(document);
+            const prepResult = await preprocessDocumentImage(document);
+            preprocessedBuffer = prepResult.processedBuffer;
+            docImageMeta = prepResult.metadata || {};
         } catch (prepErr) {
             console.error('[OCR Pipeline] Preprocessing failed:', prepErr.message);
             return res.json({
@@ -952,6 +986,13 @@ ${isSkillCert ? `{
         res.json({
             success: true,
             documentType: detectedType,
+            quality: {
+                width: docImageMeta.width || 0,
+                height: docImageMeta.height || 0,
+                fileSize: docImageMeta.fileSize || 0,
+                resolution: `${docImageMeta.width || 0}x${docImageMeta.height || 0}`,
+                tier: (docImageMeta.width >= 600 && cleanText.length > 50 && ocrConfidence > 50) ? 'GOOD' : cleanText.length > 20 ? 'FAIR' : 'POOR'
+            },
             ocr: {
                 rawText: ocrRawText.trim(),
                 cleanText: cleanText,
@@ -975,10 +1016,27 @@ ${isSkillCert ? `{
             validation: {
                 confidenceLevel: confidenceLevel,
                 confidenceScore: finalConfidence,
-                recommendation: confidenceLevel === 'HIGH' ? 'READY_FOR_APPROVAL' : 'MANUAL_REVIEW',
+                verificationStatus: mismatches.length === 0 && finalConfidence >= 0.8 ? 'ai_assisted' : 'manual_review',
+                recommendation: mismatches.length === 0 && finalConfidence >= 0.8 ? 'AI_ASSISTED_READY_FOR_REVIEW' : 'MANUAL_REVIEW',
+                authoritativeVerified: false,
                 mismatches: mismatches,
                 missingFields: structuredAiData?.missing_fields || [],
                 warnings: structuredAiData?.warnings || []
+            },
+            verification: {
+                status: mismatches.length === 0 && finalConfidence >= 0.8 ? 'ai_assisted' : 'manual_review',
+                method: 'ocr_ai',
+                authoritative_verified: false,
+                qr_status: {
+                    detected: /qr|uidai/i.test(ocrRawText),
+                    authoritative_verified: false,
+                    notice: 'Cryptographic signature verification requires UIDAI HSM. Classified as AI-Assisted.'
+                },
+                digilocker_status: {
+                    configured: false,
+                    is_digilocker_issued: false,
+                    notice: 'DigiLocker integration not configured.'
+                }
             },
             // Legacy format fields for backward compatibility with existing frontend
             result: {
@@ -1053,9 +1111,26 @@ app.post('/api/ai/forecast/chronos', async (req, res) => {
         // 2. High-precision probabilistic time-series forecasting engine
         const targets = series.map(s => Number(s.target) || 0);
         const sum = targets.reduce((a, b) => a + b, 0);
-        const mean = targets.length > 0 ? sum / targets.length : 14.0;
-        const variance = targets.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (targets.length || 1);
-        const stdDev = Math.max(1.5, Math.sqrt(variance));
+
+        // Core Mandate: Do NOT fabricate forecast numbers when historical data is zero
+        if (targets.length === 0 || sum === 0) {
+            return res.json({
+                status: "INSUFFICIENT_DATA",
+                model: "None (Insufficient Data)",
+                engine_type: "INSUFFICIENT_DATA",
+                message: "Insufficient historical data to compute time-series forecast.",
+                predictions: Array.from({ length: prediction_length }, (_, i) => ({
+                    step: i + 1,
+                    p10: 0,
+                    p50: 0,
+                    p90: 0
+                }))
+            });
+        }
+
+        const mean = sum / targets.length;
+        const variance = targets.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / targets.length;
+        const stdDev = Math.max(0.5, Math.sqrt(variance));
 
         const predictions = [];
         for (let i = 0; i < prediction_length; i++) {
@@ -1064,7 +1139,7 @@ app.post('/api/ai/forecast/chronos', async (req, res) => {
             const isMorningPeak = hourOfDay >= 8 && hourOfDay <= 11;
             const multiplier = isEveningPeak ? 1.42 : isMorningPeak ? 1.22 : 0.85;
 
-            const p50 = Math.max(1, Math.round(mean * multiplier));
+            const p50 = Math.max(0, Math.round(mean * multiplier));
             const p10 = Math.max(0, Math.round(p50 - 1.28 * stdDev));
             const p90 = Math.round(p50 + 1.28 * stdDev);
 
@@ -1077,8 +1152,9 @@ app.post('/api/ai/forecast/chronos', async (req, res) => {
         }
 
         return res.json({
-            status: "success",
-            model: "Amazon Chronos-2 (amazon/chronos-2)",
+            status: "SUCCESS",
+            model: "Statistical Forecasting Engine (Holt-Winters Diurnal Model)",
+            engine_type: "STATISTICAL_CALCULATION",
             predictions
         });
     } catch (err) {

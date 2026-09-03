@@ -464,6 +464,83 @@ Provide a 2-sentence transparent operational dispatch justification grounded ONL
     } catch (err) {
       return { success: false, error: err.message };
     }
+  },
+
+  /**
+   * 7. Real Workforce Capacity & Intelligent Mobilization Recommendations
+   * Combines forecasted demand with actual verified pillar supply and workloads.
+   */
+  async calculateWorkforceCapacityAndRecommendations({ area = "Guindy", service = "Electrician", predictedDemand = 0 }) {
+    try {
+      const { data: pillars, error } = await supabase
+        .from('pillar_profiles')
+        .select('*')
+        .eq('status', 'verified')
+        .eq('is_available', true);
+
+      if (error) throw error;
+      const verified = pillars || [];
+      const sLower = (service || '').toLowerCase();
+      const aLower = (area || '').toLowerCase();
+
+      // Find all eligible pillars
+      const matched = verified.filter(p => {
+        const matchesService = Array.isArray(p.main_services)
+          ? p.main_services.some(s => String(s).toLowerCase().includes(sLower) || sLower.includes(String(s).toLowerCase()))
+          : String(p.main_services || '').toLowerCase().includes(sLower);
+
+        const matchesArea = !area || (Array.isArray(p.service_area)
+          ? p.service_area.some(a => String(a).toLowerCase().includes(aLower) || aLower.includes(String(a).toLowerCase()))
+          : String(p.service_area || '').toLowerCase().includes(aLower));
+
+        return matchesService && matchesArea;
+      });
+
+      const availableCapacity = matched.length;
+      const projectedGap = Math.max(0, predictedDemand - availableCapacity);
+      const severity = projectedGap > 10 ? 'critical' : projectedGap > 3 ? 'high' : projectedGap > 0 ? 'medium' : 'none';
+
+      // Score candidates for mobilization with fairness and workload awareness
+      const scoredCandidates = matched.map(p => {
+        const dummyRequest = { service_name: service, service_address: area };
+        const scoreData = this.scoreCandidate(p, dummyRequest);
+        return {
+          pillar_id: p.id,
+          name: p.full_name,
+          rating: p.rating || 4.8,
+          active_jobs: p.active_jobs_count || 0,
+          trade: Array.isArray(p.main_services) ? p.main_services[0] : (p.main_services || service),
+          score: scoreData.score,
+          breakdown: scoreData.breakdown,
+          reasons: scoreData.reasons
+        };
+      }).sort((a, b) => b.score - a.score);
+
+      return {
+        service,
+        area,
+        predicted_demand: predictedDemand,
+        available_capacity: availableCapacity,
+        projected_gap: projectedGap,
+        severity,
+        standby_candidates: scoredCandidates.slice(0, 5),
+        recommendation_summary: projectedGap > 0
+          ? `Predicted demand (${predictedDemand} requests) exceeds active supply (${availableCapacity} pillars) in ${area}. Recommended action: Mobilize ${projectedGap} standby certified ${service} technician(s).`
+          : `Active workforce capacity of ${availableCapacity} pillars in ${area} is sufficient to meet forecasted demand of ${predictedDemand} requests.`
+      };
+    } catch (e) {
+      console.warn("Capacity calculation error:", e.message);
+      return {
+        service,
+        area,
+        predicted_demand: predictedDemand,
+        available_capacity: 0,
+        projected_gap: predictedDemand,
+        severity: predictedDemand > 0 ? "high" : "none",
+        standby_candidates: [],
+        recommendation_summary: "Workforce data unavailable."
+      };
+    }
   }
 };
 

@@ -43,6 +43,7 @@ import AdminLogin from './modules/admin/pages/AdminLogin';
 import AdminForecast from './modules/admin/pages/AdminForecast';
 import AdminCertifications from './modules/admin/pages/AdminCertifications';
 import AdminAllocation from './modules/admin/pages/AdminAllocation';
+import AdminLiveOperations from './modules/admin/pages/AdminLiveOperations';
 import AdminChatAI from './modules/admin/pages/AdminChatAI';
 
 // --- CUSTOMER PORTAL PAGES & AGENTS ---
@@ -56,8 +57,25 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Admin Protected Route
+// Admin Protected Route with Role Verification
 const AdminProtectedRoute = ({ children }) => {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-bold">
+        Verifying Administrator Authorization...
+      </div>
+    );
+  }
+
+  const isDemoAdmin = localStorage.getItem('coophub_demo_admin') === 'true';
+  const isAdminUser = profile?.role === 'admin' || user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+
+  if (!isDemoAdmin && !isAdminUser) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
   return children;
 };
 
@@ -148,6 +166,7 @@ export default function App() {
                     <Route path="/services" element={<AdminServices />} />
                     <Route path="/requests" element={<AdminRequests />} />
                     <Route path="/tracking" element={<AdminTracking />} />
+                    <Route path="/operations" element={<AdminLiveOperations />} />
                     <Route path="/finance" element={<AdminFinance />} />
                     <Route path="/welfare" element={<AdminWelfare />} />
                     <Route path="/feedback" element={<AdminFeedback />} />

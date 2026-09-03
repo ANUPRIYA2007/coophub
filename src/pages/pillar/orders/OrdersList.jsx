@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarOrderService } from "../../../services/pillar/orderService";
+import { emergencyDispatchService } from "../../../services/emergency/emergencyDispatchService";
 import ArrivalOTPModal from "../../../components/pillar/orders/ArrivalOTPModal";
 import ExtraChargeModal from "../../../components/pillar/orders/ExtraChargeModal";
 import LiveTrackingMap from "../../../components/maps/LiveTrackingMap";
@@ -22,7 +23,9 @@ import {
   ChevronUp,
   Eye,
   Printer,
-  ArrowLeft
+  ArrowLeft,
+  AlertTriangle,
+  Zap
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -145,6 +148,79 @@ export default function OrdersList() {
           </button>
         ))}
       </div>
+
+      {/* 🚨 High-Priority Emergency Order Queue */}
+      {orders.some(o => (o.is_emergency || o.priority_level === 'EMERGENCY') && o.status === 'pending') && (
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          {orders.filter(o => (o.is_emergency || o.priority_level === 'EMERGENCY') && o.status === 'pending').map(em => (
+            <div 
+              key={em.id} 
+              style={{
+                background: "rgba(239, 68, 68, 0.08)",
+                border: "2px solid #EF4444",
+                borderRadius: "var(--radius-lg)",
+                padding: "20px",
+                boxShadow: "0 6px 20px rgba(239, 68, 68, 0.25)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                marginBottom: "12px"
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ background: "#EF4444", color: "white", padding: "8px", borderRadius: "10px" }}>
+                    <Zap size={20} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "0.75rem", fontWeight: "900", color: "#EF4444", textTransform: "uppercase", letterSpacing: "1px" }}>
+                      🚨 High-Priority Emergency Dispatch Offer (90s Window)
+                    </span>
+                    <h3 style={{ fontSize: "1.15rem", fontWeight: "900", color: "var(--color-text)", margin: "2px 0 0" }}>
+                      {em.service_name} • Order #{em.booking_code || em.id.slice(0, 8)}
+                    </h3>
+                  </div>
+                </div>
+                <span style={{ background: "#EF4444", color: "white", padding: "4px 12px", borderRadius: "20px", fontSize: "0.78rem", fontWeight: "900" }}>
+                  URGENT RESPONSE
+                </span>
+              </div>
+
+              <div style={{ background: "var(--color-surface)", padding: "12px", borderRadius: "8px", border: "1px solid var(--color-border)", fontSize: "0.85rem" }}>
+                <strong>Reported Emergency Hazard:</strong> {em.emergency_reason || em.customer_description || "Urgent on-site assistance requested."}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                <div style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>
+                  📍 {em.service_address || em.address_line || "Chennai"} • Distance: <strong>{em.distance_km || "1.8"} km</strong> • ETA: <strong>10 mins (ESTIMATED)</strong>
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={async () => {
+                      await emergencyDispatchService.declineEmergencyOffer(em.id, user?.id, "Pillar unavailable");
+                      fetchOrders();
+                    }}
+                    className="btn btn-outline"
+                    style={{ borderColor: "#64748B", color: "#64748B", fontWeight: "700" }}
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await emergencyDispatchService.acceptEmergencyOffer(em.id, user?.id);
+                      handleStatusChange(em.id, "accepted");
+                    }}
+                    className="btn btn-primary"
+                    style={{ background: "#EF4444", color: "white", fontWeight: "900", display: "flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <Zap size={16} /> Accept Emergency & Mobilize
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (

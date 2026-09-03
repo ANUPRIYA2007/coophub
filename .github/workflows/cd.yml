@@ -1,0 +1,117 @@
+name: COOP HUB Continuous Deployment (CD)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Deployment Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # Stage 1: Build and publish container images to GitHub Container Registry (GHCR)
+  publish-container:
+    name: Build & Publish Image to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Stage 2: Deploy to Production/Staging Target
+  deploy:
+    name: Deploy to Target Environment
+    runs-on: ubuntu-latest
+    needs: publish-container
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Check for Deployment Configuration
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "::notice title=Deployment Pending::DEPLOY_HOST secret is not configured in repository secrets. Image successfully published to GHCR. Live SSH deployment skipped."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy via SSH (When DEPLOY_HOST configured)
+        if: steps.check-secrets.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            cd /opt/coophub
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker system prune -f
+
+      - name: Automated Deployment Health Check
+        if: steps.check-secrets.outputs.configured == 'true'
+        run: |
+          PROD_URL="${{ secrets.PRODUCTION_URL || 'https://api.coophub.org' }}"
+          echo "Verifying health check at ${PROD_URL}/api/health..."
+          PASSED=0
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "${PROD_URL}/api/health")
+            if [ "$STATUS" = "200" ]; then
+              echo "Deployment health check PASSED (HTTP 200) on attempt $i"
+              PASSED=1
+              break
+            fi
+            echo "Waiting for live endpoint (attempt $i/12, status code: $STATUS)..."
+            sleep 5
+          done
+          if [ $PASSED -ne 1 ]; then
+            echo "Deployment health check timed out or failed"
+            exit 1
+          fi

@@ -6,6 +6,7 @@ import { aiService } from "../../../services/ai/aiService";
 import { documentExtractionService } from "../../../services/ai/documentExtractionService";
 import { certificationService } from "../../../services/pillar/certificationService";
 import DynamicDocumentTemplateCard from "../components/DynamicDocumentTemplateCard";
+import AdminKycDossierPanel from "../components/AdminKycDossierPanel";
 import { 
   ArrowLeft, User, Phone, Mail, MapPin, Briefcase, Calendar, 
   ShieldCheck, AlertTriangle, FileText, CheckCircle2, XCircle, 
@@ -593,6 +594,82 @@ export default function PillarDetails() {
           </div>
         </div>
       )}
+
+      {/* 10-Point Document Intelligence & KYC Risk Dossier */}
+      <AdminKycDossierPanel 
+        pillar={pillar}
+        kycDocs={kycDocs}
+        pillarCerts={pillarCerts}
+        ocrResult={ocrResult}
+        onApprove={handleApprove}
+        onReject={() => setShowRejectModal(true)}
+        onManualReview={handleSendForManualReview}
+        onRequestReupload={() => {
+          setShowRejectModal(true);
+          setSelectedRejectReason("Government ID is unclear or unreadable");
+        }}
+      />
+
+      {/* Authoritative Government Verification Architecture Status Banner */}
+      <div style={{ 
+        background: "rgba(255, 121, 0, 0.04)", 
+        border: "1px solid rgba(255, 121, 0, 0.25)", 
+        borderRadius: "var(--radius-lg)", 
+        padding: "16px 20px", 
+        marginBottom: "var(--space-5)" 
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "1.1rem" }}>🛡️</span>
+            <span style={{ fontSize: "0.92rem", fontWeight: "800", color: "var(--color-text)" }}>
+              Authoritative Government ID Verification Architecture
+            </span>
+          </div>
+          <span style={{ 
+            fontSize: "0.75rem", 
+            fontWeight: "800", 
+            padding: "3px 10px", 
+            borderRadius: "12px", 
+            background: isVerified ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", 
+            color: isVerified ? "#059669" : "#D97706",
+            border: isVerified ? "1px solid #10B981" : "1px solid #F59E0B"
+          }}>
+            {isVerified ? "🟢 OFFICIALLY VERIFIED (Admin Authorized)" : "🟡 AI-ASSISTED (Awaiting Clearance)"}
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px", fontSize: "0.82rem" }}>
+          <div style={{ background: "var(--color-surface)", padding: "12px 14px", borderRadius: "8px", border: "1px solid var(--color-border)" }}>
+            <div style={{ fontWeight: "700", color: "var(--color-text)", marginBottom: "3px" }}>
+              Aadhaar Secure QR Status
+            </div>
+            <span style={{ color: "#D97706", fontWeight: "700" }}>QR Pattern Checked (Not Cryptographically Verified)</span>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: "3px" }}>
+              Authoritative cryptographic signature verification requires direct UIDAI HSM gateway. Treated honestly as AI-Assisted.
+            </div>
+          </div>
+
+          <div style={{ background: "var(--color-surface)", padding: "12px 14px", borderRadius: "8px", border: "1px solid var(--color-border)" }}>
+            <div style={{ fontWeight: "700", color: "var(--color-text)", marginBottom: "3px" }}>
+              DigiLocker Integration
+            </div>
+            <span style={{ color: "#64748B", fontWeight: "700" }}>Integration Not Configured</span>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: "3px" }}>
+              DigiLocker Requester / API Setu is not connected. User-uploaded files are never falsely claimed as DigiLocker verified.
+            </div>
+          </div>
+
+          <div style={{ background: "var(--color-surface)", padding: "12px 14px", borderRadius: "8px", border: "1px solid var(--color-border)" }}>
+            <div style={{ fontWeight: "700", color: "var(--color-text)", marginBottom: "3px" }}>
+              Active OCR Engine
+            </div>
+            <span style={{ color: "#059669", fontWeight: "700" }}>Tesseract.js v7 (Server-Side + Sharp)</span>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: "3px" }}>
+              Raw OCR text is captured and preserved separately from structured field extractions.
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Grid: A. Pillar Information & B. Government Document */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "var(--space-5)", marginBottom: "var(--space-5)" }}>

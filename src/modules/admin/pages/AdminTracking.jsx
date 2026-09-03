@@ -37,8 +37,17 @@ export default function AdminTracking() {
 
   useEffect(() => {
     fetchTrackingData();
-    const interval = setInterval(fetchTrackingData, 15000); // Auto refresh every 15s
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchTrackingData, 15000); // Auto refresh fallback
+    
+    // Supabase Realtime live sync on pillar telemetry
+    const channel = adminService.subscribeToLivePillars?.(() => {
+      fetchTrackingData();
+    });
+
+    return () => {
+      clearInterval(interval);
+      channel?.unsubscribe?.();
+    };
   }, []);
 
   const fetchTrackingData = async () => {

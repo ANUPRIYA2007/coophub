@@ -35,8 +35,9 @@ export const documentStorageService = {
     }
 
     const type = (documentType || 'aadhaar').toLowerCase();
-    const verificationStatus = validationResult.status === 'MATCHED' ? 'verified' : 'under_review';
-    const verificationScore = validationResult.confidence_score || 0.95;
+    // Core Mandate: Never set 'verified' from OCR extraction alone
+    const verificationStatus = validationResult.verification_status || (validationResult.status === 'MATCHED' || validationResult.status === 'AI_ASSISTED' ? 'ai_assisted' : 'manual_review');
+    const verificationScore = validationResult.confidence_score || 0.85;
     const validationErrors = validationResult.mismatches || [];
 
     try {

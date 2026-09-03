@@ -431,9 +431,14 @@ export const documentValidationService = {
       summary = `Extraction successful with minor items for review.`;
     }
 
+    const formatValid = !mismatches.some(m => m.severity === 'HIGH');
+
     return {
       confidence_level: confidenceLevel,
       confidence_score: finalScore,
+      format_valid: formatValid,
+      format_status: formatValid ? 'FORMAT_VALID' : 'FORMAT_INVALID',
+      verification_boundary: 'DETERMINISTIC_RULE_ANALYSIS_NOT_GOVERNMENT_AUTHENTICATED',
       recommendation: recommendation,
       summary: summary,
       mismatches: mismatches,

@@ -202,6 +202,19 @@ export const paymentGatewayAdapter = {
           created_at: new Date().toISOString()
         }]);
 
+        // 7. Automatic Shared PF Contribution (Pillar Share + Coop Match)
+        try {
+          const { pfContributionService } = await import('../welfare/pfContributionService.js');
+          await pfContributionService.processBookingPFContribution({
+            pillarId,
+            bookingId: requestId,
+            baseAmount: pillarNetEarning,
+            isPrepaid: true
+          });
+        } catch (pfErr) {
+          console.warn("PF contribution auto-credit notice:", pfErr);
+        }
+
         // Trigger in-app notification to the Pillar
         await supabase.from('notifications').insert([{
           user_id: pillarId,

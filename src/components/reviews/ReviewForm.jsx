@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
 
-export default function ReviewForm({ requestId }) {
+export default function ReviewForm({ requestId, pillarId = null }) {
     const { profile } = useAuth();
     const { t } = useTranslation();
     const [rating, setRating] = useState(0);
@@ -16,14 +16,13 @@ export default function ReviewForm({ requestId }) {
 
     useEffect(() => {
         const checkReviewStatus = async () => {
-            if (!profile?.user_id || !requestId) return;
+            if (!requestId) return;
             try {
-                const { data, error } = await supabase
+                const { data } = await supabase
                     .from('reviews')
                     .select('*')
                     .eq('request_id', requestId)
-                    .eq('customer_id', profile.user_id)
-                    .maybeSingle(); // Does not throw error if 0 rows
+                    .maybeSingle();
 
                 if (data) {
                     setHasReviewed(true);
@@ -42,24 +41,20 @@ export default function ReviewForm({ requestId }) {
         setSubmitting(true);
         setError(null);
 
-        const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
-        if (isDemo) {
-            setHasReviewed(true);
-            setExistingReview({ rating, feedback, created_at: new Date().toISOString() });
-            setSubmitting(false);
-            return;
-        }
-
         try {
-            const { error: insertErr } = await supabase.from('reviews').insert({
+            const customerId = profile?.user_id || profile?.id || null;
+            const payload = {
                 request_id: requestId,
-                customer_id: profile.user_id,
                 rating,
                 feedback: feedback.trim() || null
-            });
+            };
+            if (customerId) payload.customer_id = customerId;
+            if (pillarId) payload.pillar_id = pillarId;
+
+            const { error: insertErr } = await supabase.from('reviews').insert(payload);
 
             if (insertErr) {
-                if (insertErr.code === '23505') { // Unique violation
+                if (insertErr.code === '23505' || insertErr.message?.includes('duplicate')) {
                     throw new Error('You have already submitted a review for this service.');
                 }
                 throw insertErr;

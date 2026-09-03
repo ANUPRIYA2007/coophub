@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarChatService } from "../../../services/pillar/chatService";
-import { Send, Phone, User, CheckCircle2, ArrowLeft } from "lucide-react";
+import { jobCommunicationService } from "../../../services/communication/jobCommunicationService";
+import { Send, Phone, User, CheckCircle2, ArrowLeft, MapPin, Package, Radio } from "lucide-react";
 
 export default function CustomerChat() {
   const navigate = useNavigate();
@@ -252,6 +253,58 @@ export default function CustomerChat() {
             ))}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Quick Actions for Pillar */}
+          {activeChat && (
+            <div style={{
+              padding: "6px 16px",
+              background: "var(--color-surface-hover)",
+              borderTop: "1px solid var(--color-border-light)",
+              display: "flex",
+              gap: "8px",
+              overflowX: "auto"
+            }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  await jobCommunicationService.sendMessage({
+                    requestId: activeChat,
+                    senderId: profile?.id || profile?.user_id,
+                    senderType: 'pillar',
+                    content: '📍 [Arrival Notification] I have arrived at the customer doorstep.',
+                    messageType: 'ARRIVAL'
+                  });
+                }}
+                className="btn btn-xs btn-outline"
+                style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" }}
+              >
+                <MapPin size={12} /> Announce Arrival
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const amtStr = prompt("Enter additional parts / charge amount (₹):", "250");
+                  if (!amtStr) return;
+                  const amt = parseInt(amtStr, 10);
+                  if (isNaN(amt) || amt <= 0) return alert("Please enter a valid positive number.");
+                  const desc = prompt("Enter parts / service description:", "Replacement Capacitor & Heavy Wiring");
+                  if (!desc) return;
+                  await jobCommunicationService.requestPartsOrExtraCharge({
+                    requestId: activeChat,
+                    pillarId: profile?.id || profile?.user_id,
+                    description: desc,
+                    amount: amt,
+                    reason: "Required for complete and safe repair"
+                  });
+                }}
+                className="btn btn-xs btn-outline"
+                style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", borderColor: "#FF7900", color: "#FF7900", whiteSpace: "nowrap" }}
+              >
+                <Package size={12} /> Request Parts / Extra Charge
+              </button>
+            </div>
+          )}
 
           {/* Input */}
           <form onSubmit={handleSend} style={{ padding: "var(--space-4)", borderTop: "1px solid var(--color-border-light)", display: "flex", gap: "var(--space-2)" }}>
