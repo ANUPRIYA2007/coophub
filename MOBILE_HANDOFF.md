@@ -27,7 +27,8 @@ COOP HUB Architecture
     ├── Supabase (PostgreSQL, Auth, Row-Level Security, Realtime Subscriptions, Storage)
     ├── Express AI Relay Backend Server (`server/server.js`)
     ├── Multi-Model AI (NVIDIA NIM Llama 3.2 Vision / Nemotron & Google Gemini)
-    ├── KYC & Document Processing (Tesseract OCR / NVIDIA Document AI / Vision Extraction)
+    ├── Authoritative KYC Gateways (UIDAI Secure QR Decoder & DigiLocker TSP Sandbox)
+    ├── Document OCR Provider Chain (PaddleOCR Primary -> EasyOCR Secondary -> NVIDIA Vision -> Gemini)
     ├── Geolocation, Routing & Distance Engines
     ├── Dynamic Multilingual Engine (Targeting all 22 Scheduled Indian Languages)
     └── Push Notifications & Lifecycle Event Hub
@@ -57,7 +58,7 @@ The following technologies, libraries, and versions have been verified in the re
 - **Backend-as-a-Service:** Supabase (`@supabase/supabase-js` `^2.49.0`)
 - **Database Engine:** PostgreSQL (with `uuid-ossp` extension, Realtime Replication Publications)
 - **Security & Access Control:** PostgreSQL Row Level Security (RLS) policies
-- **File Storage:** Supabase Storage buckets (`documents`, `attachments`)
+- **File Storage:** Supabase Storage private buckets (`kyc_documents`, `request_attachments`)
 
 ### Styling & UI Design System
 - **CSS Framework:** Tailwind CSS `^3.4.17`, PostCSS `^8.5.0`, Autoprefixer `^10.4.20`
@@ -71,9 +72,11 @@ The following technologies, libraries, and versions have been verified in the re
 - **Motion Animation:** GSAP `^3.15.0`
 
 ### AI, OCR & Document Processing
-- **Vision & LLM Inference (Primary):** NVIDIA NIM API (`meta/llama-3.2-11b-vision-instruct`, `nvidia/nemotron-parse`)
-- **Vision & LLM Inference (Secondary/Fallback):** Google Gemini 1.5 Flash / Gemma via REST endpoints
-- **Client-Side OCR (Web):** Tesseract.js `^7.0.0`
+- **Document OCR Chain (Primary):** PaddleOCR microservice (`PADDLE_OCR_SERVICE_URL`)
+- **Document OCR Chain (Secondary):** EasyOCR microservice (`EASY_OCR_SERVICE_URL`)
+- **Vision & LLM Inference (Tertiary):** NVIDIA NIM API (`meta/llama-3.2-11b-vision-instruct`, `nvidia/nemotron-parse`)
+- **AI Validation & Structuring:** Google Gemini 1.5 Flash via REST endpoints
+- **Diagnostic OCR (Isolated):** Tesseract.js (Strictly non-production diagnostic use only)
 - **PDF Extraction:** `pdfjs-dist` `^4.10.38`
 - **Time-Series Forecasting:** Amazon Chronos-2 pipeline (`amazon/chronos-2`) with heuristic peak/trough mathematical modeling
 
@@ -181,9 +184,10 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | **Pillar Portal Landing** | `/pillar` | `IMPLEMENTED` | Dedicated benefits landing page with direct dashboard access. |
 | **Pillar Login** | `/pillar/login` | `IMPLEMENTED` | Pillar ID (`PIL-CHE-042`) or email + password, demo login bypass. |
-| **4-Step KYC Registration** | `/pillar/register` | `IMPLEMENTED` | Multi-step: 1. Personal, 2. Trade Skills, 3. Government ID, 4. Trade Certificate. |
-| **Client Document OCR** | `/pillar/register` | `IMPLEMENTED` | Tesseract.js extracts document number, name, DOB from uploaded ID scan. |
-| **Server Vision AI KYC** | `/pillar/register` | `IMPLEMENTED` | Backend calls NVIDIA Nemotron / Gemini for structured document parsing. |
+| **Document OCR Engine** | `/pillar/register` | `IMPLEMENTED` | PaddleOCR (Primary) -> EasyOCR (Secondary) -> NVIDIA Vision -> Gemini. Tesseract isolated to diagnostic. |
+| **UIDAI Secure QR Decoder** | `/pillar/register` | `IMPLEMENTED` | Camera reads QR byte stream; server decompresses RFC 1951 Deflate & validates RSA digital signature. |
+| **DigiLocker TSP Sandbox** | `/pillar/register` | `IMPLEMENTED` | OAuth2 redirect gateway with CSRF state validation, statutory consent, and document retrieval. |
+| **Server Vision AI KYC** | `/pillar/register` | `IMPLEMENTED` | Backend calls NVIDIA Nemotron / Gemini for structured document parsing & risk scoring. |
 | **Pillar Dashboard** | `/dashboard` | `IMPLEMENTED` | KPI cards (Today's Jobs, Earnings, Rating), online/offline toggle, order list. |
 | **Online Availability Switch** | `/dashboard` / Sidebar | `IMPLEMENTED` | Toggles `is_available` boolean in `pillar_profiles` table. |
 | **Live Booking Queue** | `/dashboard/orders` | `IMPLEMENTED` | Tabbed views (`pending`, `in_progress`, `completed`). Realtime sync. |

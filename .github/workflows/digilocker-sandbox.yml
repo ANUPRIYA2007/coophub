@@ -1,0 +1,86 @@
+name: DigiLocker TSP Sandbox Integration (Protected)
+
+# ==============================================================================
+# PROTECTED WORKFLOW: DigiLocker & G2C Technology Service Provider (TSP) Sandbox
+# 
+# IMPORTANT SECURITY CONSTRAINTS:
+# 1. Isolated from normal PR CI — NEVER triggered automatically on unvetted PRs.
+# 2. Obtains sandbox credentials ONLY from GitHub Actions Secrets/Environment.
+# 3. Supports configured TSP via DIGILOCKER_TSP_PROVIDER (MeriPehchaan, Setu, Karza, Signzy, Custom).
+# 4. If secrets are unconfigured, reports NOT CONFIGURED (never marks as VERIFIED).
+# 5. Strictly masks all tokens, secrets, and citizen document numbers.
+# ==============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      tsp_provider:
+        description: 'DigiLocker Technology Service Provider (TSP)'
+        required: true
+        default: 'meripehchaan'
+        type: choice
+        options:
+          - meripehchaan
+          - setu
+          - karza
+          - signzy
+          - custom
+      sandbox_mode:
+        description: 'Execute against TSP Sandbox / Staging Gateways'
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: digilocker-sandbox-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  digilocker-tsp-integration:
+    name: Verify DigiLocker TSP Sandbox Gateway
+    runs-on: ubuntu-latest
+    environment: digilocker-sandbox # Protected environment requiring review/approval if configured
+
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 3. Install Dependencies
+        run: npm ci
+
+      - name: 4. Check DigiLocker Sandbox Credential Configuration
+        id: check-creds
+        run: |
+          if [ -z "${{ secrets.DIGILOCKER_CLIENT_ID }}" ] || [ -z "${{ secrets.DIGILOCKER_CLIENT_SECRET }}" ] || [[ "${{ secrets.DIGILOCKER_CLIENT_SECRET }}" == *"your-"* ]] || [[ "${{ secrets.DIGILOCKER_CLIENT_SECRET }}" == *"placeholder"* ]]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning title=DigiLocker Sandbox::Real sandbox credentials are NOT CONFIGURED in digilocker-sandbox environment. Real DigiLocker TSP Sandbox Connection: NOT EXECUTED."
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+            echo "::notice title=DigiLocker Sandbox::DigiLocker TSP credentials detected in protected environment."
+          fi
+
+      - name: 5. Execute Real DigiLocker TSP Sandbox Integration Audit
+        env:
+          DIGILOCKER_TSP_PROVIDER: ${{ github.event.inputs.tsp_provider || secrets.DIGILOCKER_TSP_PROVIDER || 'meripehchaan' }}
+          DIGILOCKER_SANDBOX_MODE: ${{ github.event.inputs.sandbox_mode || 'true' }}
+          DIGILOCKER_CLIENT_ID: ${{ secrets.DIGILOCKER_CLIENT_ID }}
+          DIGILOCKER_CLIENT_SECRET: ${{ secrets.DIGILOCKER_CLIENT_SECRET }}
+          DIGILOCKER_REDIRECT_URI: ${{ secrets.DIGILOCKER_REDIRECT_URI || 'http://localhost:5000/api/kyc/digilocker/callback' }}
+          DIGILOCKER_AUTH_URL: ${{ secrets.DIGILOCKER_AUTH_URL }}
+          DIGILOCKER_TOKEN_URL: ${{ secrets.DIGILOCKER_TOKEN_URL }}
+          DIGILOCKER_API_URL: ${{ secrets.DIGILOCKER_API_URL }}
+        run: |
+          # Executes real TSP integration tests:
+          # - OAuth Authorization URL generation with PKCE & state
+          # - State / CSRF anti-tampering verification
+          # - Statutory consent purpose & timestamp validation
+          # - Token exchange error handling (sanitized logs)
+          # - Document retrieval schema enforcement
+          # - Sensitive data scrubbing verification
+          node scripts/test_digilocker_sandbox_live.mjs

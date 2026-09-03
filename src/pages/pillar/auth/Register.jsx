@@ -4,10 +4,13 @@ import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarAuthService } from "../../../services/pillar/authService";
 import { ocrService } from "../../../services/pillar/ocrService";
+import { kycRouter } from "../../../services/kyc/kycRouter";
+import KycConsentModal from "../../../components/kyc/KycConsentModal";
+import UidaiQrScannerModal from "../../../components/kyc/UidaiQrScannerModal";
 import HeroInteractiveAgent from "../../../components/pillar/ai/HeroInteractiveAgent";
 import { 
   Loader2, AlertCircle, CheckCircle, ArrowRight, ArrowLeft, 
-  Globe, ShieldCheck, FileText, UploadCloud, Lock, Sparkles, CheckCircle2 
+  Globe, ShieldCheck, FileText, UploadCloud, Lock, Sparkles, CheckCircle2, QrCode, Cpu 
 } from "lucide-react";
 
 export default function Register() {
@@ -62,6 +65,18 @@ export default function Register() {
   const [ocrPreview, setOcrPreview] = useState(null);
   const [certOcrPreview, setCertOcrPreview] = useState(null);
   const [certOcrProcessing, setCertOcrProcessing] = useState(false);
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [digilockerStatus, setDigilockerStatus] = useState({ configured: false });
+  const [digilockerNotice, setDigilockerNotice] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/kyc/digilocker/status')
+      .then(res => res.json())
+      .then(data => setDigilockerStatus(data))
+      .catch(() => setDigilockerStatus({ configured: false }));
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -82,9 +97,65 @@ export default function Register() {
 
   const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
+  const handleQrSuccess = (qrResult) => {
+    const extracted = qrResult.extracted_data || {};
+    setConsentGiven(true);
+    setFormData((prev) => ({
+      ...prev,
+      documentType: 'aadhaar',
+      documentNumber: extracted.document_number_masked || prev.documentNumber,
+      fullName: prev.fullName || extracted.full_name || '',
+      dob: extracted.date_of_birth || prev.dob
+    }));
+
+    setOcrPreview({
+      engine: 'UIDAI Secure QR (Cryptographic)',
+      document_type: 'Aadhaar Card (UIDAI Secure QR)',
+      document_type_code: 'aadhaar',
+      extracted_name: extracted.full_name,
+      extracted_dob: extracted.date_of_birth,
+      extracted_document_number: extracted.document_number_masked,
+      raw_document_number_masked: extracted.document_number_masked,
+      extracted_address: extracted.address,
+      raw_text_snippet: `UIDAI Secure QR V2 Decoded: ${extracted.full_name} (${extracted.document_number_masked})`,
+      confidence_score: qrResult.authoritative_verified ? 1.0 : 0.90,
+      authoritative_verified: qrResult.authoritative_verified,
+      qr_status: qrResult.qr_status,
+      verification_status: qrResult.verification_status,
+      processed_at: qrResult.processed_at
+    });
+  };
+
+  const handleDigilockerClick = () => {
+    if (!consentGiven) {
+      setConsentModalOpen(true);
+      return;
+    }
+    if (!digilockerStatus.configured) {
+      setDigilockerNotice("DigiLocker Integration: NOT CONFIGURED (Production credentials required). Please proceed with UIDAI Secure QR scan or Document Upload below.");
+      return;
+    }
+    fetch('/api/kyc/digilocker/auth-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pillarId: null })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.authUrl) window.location.href = data.authUrl;
+        else setDigilockerNotice(data.error || "Could not launch DigiLocker.");
+      })
+      .catch(err => setDigilockerNotice(err.message));
+  };
+
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!consentGiven) {
+      setConsentModalOpen(true);
+      return;
+    }
 
     // Strict MIME type validation
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
@@ -113,16 +184,44 @@ export default function Register() {
 
       setOcrProcessing(true);
       try {
-        const extracted = await ocrService.extractDocumentInformation(dataUrl, formData.documentType, {
-          fullName: formData.fullName,
-          documentNumber: formData.documentNumber,
-          serviceArea: formData.serviceArea,
-          dob: formData.dob,
-          customDocumentType: formData.customDocumentType
+        const routerRes = await kycRouter.processDocument({
+          document: dataUrl,
+          documentType: formData.documentType,
+          documentCategory: 'identity',
+          pillarProfile: {
+            fullName: formData.fullName,
+            full_name: formData.fullName,
+            dob: formData.dob,
+            serviceArea: formData.serviceArea,
+            main_services: [formData.mainServices]
+          }
         });
-        setOcrPreview(extracted);
+
+        if (routerRes.pipelineResult) {
+          const pipe = routerRes.pipelineResult;
+          setOcrPreview({
+            engine: routerRes.extraction?.ocr?.engine || 'Optical Character Recognition (OCR v4.0)',
+            document_type: pipe.document_type || formData.documentType,
+            document_type_code: formData.documentType,
+            extracted_name: pipe.fields?.full_name,
+            extracted_dob: pipe.fields?.date_of_birth,
+            extracted_document_number: pipe.fields?.document_number_masked,
+            raw_document_number_masked: pipe.fields?.document_number_masked,
+            extracted_address: pipe.fields?.address,
+            raw_text_snippet: routerRes.extraction?.ocr?.rawText?.slice(0, 180) || 'Document scanned successfully.',
+            confidence_score: pipe.format_valid ? 0.90 : 0.60,
+            verification_status: pipe.verification_status,
+            authoritative_verified: pipe.authoritative_verified,
+            validation_errors: pipe.validation_errors || [],
+            warnings: pipe.warnings || []
+          });
+
+          if (pipe.fields?.document_number_masked && !formData.documentNumber) {
+            setFormData(prev => ({ ...prev, documentNumber: pipe.fields.document_number_masked }));
+          }
+        }
       } catch (err) {
-        console.warn("OCR extraction note:", err);
+        console.warn("KYC Router processing note:", err);
       } finally {
         setOcrProcessing(false);
       }
@@ -755,6 +854,114 @@ export default function Register() {
             {/* STEP 3: Government ID Verification (Mandatory KYC) */}
             {step === 3 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Authoritative Digital Verification Header / Fast-Track */}
+                <div style={{
+                  padding: "16px",
+                  borderRadius: "14px",
+                  background: "linear-gradient(135deg, rgba(37, 99, 235, 0.06), rgba(16, 185, 129, 0.06))",
+                  border: "1px solid rgba(37, 99, 235, 0.2)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <ShieldCheck size={18} color="#2563EB" />
+                      <span style={{ fontWeight: "700", fontSize: "0.85rem", color: "var(--color-text)" }}>
+                        Authoritative Verification Fast-Track
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: "0.7rem",
+                      fontWeight: "700",
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      background: consentGiven ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                      color: consentGiven ? "#059669" : "#D97706"
+                    }}>
+                      {consentGiven ? "Consent Granted" : "Consent Required"}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", margin: 0 }}>
+                    Digital government verification provides instant confirmation and priority job allocations.
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!consentGiven) {
+                          setConsentModalOpen(true);
+                        } else {
+                          setQrModalOpen(true);
+                        }
+                      }}
+                      style={{
+                        padding: "10px",
+                        borderRadius: "10px",
+                        border: "1px solid #2563EB",
+                        background: "#EFF6FF",
+                        color: "#1D4ED8",
+                        fontWeight: "700",
+                        fontSize: "0.78rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      <QrCode size={16} />
+                      Scan UIDAI QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDigilockerClick}
+                      style={{
+                        padding: "10px",
+                        borderRadius: "10px",
+                        border: "1px solid #CBD5E1",
+                        background: "#F8FAFC",
+                        color: "#475569",
+                        fontWeight: "700",
+                        fontSize: "0.78rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                        position: "relative"
+                      }}
+                    >
+                      <Lock size={15} />
+                      DigiLocker
+                      <span style={{
+                        position: "absolute",
+                        top: "-6px",
+                        right: "-6px",
+                        fontSize: "9px",
+                        padding: "1px 5px",
+                        borderRadius: "4px",
+                        background: digilockerStatus.configured ? "#10B981" : "#94A3B8",
+                        color: "#fff",
+                        fontWeight: "800"
+                      }}>
+                        {digilockerStatus.configured ? "ACTIVE" : "UNCONFIGURED"}
+                      </span>
+                    </button>
+                  </div>
+                  {digilockerNotice && (
+                    <div style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      background: "rgba(245, 158, 11, 0.1)",
+                      border: "1px solid rgba(245, 158, 11, 0.3)",
+                      fontSize: "0.72rem",
+                      color: "#B45309"
+                    }}>
+                      {digilockerNotice}
+                    </div>
+                  )}
+                </div>
                 <div className="form-group">
                   <label className="form-label">Select Government Document / Record <span className="required">*</span></label>
                   <select
@@ -1142,6 +1349,27 @@ export default function Register() {
           </div>
         </div>
       </div>
+
+      {/* Statutory KYC Consent Modal */}
+      <KycConsentModal
+        isOpen={consentModalOpen}
+        onClose={() => setConsentModalOpen(false)}
+        onConsentAccepted={() => {
+          setConsentGiven(true);
+        }}
+      />
+
+      {/* Authoritative UIDAI Secure QR Scanner Modal */}
+      <UidaiQrScannerModal
+        isOpen={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        pillarProfile={{
+          fullName: formData.fullName,
+          full_name: formData.fullName,
+          dob: formData.dob
+        }}
+        onQrSuccess={handleQrSuccess}
+      />
 
       <style dangerouslySetInnerHTML={{__html: `
         @media (max-width: 900px) {

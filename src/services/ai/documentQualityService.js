@@ -18,7 +18,7 @@ export const documentQualityService = {
    * @param {number} params.width - Image width in pixels
    * @param {number} params.height - Image height in pixels
    * @param {number} params.fileSize - File size in bytes
-   * @param {number} params.ocrConfidence - Tesseract/OCR engine confidence score (0-100)
+   * @param {number} params.ocrConfidence - OCR / Vision engine confidence score (0-100)
    * @param {string} params.rawText - Raw OCR text extracted
    * @param {string} params.mimeType - File MIME type
    * @returns {object} Quality assessment details and classification tier

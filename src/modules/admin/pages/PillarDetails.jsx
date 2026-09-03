@@ -663,7 +663,7 @@ export default function PillarDetails() {
             <div style={{ fontWeight: "700", color: "var(--color-text)", marginBottom: "3px" }}>
               Active OCR Engine
             </div>
-            <span style={{ color: "#059669", fontWeight: "700" }}>Tesseract.js v7 (Server-Side + Sharp)</span>
+            <span style={{ color: "#059669", fontWeight: "700" }}>PaddleOCR (Primary) / NVIDIA Vision</span>
             <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: "3px" }}>
               Raw OCR text is captured and preserved separately from structured field extractions.
             </div>

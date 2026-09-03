@@ -154,24 +154,52 @@ export default function AdminKycDossierPanel({
         </div>
       </div>
 
-      {/* Non-Authoritative Verification Notice Banner */}
+      {/* Authoritative vs AI-Assisted Verification Notice Banner */}
       <div style={{
-        background: "rgba(100, 116, 139, 0.06)",
-        border: "1px solid rgba(100, 116, 139, 0.2)",
-        borderRadius: "8px",
-        padding: "10px 14px",
+        background: ocrResult?.authoritative_verified 
+          ? "rgba(16, 185, 129, 0.08)" 
+          : "rgba(100, 116, 139, 0.06)",
+        border: `1px solid ${ocrResult?.authoritative_verified ? "#10B981" : "rgba(100, 116, 139, 0.2)"}`,
+        borderRadius: "10px",
+        padding: "12px 16px",
         marginBottom: "20px",
-        fontSize: "0.78rem",
-        color: "var(--color-text-secondary)",
+        fontSize: "0.82rem",
+        color: "var(--color-text)",
         display: "flex",
         alignItems: "center",
-        gap: "8px"
+        justifyContent: "space-between",
+        gap: "12px"
       }}>
-        <Lock size={16} color="#64748B" />
-        <div>
-          <strong>Verification Architecture Principle:</strong> Format validation, OCR extraction, and risk scoring are 
-          <strong> deterministic internal analytics</strong>, strictly not government-authoritative authentication (UIDAI/DigiLocker not connected).
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {ocrResult?.authoritative_verified ? (
+            <ShieldCheck size={20} color="#059669" />
+          ) : (
+            <Lock size={18} color="#64748B" />
+          )}
+          <div>
+            <div style={{ fontWeight: "700" }}>
+              {ocrResult?.authoritative_verified 
+                ? `Authoritative Digital Verification Confirmed (${ocrResult?.verification_method?.toUpperCase() || 'UIDAI SECURE QR'})` 
+                : "Deterministic AI & OCR Extraction (AI-Assisted)"}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
+              {ocrResult?.authoritative_verified 
+                ? "Document payload cryptographically verified against issuing authority public certificate."
+                : "Verification based on deterministic image OCR and profile consistency check. Final clearance requires Administrator review."}
+            </div>
+          </div>
         </div>
+        <span style={{
+          fontSize: "0.72rem",
+          fontWeight: "800",
+          padding: "4px 10px",
+          borderRadius: "6px",
+          background: ocrResult?.authoritative_verified ? "#10B981" : "#F59E0B",
+          color: "#FFFFFF",
+          textTransform: "uppercase"
+        }}>
+          {ocrResult?.authoritative_verified ? "OFFICIALLY VERIFIED" : "AI-ASSISTED REVIEW"}
+        </span>
       </div>
 
       {/* 10 Sections Grid */}
@@ -211,7 +239,7 @@ export default function AdminKycDossierPanel({
           <div style={{ fontSize: "0.82rem", display: "flex", flexDirection: "column", gap: "6px" }}>
             <div>Extracted Name: <strong>{ocrResult?.extracted_name || pillar?.full_name || "N/A"}</strong></div>
             <div>Extracted DOB: <strong>{ocrResult?.extracted_dob || pillar?.dob || "N/A"}</strong></div>
-            <div>Engine: <strong>Tesseract.js v7 (Server + Sharp)</strong></div>
+            <div>Engine: <strong>{ocrResult?.engine || ocrResult?.ocr?.engine || "PaddleOCR / NVIDIA Vision"}</strong></div>
           </div>
           {showRawOcr && (
             <div style={{ marginTop: "8px", background: "#0F172A", padding: "10px", borderRadius: "6px", fontSize: "0.72rem", color: "#94A3B8", maxHeight: "100px", overflowY: "auto", fontFamily: "monospace" }}>

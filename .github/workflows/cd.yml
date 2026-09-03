@@ -1,19 +1,24 @@
 name: COOP HUB Continuous Deployment (CD)
 
 on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
   workflow_dispatch:
     inputs:
       target_env:
-        description: 'Deployment Environment'
+        description: 'Deployment Target Environment'
         required: true
         default: 'staging'
         type: choice
         options:
           - staging
           - production
-  push:
-    branches: [ main ]
-    tags: [ 'v*.*.*' ]
+      trigger_rollback:
+        description: 'Trigger Rollback to Previous Stable Tag'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -24,10 +29,14 @@ permissions:
   packages: write
 
 jobs:
-  # Stage 1: Build and publish container images to GitHub Container Registry (GHCR)
+  # ============================================================================
+  # Stage 1: Build & Publish Container Images to GitHub Container Registry
+  # ============================================================================
   publish-container:
-    name: Build & Publish Image to GHCR
+    name: Build & Publish Docker Image to GHCR
     runs-on: ubuntu-latest
+    if: ${{ !inputs.trigger_rollback }}
+
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -63,25 +72,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Stage 2: Deploy to Production/Staging Target
-  deploy:
-    name: Deploy to Target Environment
+  # ============================================================================
+  # Stage 2: Staging Deployment & Automated Smoke Tests
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging Environment
     runs-on: ubuntu-latest
     needs: publish-container
-    if: github.ref == 'refs/heads/main'
+    environment: staging
+    if: github.ref == 'refs/heads/main' || github.event.inputs.target_env == 'staging'
 
     steps:
-      - name: Check for Deployment Configuration
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check for Staging Deployment Configuration
         id: check-secrets
         run: |
           if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
-            echo "::notice title=Deployment Pending::DEPLOY_HOST secret is not configured in repository secrets. Image successfully published to GHCR. Live SSH deployment skipped."
+            echo "::notice title=Staging Deployment Pending::DEPLOY_HOST secret is not configured. Live SSH deployment skipped."
             echo "configured=false" >> $GITHUB_OUTPUT
           else
             echo "configured=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Deploy via SSH (When DEPLOY_HOST configured)
+      - name: Deploy to Staging Server via SSH
         if: steps.check-secrets.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -95,23 +110,98 @@ jobs:
             docker compose up -d --remove-orphans
             docker system prune -f
 
-      - name: Automated Deployment Health Check
+      - name: Setup Node for Staging Smoke Tests
+        if: steps.check-secrets.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Staging End-to-End Smoke Tests
+        id: smoke-test
         if: steps.check-secrets.outputs.configured == 'true'
         run: |
-          PROD_URL="${{ secrets.PRODUCTION_URL || 'https://api.coophub.org' }}"
-          echo "Verifying health check at ${PROD_URL}/api/health..."
-          PASSED=0
-          for i in $(seq 1 12); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "${PROD_URL}/api/health")
-            if [ "$STATUS" = "200" ]; then
-              echo "Deployment health check PASSED (HTTP 200) on attempt $i"
-              PASSED=1
-              break
-            fi
-            echo "Waiting for live endpoint (attempt $i/12, status code: $STATUS)..."
-            sleep 5
-          done
-          if [ $PASSED -ne 1 ]; then
-            echo "Deployment health check timed out or failed"
-            exit 1
+          STAGING_URL="${{ secrets.STAGING_URL || 'https://staging-api.coophub.org' }}"
+          echo "Executing automated staging smoke tests against ${STAGING_URL}..."
+          node scripts/smoke_test_staging.mjs --target="${STAGING_URL}"
+
+      - name: Automated Staging Rollback on Smoke Test Failure
+        if: failure() && steps.smoke-test.outcome == 'failure' && steps.check-secrets.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            echo "::error title=Deployment Failure::Staging smoke test failed. Rolling back..."
+            cd /opt/coophub
+            bash scripts/rollback.sh latest
+
+  # ============================================================================
+  # Stage 3: Production Deployment (Protected Gate - Requires Approval)
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production Environment (Protected)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production
+    if: github.ref == 'refs/heads/main' && startsWith(github.ref, 'refs/tags/v') || github.event.inputs.target_env == 'production'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check for Production Deployment Configuration
+        id: check-prod-secrets
+        run: |
+          if [ -z "${{ secrets.PROD_DEPLOY_HOST || secrets.DEPLOY_HOST }}" ]; then
+            echo "::notice title=Production Deployment Pending::Production deployment credentials not configured."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Deploy to Production Cluster via SSH
+        if: steps.check-prod-secrets.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_DEPLOY_HOST || secrets.DEPLOY_HOST }}
+          username: ${{ secrets.PROD_DEPLOY_USER || secrets.DEPLOY_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.PROD_DEPLOY_PORT || secrets.DEPLOY_PORT || 22 }}
+          script: |
+            cd /opt/coophub
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+      - name: Setup Node for Production Smoke Tests
+        if: steps.check-prod-secrets.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Production Verification Smoke Tests
+        if: steps.check-prod-secrets.outputs.configured == 'true'
+        run: |
+          PROD_URL="${{ secrets.PRODUCTION_URL || 'https://api.coophub.org' }}"
+          node scripts/smoke_test_staging.mjs --target="${PROD_URL}"
+
+  # ============================================================================
+  # Stage 4: Manual Rollback Workflow
+  # ============================================================================
+  manual-rollback:
+    name: Execute Manual Rollback
+    runs-on: ubuntu-latest
+    if: ${{ inputs.trigger_rollback }}
+
+    steps:
+      - name: Execute Manual Rollback via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            cd /opt/coophub
+            bash scripts/rollback.sh previous

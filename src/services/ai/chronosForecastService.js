@@ -196,7 +196,7 @@ export const chronosForecastService = {
     // 1. Primary: Amazon Chronos-2 Endpoint (Local Python or Hugging Face Inference)
     const chronosEndpoint = (typeof process !== 'undefined' && process.env ? process.env.CHRONOS_ENDPOINT : null) || 
                             (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_CHRONOS_ENDPOINT : null) || 
-                            "http://localhost:5000/api/ai/forecast/chronos";
+                            (typeof window !== 'undefined' ? '/api/ai/forecast/chronos' : 'http://localhost:5000/api/ai/forecast/chronos');
 
     try {
       const res = await fetch(chronosEndpoint, {

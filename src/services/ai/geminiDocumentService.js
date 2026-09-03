@@ -196,17 +196,26 @@ Name: ${pillarProfile?.full_name || 'N/A'}, DOB: ${pillarProfile?.dob || 'N/A'},
     const dobMatch = (rawText || '').match(/(?:dob|birth|date of birth)[:\s]+([0-9\/\-]+)/i);
     const docMatch = (rawText || '').match(/(?:aadhaar|pan|license|voter|no|number)[:\s]+([0-9A-Z\s]{8,16})/i);
 
+    const extractedName = nameMatch ? nameMatch[1].trim() : null;
+    const extractedDob = dobMatch ? dobMatch[1].trim() : null;
+    const extractedDocNum = docMatch ? docMatch[1].trim() : null;
+
+    const missingFields = [];
+    if (!extractedName) missingFields.push('full_name');
+    if (!extractedDob) missingFields.push('date_of_birth');
+    if (!extractedDocNum) missingFields.push('document_number');
+
     return {
       document_type: isSkillCertificate ? "skill_certificate" : "Aadhaar",
       document_category: documentCategory,
-      full_name: nameMatch ? nameMatch[1].trim() : (pillarProfile?.full_name || null),
-      date_of_birth: dobMatch ? dobMatch[1].trim() : (pillarProfile?.dob || null),
-      document_number: docMatch ? docMatch[1].trim() : null,
-      confidence: 0.90,
+      full_name: extractedName,
+      date_of_birth: extractedDob,
+      document_number: extractedDocNum,
+      confidence: missingFields.length > 0 ? 0.65 : 0.85,
       ai_model: "Deterministic Document Understanding Engine",
       mismatches: [],
-      missing_fields: [],
-      warnings: []
+      missing_fields: missingFields,
+      warnings: missingFields.length > 0 ? [`Mandatory document fields not detected: ${missingFields.join(', ')}`] : []
     };
   }
 };

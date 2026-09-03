@@ -26,7 +26,7 @@ export default function CreateTicketModal({ onClose, onSuccess }) {
     setLoading(true);
     setError(null);
     const { data, error: submitErr } = await pillarSupportService.createTicket({
-      pillar_id: user?.id || "mock-pillar-1",
+      pillar_id: user?.id || null,
       ...formData,
     });
     setLoading(false);

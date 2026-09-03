@@ -31,6 +31,7 @@ pnpm-debug.log*
 *.local
 .vite/
 backup/
+scratch/
 *.blend1
 3d-hero/blender-mcp/
 *.traineddata

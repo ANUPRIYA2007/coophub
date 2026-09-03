@@ -666,7 +666,7 @@ export default function ProfilePage() {
                     display: "flex",
                     justifyContent: "space-between"
                   }}>
-                    <span>Engine: {ocrResult.ocr?.engine || 'Tesseract.js'}</span>
+                    <span>Engine: {ocrResult.ocr?.engine || ocrResult.ocr_provider || 'PaddleOCR / NVIDIA Vision'}</span>
                     <span>Processing: {ocrResult.processingTimeMs || 0}ms</span>
                   </div>
                 </div>

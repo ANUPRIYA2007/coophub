@@ -1,7 +1,7 @@
 # 🏛️ COOP HUB — Unified Cooperative Platform
 
-> **Cooperative On-Demand Services Ecosystem**  
-> Web Admin Console • Customer Mobile App • Pillar Technician Mobile App • Shared Cloud Backend
+> **Enterprise On-Demand Doorstep Services Ecosystem**  
+> Web Admin Console • Customer Web Portal • Pillar Technician Portal • Shared Cloud Backend • Multi-Model AI & OCR Pipeline
 
 ---
 
@@ -12,26 +12,32 @@
 The platform architecture is divided into three distinct operational interfaces backed by a centralized cloud infrastructure:
 
 1. **🏛️ Web Admin Console (Web Only):** Operations control tower for cooperative administrators, handling KYC document verification, tariff management, real-time dispatch, geospatial workforce radar, predictive demand forecasting, finance, and welfare fund governance.
-2. **🛒 Customer Mobile Application (React Native + Expo):** Native mobile app for consumers to discover services, place on-demand and scheduled bookings, track technician arrival in real time, verify doorstep arrival OTPs, chat with assigned technicians, approve extra charges, and submit ratings.
-3. **👥 Pillar Technician Mobile Application (React Native + Expo):** Native mobile app for cooperative technicians to manage 4-step KYC onboarding, toggle online availability, receive real-time dispatch alerts, verify arrival OTPs, submit extra material expenses, manage daily earnings, and track Provident Fund (PF) and group health insurance benefits.
-4. **☁️ Shared Backend & Cloud Services:** A unified Supabase PostgreSQL database with Row-Level Security (RLS), Realtime Pub/Sub channels, storage buckets, and an Express.js AI relay backend interfacing with NVIDIA NIM and Google Gemini.
-
-> **NATIVE MOBILE APPLICATION DIRECTIVE:**  
-> The upcoming mobile application is a **native React Native + Expo application**. It is **NOT a WebView wrapper**.
+2. **🛒 Customer Web Portal:** Progressive Web Application for consumers to discover services, place on-demand and scheduled bookings, track technician arrival in real time, verify doorstep arrival OTPs, chat with assigned technicians, approve extra charges, and submit ratings.
+3. **👥 Pillar Technician Portal:** Dedicated mobile-responsive technician portal to manage 4-step KYC onboarding, toggle online availability, receive real-time dispatch alerts, verify arrival OTPs, submit extra material expenses, manage daily earnings, and track Provident Fund (PF) and group health insurance benefits.
+4. **☁️ Shared Backend & Cloud Services:** A unified Supabase PostgreSQL database with Row-Level Security (RLS), Realtime Pub/Sub channels, private document storage, an Express.js backend cluster, and an explicit multi-model AI & OCR pipeline.
 
 ---
 
-## 📊 Current Development Status
+## 📊 Subsystem Operational Status Matrix
 
-| Component | Platform | Current Implementation Status | Notes |
-| :--- | :--- | :--- | :--- |
-| **Cooperative Admin Console** | Web (Vite + React 19) | `IMPLEMENTED` | Full operations dashboard, KYC inspection, Chronos-2 forecasting, PF governance. |
-| **Customer Web Portal** | Web (Vite + React 19) | `IMPLEMENTED` (Baseline for Mobile) | Full booking lifecycle, live chat, invoice generation, 3D CoopBot assistant. |
-| **Pillar Web Portal** | Web (Vite + React 19) | `IMPLEMENTED` (Baseline for Mobile) | 4-step KYC, order lifecycle, arrival OTP, wallet, PF & insurance management. |
-| **Shared Supabase Backend** | Cloud PostgreSQL | `IMPLEMENTED` | Relational tables, RLS policies, Realtime replication, document storage. |
-| **AI Relay Microservice** | Node.js Express (:3000) | `IMPLEMENTED` | NVIDIA NIM & Gemini document extraction, chat router, demand forecasting. |
-| **Customer Native Mobile App** | React Native + Expo | `PLANNED` (Phase 4) | Technical handoff complete (`MOBILE_HANDOFF.md`). Migration begins in next phase. |
-| **Pillar Native Mobile App** | React Native + Expo | `PLANNED` (Phase 5) | Technical handoff complete (`MOBILE_HANDOFF.md`). Migration begins in next phase. |
+The platform strictly enforces the **Critical Truth Rule**: statuses reflect actual verified reality across environments:
+
+| Subsystem / Layer | Implementation Status | Local Status | CI Pipeline Status | Staging Status | Production Status | Operational Evidence & Scope |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **CI Pipeline** (`ci.yml`) | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `N/A` | `N/A` | 24-stage workflow covering lint, security, 16 test suites, Vite build, and Docker checks. |
+| **CD Pipeline** (`cd.yml`) | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | Multi-tier deployment with GHCR publishing, automated smoke tests, and rollback. |
+| **High-Availability Load Balancer** | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | Nginx round-robin upstream pool + 3 horizontal API instances (33/33/33% distribution & failover). |
+| **Local Docker Engine** | `IMPLEMENTED` | `NOT CONFIGURED` | `NOT EXECUTED` | `N/A` | `N/A` | Docker CLI not installed on local host; container build validated inside GitHub Actions runner. |
+| **Authoritative KYC Architecture** | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | Zero mock records; dedicated pipelines for Aadhaar (Verhoeff), PAN, DL, Voter ID, and Skill Certs. |
+| **UIDAI Secure QR Decoder** | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `N/A` | `N/A` | RFC 1951 Deflate decompression and RSA-2048 SHA-256 digital signature verifier. |
+| **DigiLocker TSP Sandbox** | `IMPLEMENTED` | `LOCALLY VERIFIED` (8/8) | `NOT EXECUTED` | `NOT CONFIGURED` | `NOT EXECUTED` | Protected workflow (`digilocker-sandbox.yml`); local boundary tests passed; real sandbox not executed. |
+| **Document OCR Provider Chain** | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | PaddleOCR primary → EasyOCR secondary → NVIDIA Vision → Gemini. Tesseract isolated. |
+| **AI Providers (NVIDIA & Gemini)** | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | 2.5s timeouts, malformed JSON recovery, multi-tier fallback, and zero hallucination. |
+| **Supabase Database & RLS** | `IMPLEMENTED` | `LOCALLY VERIFIED` | `NOT EXECUTED` | `NOT CONFIGURED` | `NOT CONFIGURED` | Strict RLS policies; service-role key never exposed to client-side code. |
+| **Emergency Dispatch Operations** | `IMPLEMENTED` | `LOCALLY VERIFIED` (25/25) | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | Nearest technician matching, sequential offers, escalation, and audit logging. |
+| **Financial Ledger & Split** | `IMPLEMENTED` | `LOCALLY VERIFIED` (18/18) | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | 91.5% Pillar / 8.5% Cooperative split, GST tax derivation, withdrawal ledger integrity. |
+| **Welfare & Social Security** | `IMPLEMENTED` | `LOCALLY VERIFIED` (20/20) | `NOT EXECUTED` | `NOT EXECUTED` | `NOT EXECUTED` | Automated 2.5% matching PF contribution, welfare eligibility, and scheme directory. |
+| **Native Mobile Applications** | `NOT IMPLEMENTED` | `N/A` | `N/A` | `N/A` | `N/A` | Platform is Web PWA; native iOS/Android codebase does not exist. |
 
 ---
 
@@ -39,287 +45,152 @@ The platform architecture is divided into three distinct operational interfaces 
 
 ```mermaid
 graph TD
-    subgraph Web Platform [Web Only]
+    subgraph Client Portals [Web Applications]
         AP[🏛️ Cooperative Admin Console :5173/admin]
+        CP[🛒 Customer Portal :5173]
+        PP[👥 Pillar Technician Portal :5173/pillar]
     end
 
-    subgraph Mobile Platform [React Native + Expo Native App]
-        CP[🛒 Customer Mobile App]
-        PP[👥 Pillar Technician Mobile App]
+    subgraph High Availability Load Balancer [:5000]
+        LB[Nginx Reverse Proxy / Load Balancer]
+        API1[Express Node: API-1 :5001]
+        API2[Express Node: API-2 :5002]
+        API3[Express Node: API-3 :5003]
     end
 
-    subgraph Shared Cloud Services & Backend
+    subgraph Shared Cloud Services & Database
         SB_AUTH[Supabase Auth JWT]
-        SB_DB[(PostgreSQL Database)]
+        SB_DB[(PostgreSQL Database + RLS)]
         SB_RT[Supabase Realtime Pub/Sub]
-        SB_STORE[Supabase Storage Buckets]
-        EX_AI[Express AI Relay Server :3000]
+        SB_STORE[Private Storage: kyc_documents]
     end
 
-    subgraph Multi-Model AI & External APIs
-        NV_NIM[NVIDIA NIM Vision API]
-        GO_GEM[Google Gemini 1.5 Flash]
-        CHRONOS[Amazon Chronos-2 Forecasting]
+    subgraph Document OCR & Multi-Model AI Chain
+        PADDLE[1. PaddleOCR Primary Engine]
+        EASY[2. EasyOCR Secondary Engine]
+        NVIDIA[3. NVIDIA Vision AI Nemotron/Llama 3.2]
+        GEMINI[4. Google Gemini 1.5 Flash Validation]
+        TESS[Isolated Diagnostic OCR Tesseract.js]
     end
 
-    AP <--> SB_AUTH
-    AP <--> SB_DB
-    AP <--> SB_RT
-    AP --> EX_AI
+    subgraph Government Gateways
+        UIDAI[UIDAI Secure QR Verification Gateway]
+        DIGI[DigiLocker TSP Sandbox Gateway]
+    end
 
-    CP <--> SB_AUTH
-    CP <--> SB_DB
-    CP <--> SB_RT
-    CP --> EX_AI
+    AP <--> LB
+    CP <--> LB
+    PP <--> LB
 
-    PP <--> SB_AUTH
-    PP <--> SB_DB
-    PP <--> SB_RT
-    PP --> EX_AI
+    LB --> API1
+    LB --> API2
+    LB --> API3
 
-    EX_AI --> NV_NIM
-    EX_AI --> GO_GEM
-    EX_AI --> CHRONOS
-    EX_AI <--> SB_DB
+    API1 <--> SB_DB
+    API2 <--> SB_DB
+    API3 <--> SB_DB
+
+    API1 --> PADDLE
+    PADDLE -. Fallback .-> EASY
+    EASY -. Fallback .-> NVIDIA
+    NVIDIA --> GEMINI
+
+    API1 --> UIDAI
+    API1 --> DIGI
 ```
 
 ---
 
-## 📱 Mobile Technology Stack
+## 🔬 Rebuilt Authoritative KYC & OCR Architecture
 
-The mobile application for Customers and Pillars will be engineered using:
+The KYC architecture follows a strict, authoritative-first verification model:
 
-- **Framework:** React Native with Expo SDK 52+
-- **Navigation:** Expo Router (File-based typed routing with native Tab & Stack navigators)
-- **Language:** TypeScript
-- **State Management:** React Context & Custom Hooks
-- **Hardware Integration:**
-  - **Location & GPS:** `expo-location` (Foreground & background tracking)
-  - **Camera & Scanning:** `expo-camera`, `expo-image-picker`
-  - **File Picking:** `expo-document-picker`
-  - **Push Notifications:** `expo-notifications` (FCM integration)
-  - **Voice & Speech:** `expo-speech`, `@react-native-voice/voice`
-  - **Encrypted Storage:** `expo-secure-store`
-  - **Haptics:** `expo-haptics`
-- **Build & CI/CD:** EAS Build (Expo Application Services) targeting Android (APK/AAB) and iOS (IPA)
-
----
-
-## 🎯 Feature Areas
-
-### 1. 🛒 Customer Experience
-- Service catalogue discovery with fuzzy search and category filtering.
-- Multi-step booking wizard with automated GPS location detection and attachment uploads.
-- Intelligent AI technician allocation and auto-dispatch based on proximity and trade rating.
-- Live order timeline with real-time status updates and 6-digit arrival OTP security.
-- Direct in-app messaging with assigned technicians.
-- Extra material charge approval workflow.
-- Itemized GST invoice and receipt generation.
-- Service history, star ratings, and feedback reviews.
-- 24/7 Support ticket helpdesk and FAQ center.
-
-### 2. 👥 Pillar Technician Experience
-- Dedicated onboarding with 4-step KYC verification (Personal, Trade Skills, Government ID, Skill Certificate).
-- Client-side and server-side OCR text extraction from Aadhaar, PAN, Voter ID, and Driving Licences.
-- Real-time online/offline availability toggle.
-- Interactive job queue (Pending, Accepted, In-Progress, Completed).
-- Doorstep arrival verification via 6-digit customer OTP.
-- Extra material and labor charge proposal modal.
-- Daily earnings tracker, transaction ledger, and bank account linking.
-- Cooperative Welfare Shield: Provident Fund (PF) balance, 50:50 contribution breakdown, and withdrawal requests.
-- Group Health Insurance policy details and claim submission tracker.
-- Trade certification uploads with administrative verification badges.
-
-### 3. 🏛️ Cooperative Admin Operations (Web Only)
-- Operations Command Tower with live platform GMV, active technician counts, and real-time orders radar.
-- Deep KYC inspection viewer with side-by-side document image preview, OCR transcription, and AI confidence scores.
-- Real-time service dispatch management with manual reassignment capabilities.
-- Geospatial field radar with technician coordinates.
-- Amazon Chronos-2 predictive demand forecasting and trade shortage allocation engine.
-- Cooperative financial management, commission oversight, and weekly payout settlements.
-- Welfare administration: PF pool governance, withdrawal approvals, and insurance claim processing.
-- Broadcast messaging center targeting all users, customers, or technicians.
-- Tariff master configuration and service catalogue management.
-
-### 4. 🤖 AI, Multilingual & 3D Innovations
-- **Multi-Model AI Relay:** NVIDIA NIM (`meta/llama-3.2-11b-vision-instruct`, `nvidia/nemotron-parse`) with Google Gemini 1.5 Flash fallback.
-- **Interactive 3D Mascot (CoopBot):** Three.js WebGL character with skeletal animations, dynamic canvas visor expressions (eye blinks, speech mouth open/close), and conversational drawer.
-- **Multilingual Engine:** English (`en`), Tamil (`ta`), Hindi (`hi`), Telugu (`te`), and Kannada (`kn`) currently supported; expanding to all **22 Scheduled Indian Languages** in the mobile Dynamic Language Engine.
-- **Voice Capabilities:** Real-time speech synthesis (TTS) and speech-to-text (STT) mic input.
+1. **User Statutory Consent**: Explicit opt-in, purpose, and timestamp recorded prior to document intake.
+2. **Authoritative Government Gateways**:
+   - **UIDAI Secure QR**: Decompresses byte payloads via RFC 1951 Deflate and verifies RSA-2048 SHA-256 signatures against public keys. Reports `PAYLOAD_DECODED_SIGNATURE_NOT_CONFIGURED` when keys are unconfigured.
+   - **DigiLocker TSP Sandbox**: Supports configured TSPs (MeriPehchaan, Setu, Karza, Signzy). Reports `NOT_CONFIGURED` when credentials are absent; placeholder values are blocked.
+3. **Explicit OCR Provider Chain**:
+   ```
+   PaddleOCR (Primary Engine)
+     ↓ (if unconfigured or failed)
+   EasyOCR (Secondary / Benchmark Engine)
+     ↓ (if specialized OCR microservices unavailable)
+   NVIDIA Vision AI (Nemotron Parse / Llama 3.2 Vision)
+     ↓ (structuring & cross-checking)
+   Gemini Flash (Reasoning & Inconsistency Detection)
+   ```
+   - **Zero Silent Tesseract Fallback**: Tesseract.js is strictly isolated behind `ALLOW_LEGACY_DIAGNOSTIC_OCR=true` for diagnostic use only. If production OCR engines fail, the system fails fast with `OCR_PROVIDERS_UNAVAILABLE` and routes to `MANUAL_REVIEW_REQUIRED`. Never fabricates missing fields.
+4. **Document-Specific Validation Pipelines**:
+   - **Aadhaar**: Verhoeff checksum algorithm + permanent first-8-digit masking (`XXXX-XXXX-1234`).
+   - **PAN Card**: Format validation (`[A-Z]{5}[0-9]{4}[A-Z]`) + 4th character entity check (`P` required for individual technicians).
+   - **Driving Licence**: Parivahan format verification + automated expiry detection.
+   - **Voter ID**: Standard 10-character EPIC format verification.
+   - **Skill Certificates**: Vocational trade synonym matching (e.g. Wireman → Electrician, HVAC → AC Mechanic).
+5. **Quality, Consistency & Risk Engine**: Additive penalty scoring, cross-document discrepancy detection, and duplicate fingerprint collision detection.
 
 ---
 
-## 🧭 Multi-Portal Sitemap & Routes (Current Web Application)
+## 🚀 CI/CD & Deployment Workflows
 
-```
-COOP HUB Web Architecture
-│
-├── 🛒 Customer Service Portal
-│   ├── /                 ── Modern Landing Page with 3D Hero Mascot & Language Switcher
-│   ├── /login            ── Customer Authentication with Field Guidance
-│   ├── /register         ── Customer Registration with Real-Time Validation
-│   ├── /home             ── Customer Dashboard (Active Requests, Service Shortcuts)
-│   ├── /services         ── Category Catalog (Electrical, Plumbing, AC Repair, Carpentry, Painting)
-│   ├── /services/:id     ── Service Detail & Sub-Service Tariffs
-│   ├── /services/:id/request ── Multi-Step Booking & AI Auto-Dispatch Wizard
-│   ├── /requests         ── Live Service Queue & Arrival OTP Tracking
-│   ├── /requests/:id     ── Request Details, Status Stepper & Receipt
-│   ├── /requests/:id/chat── Direct Technician Live Chat Interface
-│   ├── /history          ── Completed Service Archives & GST Invoices
-│   ├── /support          ── 24/7 Customer Helpdesk & Ticket Center
-│   ├── /settings         ── Language, Notifications, and Security Options
-│   └── /profile          ── Customer Profile & Saved Delivery Addresses
-│
-├── 👥 Pillar Technician Portal
-│   ├── /pillar           ── Dedicated Pillar Onboarding & Cooperative Benefits Landing
-│   ├── /pillar/login     ── Pillar ID (PIL-CHE-042), Password & Mobile Sign-in
-│   ├── /pillar/register  ── 4-Step KYC Verification with OCR Document Extraction
-│   ├── /dashboard        ── Live Technician Control Center (Orders, Earnings, Availability Toggle)
-│   ├── /dashboard/orders ── Live Booking Queue, Arrival OTP Verification, Extra Parts Modal
-│   ├── /dashboard/earnings ── Payout Wallet, Bank Account Linking, Weekly Settlements
-│   ├── /dashboard/history  ── Completed Job Archives, Star Ratings, Customer Feedback
-│   ├── /dashboard/chat     ── Two-Way Customer Messaging Center
-│   ├── /dashboard/welfare  ── Cooperative Welfare Shield, Insurance Claims, PF Balance
-│   ├── /dashboard/certifications ── Uploaded Trade Credentials & Verification Status
-│   ├── /dashboard/profile  ── Verified Technician Dossier & Service Radius
-│   └── /dashboard/support  ── Dispute Management & Emergency Helpline
-│
-└── 🏛️ Cooperative Admin Operations Console (Web Only)
-    ├── /admin/login      ── Secure Administrative Entry
-    ├── /admin            ── Operations Control Tower (Live GMV, Real-Time Radar, Telemetry)
-    ├── /admin/pillars    ── Workforce Directory with Auto-Verification Clearance
-    ├── /admin/pillars/:id ── Deep Technician Inspection & PaddleOCR Document Viewer
-    ├── /admin/services   ── Tariff Master & Service Catalog Configuration
-    ├── /admin/requests   ── Real-Time Service Dispatch & Technician Allocation
-    ├── /admin/tracking   ── Geospatial Radar with Live Field GPS Tracking
-    ├── /admin/forecast   ── AI Predictive Demand & Service Heatmap Forecasts
-    ├── /admin/allocation ── Workforce Shortfall Matrix & Rebalancing Engine
-    ├── /admin/finance    ── Cooperative Ledger, Revenue Share, Commission Payouts
-    ├── /admin/welfare    ── Member Welfare Schemes, PF Governance & Claims
-    ├── /admin/customers  ── Customer Registry & Booking Histories
-    ├── /admin/messages   ── Targeted Broadcast Center for Pillars & Customers
-    ├── /admin/feedback   ── Customer CSAT Analytics & Quality Assurance
-    ├── /admin/support    ── Helpdesk Ticket Resolution & Grievance Handling
-    └── /admin/settings   ── Cooperative Operating Parameters & Emergency Routing
-```
+- **Continuous Integration (`.github/workflows/ci.yml`)**:
+  - 24 sequential stages including Node 20 LTS, Python 3.11 minimal dependencies, lint, syntax check, type audit, 16 platform test suites, secret scanning, Vite production compilation, and Docker Buildx container validation.
+- **Continuous Deployment (`.github/workflows/cd.yml`)**:
+  - GHCR container image publishing, automated staging deployment, 12-point smoke test execution, protected production manual approval gate, and automated rollback controller (`scripts/rollback.mjs`).
+- **Protected DigiLocker TSP Sandbox (`.github/workflows/digilocker-sandbox.yml`)**:
+  - Dispatch-only protected workflow querying external TSP sandboxes via GitHub Secrets/Environment without polluting normal PR CI.
 
 ---
 
-## 🛠️ Web Technology Stack
+## 🛠️ Technology Stack
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend Framework** | React 19, React Router v7, Vite |
-| **3D Rendering & Mascot** | Three.js WebGL, GLTFLoader, Dynamic Visor 2D Canvas Overlay, AnimationMixer |
-| **Motion & Aesthetics** | GSAP (GreenSock Animation Platform), Vanilla CSS Custom Tokens |
-| **Realtime Database** | Supabase (PostgreSQL), Supabase Realtime Channels, Row-Level Security (RLS) |
-| **AI Intelligence** | NVIDIA NIM API (`meta/llama-3.2-11b-vision-instruct`), Google Gemini 1.5 Flash |
-| **Document Processing** | Tesseract.js OCR Engine, NVIDIA Nemotron Parse, PDF.js |
-| **Localization** | Multi-Language Engine (`en`, `ta`, `hi`, `te`, `kn`) with Web Speech API |
-| **Icons & Visuals** | Lucide React, Custom SVG Icons |
+| **Frontend Framework** | React 19, React Router v7, Vite 6 |
+| **Styling & Design System** | Vanilla CSS Custom Design Tokens, CSS Grid/Flexbox |
+| **Realtime Database** | Supabase (PostgreSQL 15), Realtime Publications, Row-Level Security (RLS) |
+| **Backend Cluster** | Express.js (Node 20), Multi-Instance Process Pool, Nginx Reverse Proxy |
+| **OCR Engines** | PaddleOCR (Primary), EasyOCR (Secondary), Tesseract.js (Isolated Diagnostic Only) |
+| **AI Multi-Model Gateway** | NVIDIA NIM (`meta/llama-3.2-11b-vision-instruct`), Google Gemini 1.5 Flash |
+| **Cryptographic Verification** | Node.js `crypto`, RFC 1951 Deflate (`zlib`), RSA-2048 SHA-256 verifier |
+| **Testing & Quality** | 16 native Node/Python test suites (237 locally verified checkpoints, 100% pass) |
 
 ---
 
-## 🗺️ Development Roadmap
+## 🧪 Local Test Execution
 
-```
-Phase 1: Complete Repository Audit & Technical Handoff [COMPLETED]
-   ├── Comprehensive repository inspection
-   ├── Creation of MOBILE_HANDOFF.md
-   └── Updating of README.md baseline
-   │
-   ▼
-Phase 2: Android / Expo Development Environment Verification
-   ├── Node.js, Java JDK 17+, Android Studio validation
-   └── Expo CLI & EAS CLI verification
-   │
-   ▼
-Phase 3: Initialize `mobile/` Workspace
-   ├── Setup React Native with Expo SDK 52+
-   ├── Configure Expo Router file-based routing
-   └── Setup TypeScript, design tokens, and Supabase client
-   │
-   ▼
-Phase 4: Customer Mobile Application Migration
-   ├── Auth, Home, Category Discovery, Booking Wizard
-   └── Realtime Order Tracking, Arrival OTP, Chat, Invoices
-   │
-   ▼
-Phase 5: Pillar Technician Mobile Application Migration
-   ├── 4-Step KYC Onboarding with Camera OCR
-   └── Order Queue, OTP Verification, Earnings Wallet, PF & Insurance
-   │
-   ▼
-Phase 6: Native Device Capabilities Integration
-   ├── Background GPS, Push Notifications (FCM)
-   └── Hardware Camera, Microphone Voice STT/TTS, Haptics
-   │
-   ▼
-Phase 7: End-to-End Realtime Testing & Validation
-   ├── Real booking lifecycle across Customer & Pillar apps
-   └── RLS security and database integrity audit
-   │
-   ▼
-Phase 8: Production EAS Build & Packaging
-   └── Generating production Android APK/AAB and iOS builds
-```
+To execute the local test suites across all platform layers:
 
----
-
-## 🚀 Getting Started (Web Platform)
-
-### 1. Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **npm**: v9.0.0 or higher
-- **Supabase Account**: Connected PostgreSQL instance
-
-### 2. Environment Configuration
-Create a `.env` file in the root directory:
-```env
-# Supabase Backend Configuration
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# Multi-Model AI API Keys
-VITE_NVIDIA_API_KEY=your-nvidia-nim-api-key
-VITE_NVIDIA_MODEL=meta/llama-3.2-11b-vision-instruct
-VITE_GEMINI_API_KEY=your-google-gemini-api-key
-```
-
-### 3. Installation & Local Development
 ```bash
-# Clone the repository
-git clone https://github.com/ANUPRIYA2007/coophub.git
-cd coophub
+# Validate syntax and run security/secrets audit
+npm run syntax:check
+npm run lint
 
-# Install dependencies
-npm install
+# Run Authoritative KYC & OCR suites
+npm run test:kyc-ci
+npm run test:kyc-rebuild
+npm run test:kyc
+npm run test:doc-intel
+npm run test:ai-abstraction
+npm run test:python-ocr
+npm run test:digilocker-sandbox
 
-# Start local development server (Frontend + Backend Relay)
-npm run dev
+# Run High Availability & Staging Smoke tests
+npm run test:ha
+npm run smoke:staging
+
+# Run complete platform test suite (16 suites)
+npm test
+
+# Production Vite build
+npm run build
 ```
-The application will launch at **`http://localhost:5173`**.
 
 ---
 
-## 🧪 Demo Credentials & Testing (Web)
+## 📄 Documentation Index
 
-| Role | Access URL | Credentials / Actions |
-| :--- | :--- | :--- |
-| **Customer Portal** | `http://localhost:5173/login` | Click **"⚡ Fill Demo Customer Credentials"** or enter `customer@coophub.in` |
-| **Pillar Portal** | `http://localhost:5173/pillar/login` | ID: `PIL-CHE-042` \| Password: `password123` |
-| **Admin Operations** | `http://localhost:5173/admin` | Direct access to Administrative Command Tower |
-| **New Pillar KYC** | `http://localhost:5173/pillar/register` | Test 4-step onboarding with live Document Verification |
-
----
-
-## 📄 Documentation Reference
-- **Mobile Migration Technical Handoff:** [`MOBILE_HANDOFF.md`](./MOBILE_HANDOFF.md)
-- **Admin Portal Specification:** [`ADMIN_HANDOFF.md`](./ADMIN_HANDOFF.md)
-- **AI Integration Report:** [`AI_INTEGRATION_CHANGE_REPORT.md`](./AI_INTEGRATION_CHANGE_REPORT.md)
-- **Document KYC Implementation Report:** [`DEDICATED_DOCUMENT_KYC_IMPLEMENTATION_REPORT.md`](./DEDICATED_DOCUMENT_KYC_IMPLEMENTATION_REPORT.md)
-
----
-
-## 📄 License
-This project is proprietary cooperative software developed for **COOP HUB Chennai**. All rights reserved.
+- **[walkthrough.md](file:///C:/Users/hp/.gemini/antigravity-ide/brain/d58a5048-2dac-45e4-9c6c-c8af014e891b/walkthrough.md)**: Master gap closure, operational status audit, and remaining remediation items.
+- **[docs/ENVIRONMENTS.md](file:///d:/coophub%20pillar%20dashboard/docs/ENVIRONMENTS.md)**: Environment separation matrix (Local, Test, Staging, Production).
+- **[docs/BACKUP_RECOVERY.md](file:///d:/coophub%20pillar%20dashboard/docs/BACKUP_RECOVERY.md)**: Backup and Disaster Recovery runbook with RPO/RTO objectives.
+- **[MOBILE_HANDOFF.md](file:///d:/coophub%20pillar%20dashboard/MOBILE_HANDOFF.md)**: API and architectural specifications for future native mobile client engineering.
+- **[HANDOFF.md](file:///d:/coophub%20pillar%20dashboard/HANDOFF.md)**: Master production engineering handoff.

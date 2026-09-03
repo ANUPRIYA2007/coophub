@@ -175,6 +175,53 @@ export const documentStorageService = {
         return { success: true, table: 'pillar_driving_license_documents', data };
       }
 
+      // 5. SKILL CERTIFICATES & TRADE LICENSES
+      if (type.includes('skill') || type.includes('cert') || type.includes('iti') || type.includes('nsdc') || type.includes('diploma')) {
+        const certNumber = extractedData.certificate_number || extractedData.document_number || null;
+        const certTrade = extractedData.skill || extractedData.trade || extractedData.certificate_name || null;
+        const certIssuer = extractedData.issuing_organization || extractedData.issuing_authority || extractedData.issuer || null;
+
+        const payload = {
+          pillar_id: pillarId,
+          document_type: 'skill_certificate',
+          document_number: certNumber,
+          document_url: documentUrl,
+          verification_status: verificationStatus,
+          ocr_data: {
+            extracted_data: extractedData,
+            raw_ocr_text: rawOcrText,
+            validation_result: validationResult
+          },
+          updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+          .from('kyc_documents')
+          .insert([payload])
+          .select()
+          .single();
+
+        // Also update pillar_profiles with certificate summary fields
+        try {
+          await supabase
+            .from('pillar_profiles')
+            .update({
+              certificate_type: extractedData.certificate_name || 'skill_certificate',
+              certificate_number: certNumber,
+              certificate_url: documentUrl,
+              certificate_issuer: certIssuer,
+              certificate_trade: certTrade,
+              certificate_ocr_data: extractedData
+            })
+            .eq('id', pillarId);
+        } catch (profErr) {
+          console.warn("Could not update profile certificate fields:", profErr.message);
+        }
+
+        if (error) throw error;
+        return { success: true, table: 'kyc_documents', data };
+      }
+
       return { success: false, error: `Unsupported document type: ${documentType}` };
     } catch (err) {
       console.error(`Error saving document to dedicated table for ${documentType}:`, err);
@@ -187,30 +234,33 @@ export const documentStorageService = {
    * @param {string} pillarId - Pillar ID
    */
   async getPillarDocuments(pillarId) {
-    if (!pillarId) return { aadhaar: null, pan: null, voterId: null, drivingLicense: null };
+    if (!pillarId) return { aadhaar: null, pan: null, voterId: null, drivingLicense: null, certificates: [] };
 
     try {
       const [
         { data: aadhaar },
         { data: pan },
         { data: voterId },
-        { data: dl }
+        { data: dl },
+        { data: certs }
       ] = await Promise.all([
         supabase.from('pillar_aadhaar_documents').select('*').eq('pillar_id', pillarId).maybeSingle(),
         supabase.from('pillar_pan_documents').select('*').eq('pillar_id', pillarId).maybeSingle(),
         supabase.from('pillar_voter_id_documents').select('*').eq('pillar_id', pillarId).maybeSingle(),
-        supabase.from('pillar_driving_license_documents').select('*').eq('pillar_id', pillarId).maybeSingle()
+        supabase.from('pillar_driving_license_documents').select('*').eq('pillar_id', pillarId).maybeSingle(),
+        supabase.from('kyc_documents').select('*').eq('pillar_id', pillarId)
       ]);
 
       return {
         aadhaar: aadhaar || null,
         pan: pan || null,
         voterId: voterId || null,
-        drivingLicense: dl || null
+        drivingLicense: dl || null,
+        certificates: certs || []
       };
     } catch (err) {
       console.error("Error retrieving dedicated documents for pillar:", err);
-      return { aadhaar: null, pan: null, voterId: null, drivingLicense: null };
+      return { aadhaar: null, pan: null, voterId: null, drivingLicense: null, certificates: [] };
     }
   }
 };

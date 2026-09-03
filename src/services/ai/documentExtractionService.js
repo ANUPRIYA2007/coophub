@@ -2,9 +2,9 @@
  * COOP HUB — Unified Document Extraction & Processing Pipeline
  * 
  * Orchestrates the full document processing flow:
- * 1. Send document to server-side OCR endpoint (sharp preprocessing + Tesseract.js)
+ * 1. Send document to server-side OCR endpoint (PaddleOCR -> EasyOCR -> NVIDIA Vision -> Gemini)
  * 2. Server returns: raw OCR text, clean text, structured fields, AI analysis
- * 3. Fallback to client-side OCR if server is unavailable
+ * 3. Client-side fallback to direct Multimodal Vision AI if server is unavailable (silent Tesseract prohibited)
  * 4. Persist results via documentStorageService
  * 5. Return unified output for Admin Verification Workspace
  */
@@ -12,6 +12,7 @@
 import { geminiDocumentService } from './geminiDocumentService.js';
 import { documentValidationService } from './documentValidationService.js';
 import { ocrService } from '../pillar/ocrService.js';
+import { aiService } from './aiService.js';
 import { convertPdfPageToImage } from './pdfHelper.js';
 import { documentStorageService } from '../pillar/documentStorageService.js';
 
@@ -172,35 +173,49 @@ export const documentExtractionService = {
     }
 
     // =====================================================
-    // FALLBACK: Client-side OCR (when server is unavailable)
+    // FALLBACK: Explicit OCR Provider Chain (when server is unavailable)
+    // Chain: Direct Vision AI -> Gemini Reasoning
+    // Policy: Silent Tesseract.js fallback is prohibited for production KYC
     // =====================================================
-    console.log('[DocumentExtraction] Using client-side OCR fallback...');
+    console.log('[DocumentExtraction] Server OCR endpoint unavailable. Executing client-side fallback chain...');
 
     let ocrRawText = '';
-    let ocrProvider = 'Client Tesseract.js Fallback';
+    let ocrProvider = 'None';
+    let visionResult = null;
 
+    // 1. Attempt Client-Side Multimodal Vision AI directly
     try {
-      const fallbackOcr = await ocrService.extractDocumentInformation(imagePayload, expectedDocumentType, pillarProfile);
-      ocrRawText = fallbackOcr.raw_full_text || fallbackOcr.raw_text_snippet || '';
-      ocrProvider = fallbackOcr.engine || ocrProvider;
-    } catch (tessErr) {
-      console.error("Client OCR failed:", tessErr.message);
-      onStatusUpdate('FAILED');
-      return {
-        success: false,
-        document_processing_status: 'FAILED',
-        error: `OCR failed: ${tessErr.message}`,
-        stage: 'ocr',
-        processed_at: new Date().toISOString()
-      };
+      visionResult = await aiService.extractDocumentWithVisionAI(imagePayload, expectedDocumentType);
+      if (visionResult?.raw_visible_text || visionResult?.document_number) {
+        ocrRawText = visionResult.raw_visible_text || '';
+        ocrProvider = 'Multimodal Vision AI (NVIDIA NIM / Gemini Vision)';
+      }
+    } catch (visionErr) {
+      console.warn('[DocumentExtraction] Vision AI fallback unavailable:', visionErr.message);
     }
 
+    // 2. Isolated Legacy/Diagnostic Path (strictly non-production, requires explicit flag)
+    if (!ocrRawText && typeof window !== 'undefined' && window.__COOP_ALLOW_DIAGNOSTIC_OCR__ === true) {
+      console.warn('[DocumentExtraction] NOTICE: Executing non-production legacy diagnostic OCR worker...');
+      try {
+        const fallbackOcr = await ocrService.extractDocumentInformation(imagePayload, expectedDocumentType, pillarProfile, { isDiagnosticOnly: true });
+        ocrRawText = fallbackOcr.raw_full_text || fallbackOcr.raw_text_snippet || '';
+        ocrProvider = 'Tesseract.js (Non-Production Legacy/Diagnostic Only)';
+      } catch (diagErr) {
+        console.error('[DocumentExtraction] Diagnostic OCR failed:', diagErr.message);
+      }
+    }
+
+    // FAIL FAST: If production OCR provider chain failed, do NOT silently invent fields
     if (!ocrRawText || ocrRawText.trim().length < 10) {
       onStatusUpdate('FAILED');
       return {
         success: false,
         document_processing_status: 'FAILED',
-        error: 'OCR could not extract readable text from the document.',
+        error: 'Production OCR chain (PaddleOCR -> EasyOCR -> NVIDIA Vision) is unavailable. Silent Tesseract.js fallback is prohibited for production KYC.',
+        ocr_chain: 'PaddleOCR (Primary) -> EasyOCR (Secondary) -> NVIDIA Vision -> Gemini',
+        ocr_provider: ocrProvider,
+        recommendation: 'MANUAL_REVIEW_REQUIRED',
         stage: 'ocr',
         ocr_raw_text: ocrRawText,
         processed_at: new Date().toISOString()

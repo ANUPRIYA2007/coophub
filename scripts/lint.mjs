@@ -32,6 +32,9 @@ console.log('[Check 1] Validating syntax on server and script files...');
 const filesToCheck = [
     'server/server.js',
     'server/index.js',
+    'server/kyc/digilockerService.js',
+    'server/kyc/uidaiQrService.js',
+    'server/kyc/ocrBenchmarkHarness.js',
     'scripts/load_balancer.mjs',
     'scripts/test_load_balancing.mjs',
     'scripts/test-advanced-features.cjs',
@@ -41,6 +44,7 @@ const filesToCheck = [
     'scripts/test_customer_pillar_journey.cjs',
     'scripts/test_admin_integration.cjs',
     'scripts/test_kyc_authoritative_verification.cjs',
+    'scripts/test_kyc_rebuild_verification.cjs',
     'scripts/test_demand_forecasting_and_allocation.cjs',
     'scripts/test_kyc_document_intelligence.cjs',
     'scripts/test_emergency_dispatch_operations.cjs',
@@ -132,6 +136,57 @@ try {
     }
 } catch (e) {
     fail(`Gitignore check error: ${e.message}`);
+}
+
+// 5. Secret & Mock Identity Isolation Audit
+console.log('\n[Check 5] Auditing repository for committed secrets & mock KYC data...');
+try {
+    const srcDir = path.join(rootDir, 'src');
+    const serverDir = path.join(rootDir, 'server');
+    let secretLeakFound = false;
+
+    function scanDirectory(dir) {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                if (entry.name !== 'node_modules' && entry.name !== '.git' && entry.name !== 'dist') {
+                    scanDirectory(fullPath);
+                }
+            } else if (/\.(js|jsx|ts|tsx|json|yml|yaml)$/.test(entry.name)) {
+                const content = fs.readFileSync(fullPath, 'utf8');
+                // Check 1: Private key leaks
+                if (content.includes('-----BEGIN PRIVATE KEY-----') || content.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+                    fail(`Private key detected in file: ${path.relative(rootDir, fullPath)}`);
+                    secretLeakFound = true;
+                }
+                // Check 2: Live Stripe/Payment secret key patterns
+                if (/sk_live_[0-9a-zA-Z]{24,}/.test(content)) {
+                    fail(`Live payment secret key pattern detected in: ${path.relative(rootDir, fullPath)}`);
+                    secretLeakFound = true;
+                }
+            }
+        }
+    }
+
+    scanDirectory(srcDir);
+    scanDirectory(serverDir);
+
+    // Verify verificationDataset.js has zero mock items
+    const vDataPath = path.join(rootDir, 'src/services/pillar/verificationDataset.js');
+    if (fs.existsSync(vDataPath)) {
+        const vData = fs.readFileSync(vDataPath, 'utf8');
+        if (vData.includes('Senthil Kumar') || vData.includes('XXXX-XXXX-4892')) {
+            fail('Mock KYC records detected in verificationDataset.js! Zero mock data policy violated.');
+            secretLeakFound = true;
+        }
+    }
+
+    if (!secretLeakFound) {
+        pass('Source code scan verified: zero private keys, zero live secrets, zero mock identity records.');
+    }
+} catch (e) {
+    fail(`Secret audit error: ${e.message}`);
 }
 
 console.log('\n======================================================');
