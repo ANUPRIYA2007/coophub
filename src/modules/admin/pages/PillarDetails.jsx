@@ -144,6 +144,21 @@ export default function PillarDetails() {
         });
 
         setPipelineResult(result);
+
+        // Handle OCR failure
+        if (!result.success) {
+          setPipelineStatus('FAILED');
+          setOcrResult({
+            engine: 'OCR Pipeline',
+            document_type: pillar?.document_type || 'Unknown',
+            raw_text_snippet: result.error || 'OCR extraction failed. Please upload a clearer document image.',
+            confidence_score: 0,
+            ocr_status: 'FAILED'
+          });
+          setOcrRunning(false);
+          return;
+        }
+
         setPipelineStatus(result.document_processing_status || 'READY_FOR_REVIEW');
         
         const extracted = {
@@ -156,7 +171,7 @@ export default function PillarDetails() {
           extracted_address: result.ai_extracted_data?.address,
           father_name: result.ai_extracted_data?.father_name || result.ai_extracted_data?.care_of,
           raw_text_snippet: result.ocr_raw_text,
-          confidence_score: result.ai_confidence || 0.98,
+          confidence_score: result.ai_confidence || 0.80,
           bounding_boxes: result.bounding_boxes || []
         };
         setOcrResult(extracted);
@@ -196,6 +211,21 @@ export default function PillarDetails() {
       });
 
       setPipelineResult(result);
+
+      // Handle OCR failure
+      if (!result.success) {
+        setPipelineStatus('FAILED');
+        setOcrResult({
+          engine: 'OCR Pipeline',
+          document_type: pillar?.document_type || 'Unknown',
+          raw_text_snippet: result.error || 'OCR extraction failed. Please upload a clearer document image.',
+          confidence_score: 0,
+          ocr_status: 'FAILED'
+        });
+        setOcrRunning(false);
+        return;
+      }
+
       setPipelineStatus(result.document_processing_status || 'READY_FOR_REVIEW');
       
       const extracted = {
@@ -208,7 +238,7 @@ export default function PillarDetails() {
         extracted_address: result.ai_extracted_data?.address,
         father_name: result.ai_extracted_data?.father_name || result.ai_extracted_data?.care_of,
         raw_text_snippet: result.ocr_raw_text,
-        confidence_score: result.ai_confidence || 0.98,
+        confidence_score: result.ai_confidence || 0.80,
         bounding_boxes: result.bounding_boxes || []
       };
       setOcrResult(extracted);

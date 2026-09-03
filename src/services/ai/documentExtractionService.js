@@ -1,15 +1,14 @@
 /**
  * COOP HUB — Unified Document Extraction & Processing Pipeline
  * 
- * Orchestrates the full AI Architecture:
- * 1. Document Input & Preprocessing (PDF / Image)
- * 2. NVIDIA Document AI (nvidia/nemotron-parse) for OCR & Structure
- * 3. Gemini Document Understanding for Structured Field Extraction
- * 4. Deterministic Validation Engine for Profile Alignment & Confidence Scoring
- * 5. Structured Output Generation for Admin Verification Workspace
+ * Orchestrates the full document processing flow:
+ * 1. Send document to server-side OCR endpoint (sharp preprocessing + Tesseract.js)
+ * 2. Server returns: raw OCR text, clean text, structured fields, AI analysis
+ * 3. Fallback to client-side OCR if server is unavailable
+ * 4. Persist results via documentStorageService
+ * 5. Return unified output for Admin Verification Workspace
  */
 
-import { nvidiaDocumentService } from './nvidiaDocumentService.js';
 import { geminiDocumentService } from './geminiDocumentService.js';
 import { documentValidationService } from './documentValidationService.js';
 import { ocrService } from '../pillar/ocrService.js';
@@ -39,6 +38,7 @@ export const documentExtractionService = {
 
     if (!document) {
       return {
+        success: false,
         status: 'FAILED',
         error: 'No document data provided.',
         processed_at: new Date().toISOString()
@@ -56,7 +56,7 @@ export const documentExtractionService = {
       });
     }
 
-    // Convert PDF page to high-res image for Vision AI
+    // Convert PDF page to high-res image for OCR
     let imagePayload = base64Data;
     if (typeof base64Data === 'string' && base64Data.startsWith('data:application/pdf')) {
       try {
@@ -66,62 +66,153 @@ export const documentExtractionService = {
       }
     }
 
-    // Step 2: NVIDIA Document AI OCR & Layout Extraction
+    // Step 2: Send to server-side OCR pipeline (primary path)
     currentStatus = 'OCR_PROCESSING';
     onStatusUpdate(currentStatus);
 
-    let nvidiaResult = null;
-    let ocrRawText = '';
-    let boundingBoxes = [];
-    let ocrProvider = 'NVIDIA NIM (Llama 3.2 Vision)';
-
+    let serverResult = null;
     try {
-      // First attempt: Backend Proxy (to ensure API keys remain hidden on server)
-      try {
-        const proxyRes = await fetch('/api/ai/process-document', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            document: imagePayload,
-            documentCategory,
-            expectedDocumentType,
-            pillarProfile
-          })
-        });
+      const proxyRes = await fetch('/api/ai/process-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document: imagePayload,
+          documentCategory,
+          expectedDocumentType,
+          pillarProfile
+        })
+      });
 
-        if (proxyRes.ok) {
-          const backendData = await proxyRes.json();
-          if (backendData.success && backendData.result) {
-            return backendData.result;
+      if (proxyRes.ok) {
+        const backendData = await proxyRes.json();
+        
+        if (backendData.success) {
+          serverResult = backendData;
+          console.log('[DocumentExtraction] Server OCR succeeded:', {
+            ocrChars: backendData.ocr?.cleanText?.length || 0,
+            confidence: backendData.ocr?.confidence,
+            detectedType: backendData.documentType,
+            processingTimeMs: backendData.processingTimeMs
+          });
+        } else {
+          console.warn('[DocumentExtraction] Server OCR reported failure:', backendData.stage, backendData.error);
+          // If OCR itself failed, return the error — don't silently proceed
+          if (backendData.stage === 'ocr' || backendData.stage === 'preprocessing') {
+            onStatusUpdate('FAILED');
+            return {
+              success: false,
+              document_processing_status: 'FAILED',
+              error: backendData.error,
+              stage: backendData.stage,
+              ocr_raw_text: backendData.ocr?.rawText || '',
+              ocr_confidence: backendData.ocr?.confidence || 0,
+              processed_at: new Date().toISOString()
+            };
           }
         }
-      } catch (proxyErr) {
-        // Backend proxy offline/fallback to client direct engine
       }
-
-      // Direct NVIDIA Vision / Nemotron Parse call
-      nvidiaResult = await nvidiaDocumentService.extractDocumentStructure(imagePayload);
-      ocrRawText = nvidiaResult.raw_text || '';
-      boundingBoxes = nvidiaResult.bounding_boxes || [];
-      ocrProvider = nvidiaResult.provider || ocrProvider;
-    } catch (nvidiaErr) {
-      console.warn("NVIDIA Vision extraction fallback:", nvidiaErr.message);
-      // Fallback: Tesseract OCR Engine
-      try {
-        const fallbackOcr = await ocrService.extractDocumentInformation(imagePayload, expectedDocumentType, pillarProfile);
-        ocrRawText = fallbackOcr.raw_full_text || fallbackOcr.raw_text_snippet || '';
-        ocrProvider = fallbackOcr.engine || 'Optical Character Recognition (OCR v4.0)';
-      } catch (tessErr) {
-        console.error("All OCR providers failed:", tessErr.message);
-      }
+    } catch (proxyErr) {
+      console.warn('[DocumentExtraction] Server endpoint unavailable, falling back to client OCR:', proxyErr.message);
     }
 
-    // Step 3: Document Understanding & Field Extraction
+    // If server returned a full result (with legacy format), use it directly
+    if (serverResult?.result) {
+      currentStatus = 'AI_EXTRACTION';
+      onStatusUpdate(currentStatus);
+
+      // Step 3: Persist to Dedicated Document Table (if pillarId provided)
+      let savedRecord = null;
+      if (pillarProfile?.id) {
+        try {
+          const aiData = serverResult.result.ai_extracted_data || {};
+          const saveRes = await documentStorageService.saveExtractedDocument({
+            pillarId: pillarProfile.id,
+            documentType: serverResult.documentType || expectedDocumentType,
+            extractedData: aiData,
+            rawOcrText: serverResult.ocr?.rawText || serverResult.result.ocr_raw_text || '',
+            documentUrl: typeof document === 'string' ? document : null,
+            validationResult: serverResult.result.validation_result || {}
+          });
+          if (saveRes.success) {
+            savedRecord = saveRes;
+          }
+        } catch (saveErr) {
+          console.warn("Storage to dedicated document table note:", saveErr.message);
+        }
+      }
+
+      currentStatus = 'READY_FOR_REVIEW';
+      onStatusUpdate(currentStatus);
+
+      // Return in unified format (backward compatible)
+      return {
+        success: true,
+        document_processing_status: 'READY_FOR_REVIEW',
+        ocr_provider: serverResult.ocr?.engine || serverResult.result.ocr_provider,
+        ocr_raw_text: serverResult.ocr?.rawText || serverResult.result.ocr_raw_text,
+        ocr_clean_text: serverResult.ocr?.cleanText || '',
+        ocr_confidence: serverResult.ocr?.confidence || 0,
+        ai_provider: serverResult.ai?.provider || serverResult.result.ai_provider,
+        ai_extracted_data: serverResult.result.ai_extracted_data,
+        ai_confidence: serverResult.result.ai_confidence,
+        confidence_level: serverResult.result.confidence_level,
+        validation_result: serverResult.result.validation_result,
+        mismatch_flags: serverResult.result.mismatch_flags,
+        missing_fields: serverResult.result.missing_fields,
+        warnings: serverResult.result.warnings,
+        bounding_boxes: [],
+        recommendation: serverResult.result.validation_result?.recommendation,
+        summary: serverResult.result.validation_result?.recommendation === 'READY_FOR_APPROVAL'
+          ? 'Document extracted and validated successfully.'
+          : 'Document extracted. Manual review recommended.',
+        dedicated_storage: savedRecord,
+        processing_time_ms: serverResult.processingTimeMs || (Date.now() - startTime),
+        processed_at: new Date().toISOString()
+      };
+    }
+
+    // =====================================================
+    // FALLBACK: Client-side OCR (when server is unavailable)
+    // =====================================================
+    console.log('[DocumentExtraction] Using client-side OCR fallback...');
+
+    let ocrRawText = '';
+    let ocrProvider = 'Client Tesseract.js Fallback';
+
+    try {
+      const fallbackOcr = await ocrService.extractDocumentInformation(imagePayload, expectedDocumentType, pillarProfile);
+      ocrRawText = fallbackOcr.raw_full_text || fallbackOcr.raw_text_snippet || '';
+      ocrProvider = fallbackOcr.engine || ocrProvider;
+    } catch (tessErr) {
+      console.error("Client OCR failed:", tessErr.message);
+      onStatusUpdate('FAILED');
+      return {
+        success: false,
+        document_processing_status: 'FAILED',
+        error: `OCR failed: ${tessErr.message}`,
+        stage: 'ocr',
+        processed_at: new Date().toISOString()
+      };
+    }
+
+    if (!ocrRawText || ocrRawText.trim().length < 10) {
+      onStatusUpdate('FAILED');
+      return {
+        success: false,
+        document_processing_status: 'FAILED',
+        error: 'OCR could not extract readable text from the document.',
+        stage: 'ocr',
+        ocr_raw_text: ocrRawText,
+        processed_at: new Date().toISOString()
+      };
+    }
+
+    // Step 3: Document Understanding & Field Extraction (client-side fallback)
     currentStatus = 'AI_EXTRACTION';
     onStatusUpdate(currentStatus);
 
     let structuredAiData = null;
-    let aiProvider = 'NVIDIA Document Intelligence';
+    let aiProvider = 'Rule-Based Pattern Matcher';
 
     try {
       structuredAiData = await geminiDocumentService.structureDocument({
@@ -133,8 +224,7 @@ export const documentExtractionService = {
     } catch (aiErr) {
       console.warn("Document Understanding extraction notice:", aiErr.message);
       
-      // Real heuristic parser on actual raw OCR text
-      const parsed = ocrService.parseIndianIdFromText 
+      const parsed = ocrService.parseIndianIdFromText
         ? ocrService.parseIndianIdFromText(ocrRawText, expectedDocumentType, pillarProfile)
         : null;
 
@@ -145,13 +235,12 @@ export const documentExtractionService = {
         date_of_birth: parsed?.extractedDob || null,
         document_number: parsed?.extractedDocNumber || null,
         address: parsed?.extractedAddress || null,
-        confidence: ocrRawText.length > 20 ? 0.90 : 0.40,
+        confidence: ocrRawText.length > 20 ? 0.75 : 0.40,
         mismatches: [],
         missing_fields: !parsed?.extractedDocNumber ? ['document_number'] : [],
-        warnings: ocrRawText.length < 20 ? ['Document text unreadable or low resolution; visual inspection required.'] : [],
+        warnings: ocrRawText.length < 20 ? ['Document text unreadable or low resolution.'] : [],
         extracted_text: ocrRawText
       };
-      aiProvider = 'Rule-Based Pattern Matcher';
     }
 
     // Step 4: Deterministic Validation Engine
@@ -200,7 +289,7 @@ export const documentExtractionService = {
       mismatch_flags: validationResult.mismatches,
       missing_fields: validationResult.missing_fields,
       warnings: validationResult.warnings,
-      bounding_boxes: boundingBoxes,
+      bounding_boxes: [],
       recommendation: validationResult.recommendation,
       summary: validationResult.summary,
       dedicated_storage: savedRecord,

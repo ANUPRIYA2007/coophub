@@ -532,201 +532,498 @@ ${subAgentData !== 'NO_CONTEXT' && subAgentData !== 'GENERAL_CHAT' ? `Active Dat
 // ============================================================
 // 3. AI Document Extraction & Verification Endpoint
 // ============================================================
-// Secure server-side processing using NVIDIA Nemotron Parse + Gemini
+// Server-side OCR with sharp preprocessing + Tesseract.js
+// AI structuring with Gemini (only after successful OCR)
+// ============================================================
+
+// Lazy-load heavy modules
+let sharpModule = null;
+let tesseractWorkerInstance = null;
+
+async function getSharp() {
+    if (!sharpModule) {
+        sharpModule = (await import('sharp')).default;
+    }
+    return sharpModule;
+}
+
+async function getServerOcrWorker() {
+    if (!tesseractWorkerInstance) {
+        const Tesseract = await import('tesseract.js');
+        const createWorker = Tesseract.createWorker || Tesseract.default?.createWorker;
+        tesseractWorkerInstance = await createWorker('eng');
+    }
+    return tesseractWorkerInstance;
+}
+
+/**
+ * Preprocess document image for optimal OCR using sharp
+ * Handles phone-camera photos, poor lighting, skew, noise
+ */
+async function preprocessDocumentImage(base64Data) {
+    const sharp = await getSharp();
+    
+    // Extract raw buffer from base64 data URL
+    let imageBuffer;
+    if (base64Data.startsWith('data:')) {
+        const base64Part = base64Data.split(',')[1];
+        if (!base64Part) throw new Error('Invalid base64 data URL');
+        imageBuffer = Buffer.from(base64Part, 'base64');
+    } else {
+        imageBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    // Get image metadata
+    const metadata = await sharp(imageBuffer).metadata();
+    console.log(`[OCR Preprocess] Input: ${metadata.width}x${metadata.height}, format=${metadata.format}, size=${imageBuffer.length} bytes`);
+
+    // Build preprocessing pipeline
+    let pipeline = sharp(imageBuffer);
+
+    // 1. Resize if too large (preserve aspect ratio, max 2400px longest side)
+    const maxDim = Math.max(metadata.width || 0, metadata.height || 0);
+    if (maxDim > 2400) {
+        pipeline = pipeline.resize(2400, 2400, { fit: 'inside', withoutEnlargement: true });
+    }
+    // Upscale if too small for OCR
+    if (maxDim > 0 && maxDim < 800) {
+        const scale = Math.ceil(800 / maxDim);
+        pipeline = pipeline.resize(metadata.width * scale, metadata.height * scale, { fit: 'inside' });
+    }
+
+    // 2. Convert to grayscale
+    pipeline = pipeline.grayscale();
+
+    // 3. Normalize contrast (linear stretch histogram)
+    pipeline = pipeline.normalize();
+
+    // 4. Sharpen for text clarity
+    pipeline = pipeline.sharpen({ sigma: 1.5, m1: 1.0, m2: 0.5 });
+
+    // 5. Apply moderate threshold for binarization (helps with phone photos)
+    //    Using a moderate threshold rather than aggressive to preserve text
+    pipeline = pipeline.threshold(140);
+
+    // 6. Output as high-quality PNG (lossless for OCR)
+    const processedBuffer = await pipeline.png({ quality: 100 }).toBuffer();
+    
+    console.log(`[OCR Preprocess] Output: processed buffer ${processedBuffer.length} bytes`);
+    return processedBuffer;
+}
+
+/**
+ * Clean and normalize raw OCR text
+ */
+function cleanOcrText(rawText = '') {
+    if (!rawText) return '';
+    return rawText
+        // Normalize Unicode
+        .normalize('NFKC')
+        // Collapse multiple spaces/tabs to single space
+        .replace(/[ \t]+/g, ' ')
+        // Collapse multiple newlines to max 2
+        .replace(/\n{3,}/g, '\n\n')
+        // Remove common OCR artifacts
+        .replace(/[|]{2,}/g, '')
+        .replace(/[~`^]/g, '')
+        // Trim each line
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join('\n')
+        .trim();
+}
+
+/**
+ * Detect document type from OCR text keywords
+ */
+function detectDocumentType(text = '') {
+    const upper = text.toUpperCase();
+    if (/INCOME TAX DEPARTMENT|PERMANENT ACCOUNT NUMBER|INCOME\s*TAX/i.test(upper)) return 'pan';
+    if (/ELECTION COMMISSION|ELECTOR PHOTO IDENTITY|EPIC|ELECTORAL/i.test(upper)) return 'voter_id';
+    if (/DRIVING LICENCE|TRANSPORT DEPARTMENT|MOTOR VEHICLE/i.test(upper)) return 'driving_licence';
+    if (/PASSPORT|REPUBLIC OF INDIA|MINISTRY OF EXTERNAL/i.test(upper)) return 'passport';
+    if (/UNIQUE IDENTIFICATION|UIDAI|AADHAAR|आधार/i.test(upper)) return 'aadhaar';
+    if (/NSDC|SKILL INDIA|NCVT|ITI|NATIONAL TRADE CERTIFICATE|DIRECTORATE OF TECHNICAL/i.test(upper)) return 'skill_certificate';
+    return null;
+}
+
+/**
+ * Extract structured fields from OCR text using regex patterns for Indian ID documents
+ */
+function extractFieldsFromText(text = '', docType = 'aadhaar') {
+    const fields = {
+        name: null,
+        dateOfBirth: null,
+        documentNumber: null,
+        address: null,
+        gender: null,
+        fatherName: null
+    };
+
+    if (!text || text.length < 5) return fields;
+
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const upper = text.toUpperCase();
+
+    // --- Document Number Extraction ---
+    // Aadhaar: 12 digits (possibly with spaces: XXXX XXXX XXXX)
+    const aadhaarMatch = text.match(/\b(\d{4}\s?\d{4}\s?\d{4})\b/);
+    if (aadhaarMatch) fields.documentNumber = aadhaarMatch[1].replace(/\s+/g, ' ');
+
+    // PAN: 5 letters + 4 digits + 1 letter
+    const panMatch = upper.match(/\b([A-Z]{5}[0-9]{4}[A-Z])\b/);
+    if (panMatch) fields.documentNumber = panMatch[1];
+
+    // Voter ID: 3 letters + 7 digits
+    const voterMatch = upper.match(/\b([A-Z]{3}[0-9]{7})\b/);
+    if (voterMatch && !fields.documentNumber) fields.documentNumber = voterMatch[1];
+
+    // Driving License: state code + digits
+    const dlMatch = upper.match(/\b([A-Z]{2}[0-9]{2}\s?[0-9]{11})\b|([A-Z]{2}[- ]?[0-9]{2}[- ][0-9]{4}[- ]?[0-9]{7})\b/);
+    if (dlMatch && !fields.documentNumber) fields.documentNumber = (dlMatch[1] || dlMatch[2]);
+
+    // --- Date of Birth ---
+    const dobRegex = /(?:DOB|DATE\s*OF\s*BIRTH|YEAR\s*OF\s*BIRTH|D\.O\.B|जन्म\s*तिथि)[:\s]*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4})/i;
+    const dobMatch = text.match(dobRegex);
+    if (dobMatch) {
+        fields.dateOfBirth = dobMatch[1];
+    } else {
+        // Generic date (DD/MM/YYYY format common on Indian IDs)
+        const generalDate = text.match(/\b([0-2][0-9]|3[01])\/(0[1-9]|1[0-2])\/(19[5-9][0-9]|20[0-2][0-9])\b/);
+        if (generalDate) fields.dateOfBirth = generalDate[0];
+    }
+
+    // --- Gender ---
+    if (/\bMALE\b/i.test(upper) && !/FEMALE/i.test(upper)) fields.gender = 'MALE';
+    else if (/\bFEMALE\b/i.test(upper)) fields.gender = 'FEMALE';
+    else if (/पुरुष/i.test(text)) fields.gender = 'MALE';
+    else if (/महिला/i.test(text)) fields.gender = 'FEMALE';
+
+    // --- Name Extraction ---
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        // Skip header/title lines
+        if (/GOVERNMENT|INDIA|INCOME TAX|DEPARTMENT|ELECTION|COMMISSION|MALE|FEMALE|DOB|YEAR|ADDRESS|SIGNATURE|HOLDER|MINISTRY|TRANSPORT|AADHAAR|UNIQUE|UIDAI|PAN|VOTER|DRIVING|आधार|भारत/i.test(line)) {
+            continue;
+        }
+        // A name line: mostly alphabetic characters, 2+ words, 3-40 chars
+        if (/^[A-Za-z\s.]{3,40}$/.test(line) && line.split(' ').length >= 2 && line.length > 3) {
+            fields.name = line;
+            break;
+        }
+    }
+
+    // --- Father's Name ---
+    const fatherMatch = text.match(/(?:S\/O|D\/O|W\/O|C\/O|SON OF|DAUGHTER OF|WIFE OF|FATHER|पिता)[:\s]*([A-Za-z\s.]{3,40})/i);
+    if (fatherMatch) fields.fatherName = fatherMatch[1].trim();
+
+    // --- Address ---
+    const addressLines = lines.filter(l =>
+        /(?:STREET|NAGAR|ROAD|FLAT|DOOR|LANE|COLONY|APARTMENT|DISTRICT|TAMIL NADU|CHENNAI|PIN|PINCODE|\b\d{6}\b|FLOOR|WARD|VILLAGE|POST|BLOCK)/i.test(l)
+    );
+    if (addressLines.length > 0) {
+        fields.address = addressLines.slice(0, 3).join(', ');
+    }
+
+    return fields;
+}
+
+/**
+ * Mask sensitive document numbers for response
+ */
+function maskDocNumber(docNumber = '', docType = 'aadhaar') {
+    if (!docNumber) return null;
+    const clean = docNumber.trim().replace(/\s+/g, '');
+    const key = (docType || '').toLowerCase();
+
+    if (key.includes('aadhaar') && clean.length >= 8) {
+        return `XXXX-XXXX-${clean.slice(-4)}`;
+    }
+    if (key.includes('pan') && clean.length >= 6) {
+        return `${clean.slice(0, 3)}XX${clean.slice(-3)}`.toUpperCase();
+    }
+    if ((key.includes('voter') || key.includes('epic')) && clean.length >= 5) {
+        return `${clean.slice(0, 3)}XXXX${clean.slice(-3)}`.toUpperCase();
+    }
+    return clean.length > 4 ? `XXXX-${clean.slice(-4)}` : clean;
+}
+
 app.post('/api/ai/process-document', async (req, res) => {
+    const startTime = Date.now();
     try {
         const { document, documentCategory = 'identity', expectedDocumentType = 'aadhaar', pillarProfile = {} } = req.body;
         
         if (!document) {
-            return res.status(400).json({ error: 'No document payload provided.' });
+            return res.status(400).json({ success: false, stage: 'input', error: 'No document payload provided.' });
         }
 
-        const formattedImageUrl = document.startsWith('data:') 
-            ? document 
-            : `data:image/jpeg;base64,${document}`;
+        // =====================================================
+        // STAGE 1: IMAGE PREPROCESSING WITH SHARP
+        // =====================================================
+        console.log('[OCR Pipeline] Stage 1: Preprocessing document image...');
+        let preprocessedBuffer;
+        try {
+            preprocessedBuffer = await preprocessDocumentImage(document);
+        } catch (prepErr) {
+            console.error('[OCR Pipeline] Preprocessing failed:', prepErr.message);
+            return res.json({
+                success: false,
+                stage: 'preprocessing',
+                error: `Image preprocessing failed: ${prepErr.message}`
+            });
+        }
 
+        // =====================================================
+        // STAGE 2: OCR EXTRACTION WITH TESSERACT.JS (SERVER-SIDE)
+        // =====================================================
+        console.log('[OCR Pipeline] Stage 2: Running Tesseract OCR on preprocessed image...');
         let ocrRawText = '';
-        let boundingBoxes = [];
-        let ocrProvider = process.env.NVIDIA_OCR_MODEL || 'nvidia/nemotron-parse';
+        let ocrConfidence = 0;
+        const ocrProvider = 'Tesseract.js v7 (Server-Side + Sharp Preprocessing)';
 
-        // 1. Call NVIDIA Nemotron Parse / Vision Model
-        if (process.env.NVIDIA_API_KEY) {
-            try {
-                const isNemotronParse = ocrProvider.includes('nemotron-parse');
-                const userContent = isNemotronParse
-                    ? [{ type: "image_url", image_url: { url: formattedImageUrl } }]
-                    : [
-                        { type: "text", text: "Transcribe every detail, word, Aadhaar number, name, DOB, and issuing authority from this document accurately." },
-                        { type: "image_url", image_url: { url: formattedImageUrl } }
-                    ];
-
-                const nvidiaRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: ocrProvider,
-                        messages: [
-                            {
-                                role: "user",
-                                content: userContent
-                            }
-                        ],
-                        max_tokens: 1500
-                    })
-                });
-
-                if (nvidiaRes.ok) {
-                    const data = await nvidiaRes.json();
-                    const msg = data.choices?.[0]?.message;
-                    ocrRawText = msg?.content || '';
-                    if (msg?.tool_calls) {
-                        for (const tool of msg.tool_calls) {
-                            if (tool.function?.name === 'markdown_bbox' && tool.function?.arguments) {
-                                try {
-                                    const bboxes = JSON.parse(tool.function.arguments);
-                                    boundingBoxes = bboxes;
-                                    if (!ocrRawText && Array.isArray(bboxes)) {
-                                        ocrRawText = bboxes.map(b => Array.isArray(b) ? b[1] : '').join('\n');
-                                    }
-                                } catch (e) {}
-                            }
-                        }
-                    }
-                } else {
-                    const errBody = await nvidiaRes.text();
-                    console.warn("Server NVIDIA OCR error:", nvidiaRes.status, errBody);
-                }
-            } catch (err) {
-                console.warn("Server NVIDIA Nemotron error:", err.message);
-            }
+        try {
+            const worker = await getServerOcrWorker();
+            const result = await worker.recognize(preprocessedBuffer);
+            ocrRawText = result?.data?.text || '';
+            ocrConfidence = result?.data?.confidence || 0;
+            console.log(`[OCR Pipeline] Tesseract result: ${ocrRawText.length} chars, confidence=${ocrConfidence.toFixed(1)}%`);
+        } catch (ocrErr) {
+            console.error('[OCR Pipeline] Tesseract OCR failed:', ocrErr.message);
+            return res.json({
+                success: false,
+                stage: 'ocr',
+                error: `OCR engine failed: ${ocrErr.message}`
+            });
         }
 
-        // 2. Call Gemini Document Understanding
+        // FAIL FAST: If OCR produced no useful text
+        if (!ocrRawText || ocrRawText.trim().length < 10) {
+            console.warn('[OCR Pipeline] OCR produced insufficient text');
+            return res.json({
+                success: false,
+                stage: 'ocr',
+                error: 'OCR could not extract readable text from the document. The image may be too blurry, dark, or not a valid document.',
+                ocr: {
+                    rawText: ocrRawText || '',
+                    cleanText: '',
+                    confidence: ocrConfidence
+                }
+            });
+        }
+
+        // =====================================================
+        // STAGE 3: TEXT CLEANING & NORMALIZATION
+        // =====================================================
+        console.log('[OCR Pipeline] Stage 3: Cleaning and normalizing OCR text...');
+        const cleanText = cleanOcrText(ocrRawText);
+
+        // =====================================================
+        // STAGE 4: STRUCTURED FIELD EXTRACTION (RULE-BASED)
+        // =====================================================
+        console.log('[OCR Pipeline] Stage 4: Extracting structured fields...');
+        const detectedType = detectDocumentType(cleanText) || expectedDocumentType;
+        const extractedFields = extractFieldsFromText(cleanText, detectedType);
+
+        // =====================================================
+        // STAGE 5: AI INTELLIGENCE LAYER (ONLY IF OCR SUCCEEDED)
+        // =====================================================
+        console.log('[OCR Pipeline] Stage 5: AI intelligence analysis...');
         const isSkillCert = documentCategory === 'skill_certificate' || /certificate|iti|nsdc|diploma/i.test(documentCategory);
         let structuredAiData = null;
-        let aiProvider = 'Google Gemini (Gemma-4 / Flash)';
+        let aiProvider = 'none';
 
-        if (process.env.GEMINI_API_KEY) {
-            const systemPrompt = `You are the COOP HUB Document Understanding Engine.
-Analyze the following OCR text from a technician's document and compare against registered profile:
+        if (GEMINI_API_KEY && cleanText.length > 20) {
+            const aiSystemPrompt = `You are the COOP HUB Document Understanding Engine.
+Analyze the following REAL OCR text extracted from a technician's document and compare against registered profile:
 - Full Name: ${pillarProfile.full_name || pillarProfile.fullName || 'N/A'}
 - Mobile: ${pillarProfile.mobile || 'N/A'}
 - DOB: ${pillarProfile.dob || 'N/A'}
 - Trade: ${pillarProfile.main_services || 'N/A'}
 
-Output STRICTLY JSON adhering to:
+CRITICAL INSTRUCTIONS:
+1. Base your analysis ONLY on the provided OCR text. Do NOT invent or hallucinate any data.
+2. Return ONLY a pure JSON object. Do NOT wrap in markdown, do NOT add introductory or concluding text.
+
+JSON format:
 ${isSkillCert ? `{
   "document_type": "skill_certificate",
-  "certificate_name": "string",
-  "worker_name": "string",
-  "skill": "string",
-  "certificate_number": "string",
-  "issuing_organization": "string",
-  "issue_date": "string",
+  "certificate_name": "string or null",
+  "worker_name": "string or null",
+  "skill": "string or null",
+  "certificate_number": "string or null",
+  "issuing_organization": "string or null",
+  "issue_date": "string or null",
   "expiry_date": null,
-  "confidence": 0.95,
+  "confidence": 0.0-1.0,
   "mismatches": [],
   "warnings": []
 }` : `{
-  "document_type": "Aadhaar | PAN | Voter ID | Driving Licence | Passport | Other",
+  "document_type": "Aadhaar | PAN | Voter ID | Driving Licence | Other",
   "document_category": "identity",
-  "full_name": "string",
-  "date_of_birth": "string",
-  "document_number": "string",
-  "address": "string",
-  "gender": "string",
-  "issuing_authority": "string",
-  "expiry_date": null,
-  "fields_detected": {},
-  "confidence": 0.95,
+  "full_name": "string or null",
+  "date_of_birth": "string or null",
+  "document_number": "string or null",
+  "address": "string or null",
+  "gender": "string or null",
+  "father_name": "string or null",
+  "issuing_authority": "string or null",
+  "confidence": 0.0-1.0,
   "mismatches": [],
   "missing_fields": [],
-  "warnings": [],
-  "extracted_text": "string"
+  "warnings": []
 }`}`;
 
-            for (const model of ['gemma-4-31b-it', 'gemini-flash-latest', 'gemini-2.5-flash']) {
+            for (const model of ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash']) {
                 try {
-                    const gemUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+                    const gemUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
                     const gemRes = await fetch(gemUrl, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: `${systemPrompt}\n\nOCR Extracted Text:\n"""\n${ocrRawText}\n"""` }] }],
+                            contents: [{ parts: [{ text: `${aiSystemPrompt}\n\nOCR Extracted Text:\n"""\n${cleanText}\n"""` }] }],
                             generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
-                        })
+                        }),
+                        signal: controller.signal
                     });
+                    clearTimeout(timeoutId);
 
                     if (gemRes.ok) {
                         const gemData = await gemRes.json();
                         const raw = gemData.candidates?.[0]?.content?.parts?.[0]?.text;
                         if (raw) {
-                            structuredAiData = JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());
-                            aiProvider = model;
-                            break;
+                            try {
+                                // Extract first JSON block enclosed in { ... }
+                                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    structuredAiData = JSON.parse(jsonMatch[0]);
+                                    aiProvider = `Google Gemini (${model})`;
+                                }
+                            } catch (parseErr) {
+                                console.warn(`[OCR Pipeline] Gemini JSON parse failed for ${model}:`, parseErr.message);
+                            }
+                            if (structuredAiData) break;
                         }
                     }
-                } catch (e) {}
+                } catch (gemErr) {
+                    console.warn(`[OCR Pipeline] Gemini ${model} notice:`, gemErr.message);
+                }
             }
         }
 
-        if (!structuredAiData) {
-            structuredAiData = {
-                document_type: expectedDocumentType,
-                document_category: documentCategory,
-                full_name: pillarProfile.full_name || null,
-                date_of_birth: pillarProfile.dob || null,
-                document_number: null,
-                address: null,
-                confidence: 0.50,
-                mismatches: [],
-                missing_fields: ['document_number'],
-                warnings: ['Document Understanding AI fallback used.'],
-                extracted_text: ocrRawText
-            };
-        }
+        // =====================================================
+        // STAGE 6: ASSEMBLE RESPONSE
+        // =====================================================
+        console.log('[OCR Pipeline] Stage 6: Assembling response...');
 
-        // 3. Validation result
+        // Merge AI-extracted fields with rule-based fields (AI takes priority when available)
+        const finalFields = {
+            name: structuredAiData?.full_name || structuredAiData?.worker_name || extractedFields.name || null,
+            dateOfBirth: structuredAiData?.date_of_birth || extractedFields.dateOfBirth || null,
+            documentNumber: structuredAiData?.document_number || extractedFields.documentNumber || null,
+            address: structuredAiData?.address || extractedFields.address || null,
+            gender: structuredAiData?.gender || extractedFields.gender || null,
+            fatherName: structuredAiData?.father_name || extractedFields.fatherName || null
+        };
+
+        // Name mismatch check
         const mismatches = [];
         const submittedName = (pillarProfile.full_name || '').toLowerCase().trim();
-        const extractedName = (structuredAiData.full_name || structuredAiData.worker_name || '').toLowerCase().trim();
-
+        const extractedName = (finalFields.name || '').toLowerCase().trim();
         if (submittedName && extractedName && !submittedName.includes(extractedName) && !extractedName.includes(submittedName)) {
-            mismatches.push({ field: 'full_name', submitted: submittedName, extracted: extractedName });
+            const submittedTokens = submittedName.split(/\s+/);
+            const extractedTokens = extractedName.split(/\s+/);
+            const overlap = submittedTokens.filter(t => t.length > 2 && extractedTokens.some(et => et.includes(t) || t.includes(et)));
+            if (overlap.length === 0) {
+                mismatches.push({ field: 'full_name', submitted: submittedName, extracted: extractedName });
+            }
         }
 
-        const confidence = structuredAiData.confidence || (mismatches.length > 0 ? 0.55 : 0.92);
-        const confidenceLevel = confidence >= 0.85 && mismatches.length === 0 ? 'HIGH' : confidence >= 0.60 ? 'MEDIUM' : 'LOW';
+        const aiConfidence = structuredAiData?.confidence || null;
+        const finalConfidence = aiConfidence || (ocrConfidence / 100) || (mismatches.length > 0 ? 0.55 : 0.80);
+        const confidenceLevel = finalConfidence >= 0.85 && mismatches.length === 0 ? 'HIGH' : finalConfidence >= 0.60 ? 'MEDIUM' : 'LOW';
+        const processingTimeMs = Date.now() - startTime;
+
+        console.log(`[OCR Pipeline] Complete in ${processingTimeMs}ms. Confidence: ${(finalConfidence * 100).toFixed(0)}% (${confidenceLevel})`);
 
         res.json({
             success: true,
+            documentType: detectedType,
+            ocr: {
+                rawText: ocrRawText.trim(),
+                cleanText: cleanText,
+                confidence: Math.round(ocrConfidence),
+                engine: ocrProvider
+            },
+            fields: {
+                name: finalFields.name,
+                dateOfBirth: finalFields.dateOfBirth,
+                documentNumber: finalFields.documentNumber,
+                documentNumberMasked: maskDocNumber(finalFields.documentNumber, detectedType),
+                address: finalFields.address,
+                gender: finalFields.gender,
+                fatherName: finalFields.fatherName
+            },
+            ai: structuredAiData ? {
+                provider: aiProvider,
+                extractedData: structuredAiData,
+                confidence: aiConfidence
+            } : null,
+            validation: {
+                confidenceLevel: confidenceLevel,
+                confidenceScore: finalConfidence,
+                recommendation: confidenceLevel === 'HIGH' ? 'READY_FOR_APPROVAL' : 'MANUAL_REVIEW',
+                mismatches: mismatches,
+                missingFields: structuredAiData?.missing_fields || [],
+                warnings: structuredAiData?.warnings || []
+            },
+            // Legacy format fields for backward compatibility with existing frontend
             result: {
                 document_processing_status: 'READY_FOR_REVIEW',
                 ocr_provider: ocrProvider,
-                ocr_raw_text: ocrRawText,
+                ocr_raw_text: ocrRawText.trim(),
                 ai_provider: aiProvider,
-                ai_extracted_data: structuredAiData,
-                ai_confidence: confidence,
+                ai_extracted_data: structuredAiData || {
+                    document_type: detectedType,
+                    document_category: documentCategory,
+                    full_name: finalFields.name,
+                    date_of_birth: finalFields.dateOfBirth,
+                    document_number: finalFields.documentNumber,
+                    address: finalFields.address,
+                    gender: finalFields.gender,
+                    father_name: finalFields.fatherName,
+                    confidence: finalConfidence,
+                    mismatches: mismatches,
+                    missing_fields: Object.entries(finalFields).filter(([k,v]) => !v).map(([k]) => k),
+                    warnings: [],
+                    extracted_text: cleanText
+                },
+                ai_confidence: finalConfidence,
                 confidence_level: confidenceLevel,
                 validation_result: {
                     confidence_level: confidenceLevel,
-                    confidence_score: confidence,
+                    confidence_score: finalConfidence,
                     recommendation: confidenceLevel === 'HIGH' ? 'READY_FOR_APPROVAL' : 'MANUAL_REVIEW',
                     mismatches
                 },
                 mismatch_flags: mismatches,
-                missing_fields: structuredAiData.missing_fields || [],
-                warnings: structuredAiData.warnings || [],
-                bounding_boxes: boundingBoxes,
+                missing_fields: structuredAiData?.missing_fields || Object.entries(finalFields).filter(([k,v]) => !v).map(([k]) => k),
+                warnings: structuredAiData?.warnings || [],
+                bounding_boxes: [],
                 processed_at: new Date().toISOString()
-            }
+            },
+            processingTimeMs
         });
     } catch (error) {
-        console.error("process-document error:", error);
-        res.status(500).json({ error: error.message });
+        console.error("[OCR Pipeline] Fatal error:", error);
+        res.status(500).json({
+            success: false,
+            stage: 'server',
+            error: error.message
+        });
     }
 });
 

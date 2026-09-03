@@ -33,3 +33,4 @@ pnpm-debug.log*
 backup/
 *.blend1
 3d-hero/blender-mcp/
+*.traineddata

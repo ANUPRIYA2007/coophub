@@ -78,6 +78,10 @@ export default function ProfilePage() {
   // KYC State
   const [kycDocs, setKycDocs] = useState([]);
   const [uploadingKyc, setUploadingKyc] = useState(false);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [ocrResult, setOcrResult] = useState(null);
+  const [ocrError, setOcrError] = useState(null);
+  const [pipelineStage, setPipelineStage] = useState(null);
   const fileInputRef = useRef(null);
   const [selectedDocType, setSelectedDocType] = useState("aadhaar");
 
@@ -92,14 +96,67 @@ export default function ProfilePage() {
     if (!file || !user) return;
     
     setUploadingKyc(true);
-    setTimeout(async () => {
-      const { data } = await pillarProfileService.uploadKycDocument(user.id, selectedDocType, file);
-      if (data) {
-        setKycDocs(prev => [data, ...prev]);
+    setOcrProcessing(true);
+    setOcrResult(null);
+    setOcrError(null);
+    setPipelineStage('UPLOADING');
+
+    try {
+      // 1. Upload the file first
+      setPipelineStage('UPLOADING');
+      const { data: uploadedDoc } = await pillarProfileService.uploadKycDocument(user.id, selectedDocType, file);
+      if (uploadedDoc) {
+        setKycDocs(prev => [uploadedDoc, ...prev]);
       }
+
+      // 2. Read file as base64 for OCR
+      setPipelineStage('PREPROCESSING');
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // 3. Send to server-side OCR pipeline
+      setPipelineStage('OCR_PROCESSING');
+      const ocrRes = await fetch('/api/ai/process-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document: base64,
+          documentCategory: selectedDocType === 'skill_certificate' ? 'skill_certificate' : 'identity',
+          expectedDocumentType: selectedDocType,
+          pillarProfile: {
+            id: user.id,
+            full_name: profile?.full_name || formData.fullName,
+            dob: profile?.dob,
+            mobile: profile?.mobile || formData.mobile,
+            main_services: profile?.main_services || formData.mainService
+          }
+        })
+      });
+
+      const ocrData = await ocrRes.json();
+
+      if (ocrData.success) {
+        setPipelineStage('COMPLETE');
+        setOcrResult(ocrData);
+        setOcrError(null);
+      } else {
+        setPipelineStage('FAILED');
+        setOcrError(ocrData.error || 'OCR extraction failed');
+        setOcrResult(null);
+      }
+    } catch (err) {
+      setPipelineStage('FAILED');
+      setOcrError(err.message || 'Document processing failed');
+      setOcrResult(null);
+    } finally {
       setUploadingKyc(false);
+      setOcrProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    }, 1500);
+    }
   };
 
   // Bank account details state
@@ -422,10 +479,10 @@ export default function ProfilePage() {
             </div>
             <div className="card-body">
               <p style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)", marginBottom: "var(--space-4)" }}>
-                Upload official documents to maintain your "Verified Pillar" badge.
+                Upload official documents to maintain your "Verified Pillar" badge. Documents are processed with real OCR extraction.
               </p>
               
-              <div style={{ display: "flex", gap: "var(--space-4)", marginBottom: "var(--space-6)" }}>
+              <div style={{ display: "flex", gap: "var(--space-4)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
                 <select 
                   className="form-input" 
                   value={selectedDocType} 
@@ -434,8 +491,8 @@ export default function ProfilePage() {
                 >
                   <option value="aadhaar">Aadhaar Card</option>
                   <option value="pan">PAN Card</option>
+                  <option value="voter_id">Voter ID</option>
                   <option value="skill_certificate">Skill Certificate</option>
-                  <option value="police_clearance">Police Clearance</option>
                 </select>
                 
                 <input 
@@ -448,14 +505,174 @@ export default function ProfilePage() {
                 <button 
                   className="btn btn-outline" 
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingKyc}
+                  disabled={uploadingKyc || ocrProcessing}
                   style={{ display: "flex", alignItems: "center", gap: "8px" }}
                 >
-                  {uploadingKyc ? <Loader2 size={16} className="spinner" /> : <UploadCloud size={16} />} 
-                  {uploadingKyc ? "Uploading..." : "Upload Document"}
+                  {(uploadingKyc || ocrProcessing) ? <Loader2 size={16} className="spinner" /> : <UploadCloud size={16} />} 
+                  {uploadingKyc ? "Processing..." : "Upload & Extract"}
                 </button>
               </div>
 
+              {/* Pipeline Processing Status */}
+              {pipelineStage && pipelineStage !== 'COMPLETE' && pipelineStage !== 'FAILED' && (
+                <div style={{ 
+                  padding: "var(--space-4)", 
+                  background: "rgba(245, 124, 32, 0.08)", 
+                  border: "1px solid rgba(245, 124, 32, 0.3)", 
+                  borderRadius: "var(--radius-md)", 
+                  marginBottom: "var(--space-4)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px"
+                }}>
+                  <Loader2 size={18} className="spinner" style={{ color: "#FF7900" }} />
+                  <div>
+                    <div style={{ fontWeight: "700", fontSize: "0.85rem", color: "var(--color-text)" }}>
+                      {pipelineStage === 'UPLOADING' && 'Uploading document...'}
+                      {pipelineStage === 'PREPROCESSING' && 'Preprocessing image (grayscale, contrast, sharpen)...'}
+                      {pipelineStage === 'OCR_PROCESSING' && 'Running OCR text extraction...'}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginTop: "2px" }}>
+                      Server-side processing with image optimization for best accuracy
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* OCR Error Display */}
+              {ocrError && (
+                <div style={{ 
+                  padding: "var(--space-4)", 
+                  background: "rgba(239, 68, 68, 0.08)", 
+                  border: "1px solid rgba(239, 68, 68, 0.3)", 
+                  borderRadius: "var(--radius-md)", 
+                  marginBottom: "var(--space-4)"
+                }}>
+                  <div style={{ fontWeight: "700", fontSize: "0.85rem", color: "#EF4444", marginBottom: "4px" }}>
+                    ⚠️ Document Extraction Failed
+                  </div>
+                  <div style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>
+                    {ocrError}
+                  </div>
+                </div>
+              )}
+
+              {/* OCR Success Result Display */}
+              {ocrResult && ocrResult.success && (
+                <div style={{ 
+                  border: "1px solid rgba(16, 185, 129, 0.3)", 
+                  borderRadius: "var(--radius-lg)", 
+                  overflow: "hidden",
+                  marginBottom: "var(--space-4)"
+                }}>
+                  {/* Header */}
+                  <div style={{ 
+                    padding: "12px 16px", 
+                    background: "rgba(16, 185, 129, 0.08)", 
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "center" 
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <CheckCircle2 size={16} color="#10B981" />
+                      <span style={{ fontWeight: "700", fontSize: "0.85rem", color: "#10B981" }}>
+                        OCR Extraction Complete
+                      </span>
+                    </div>
+                    <span style={{ 
+                      padding: "2px 8px", 
+                      borderRadius: "8px", 
+                      fontSize: "0.72rem", 
+                      fontWeight: "800",
+                      background: ocrResult.ocr?.confidence >= 70 ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                      color: ocrResult.ocr?.confidence >= 70 ? "#10B981" : "#F59E0B"
+                    }}>
+                      Confidence: {ocrResult.ocr?.confidence || 0}%
+                    </span>
+                  </div>
+
+                  {/* Extracted Fields */}
+                  <div style={{ padding: "14px 16px" }}>
+                    <div style={{ fontSize: "0.72rem", fontWeight: "700", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
+                      Extracted Fields
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                      {ocrResult.fields?.name && (
+                        <div style={{ fontSize: "0.82rem" }}>
+                          <span style={{ color: "var(--color-text-muted)" }}>Name: </span>
+                          <strong>{ocrResult.fields.name}</strong>
+                        </div>
+                      )}
+                      {ocrResult.fields?.documentNumberMasked && (
+                        <div style={{ fontSize: "0.82rem" }}>
+                          <span style={{ color: "var(--color-text-muted)" }}>Doc No: </span>
+                          <strong style={{ fontFamily: "monospace" }}>{ocrResult.fields.documentNumberMasked}</strong>
+                        </div>
+                      )}
+                      {ocrResult.fields?.dateOfBirth && (
+                        <div style={{ fontSize: "0.82rem" }}>
+                          <span style={{ color: "var(--color-text-muted)" }}>DOB: </span>
+                          <strong>{ocrResult.fields.dateOfBirth}</strong>
+                        </div>
+                      )}
+                      {ocrResult.fields?.gender && (
+                        <div style={{ fontSize: "0.82rem" }}>
+                          <span style={{ color: "var(--color-text-muted)" }}>Gender: </span>
+                          <strong>{ocrResult.fields.gender}</strong>
+                        </div>
+                      )}
+                      {ocrResult.documentType && (
+                        <div style={{ fontSize: "0.82rem" }}>
+                          <span style={{ color: "var(--color-text-muted)" }}>Type: </span>
+                          <strong style={{ textTransform: "capitalize" }}>{ocrResult.documentType.replace('_', ' ')}</strong>
+                        </div>
+                      )}
+                    </div>
+                    {ocrResult.fields?.address && (
+                      <div style={{ fontSize: "0.82rem", marginTop: "6px" }}>
+                        <span style={{ color: "var(--color-text-muted)" }}>Address: </span>
+                        <span>{ocrResult.fields.address}</span>
+                      </div>
+                    )}
+
+                    {/* Raw OCR Text (collapsible) */}
+                    <details style={{ marginTop: "10px" }}>
+                      <summary style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--color-text-muted)", cursor: "pointer" }}>
+                        View Raw OCR Text ({ocrResult.ocr?.cleanText?.length || 0} chars)
+                      </summary>
+                      <pre style={{ 
+                        fontSize: "0.72rem", 
+                        background: "var(--color-surface-hover)", 
+                        padding: "8px", 
+                        borderRadius: "6px", 
+                        marginTop: "6px",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        maxHeight: "120px",
+                        overflow: "auto",
+                        color: "var(--color-text-secondary)"
+                      }}>
+                        {ocrResult.ocr?.cleanText || ocrResult.ocr?.rawText || 'No text'}
+                      </pre>
+                    </details>
+                  </div>
+
+                  {/* Validation Status */}
+                  <div style={{ 
+                    padding: "8px 16px", 
+                    borderTop: "1px solid var(--color-border-light)",
+                    fontSize: "0.75rem",
+                    color: "var(--color-text-secondary)",
+                    display: "flex",
+                    justifyContent: "space-between"
+                  }}>
+                    <span>Engine: {ocrResult.ocr?.engine || 'Tesseract.js'}</span>
+                    <span>Processing: {ocrResult.processingTimeMs || 0}ms</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Uploaded Documents List */}
               {kycDocs.length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
                   <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--color-text-muted)" }}>UPLOADED DOCUMENTS</div>
@@ -464,11 +681,11 @@ export default function ProfilePage() {
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <FileText size={18} color="var(--color-text-muted)" />
                         <span style={{ fontSize: "var(--font-size-sm)", fontWeight: "500", textTransform: "capitalize" }}>
-                          {doc.document_type.replace('_', ' ')}
+                          {(doc.document_type || 'document').replace('_', ' ')}
                         </span>
                       </div>
                       <span className={`badge ${doc.verification_status === 'verified' ? 'badge-success' : doc.verification_status === 'rejected' ? 'badge-error' : 'badge-warning'}`}>
-                        {doc.verification_status}
+                        {doc.verification_status || 'pending'}
                       </span>
                     </div>
                   ))}
