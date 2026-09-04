@@ -24,10 +24,10 @@ jobs:
         uses: actions/checkout@v4
 
       # Stage 2: Node Setup
-      - name: 2. Setup Node.js 20 LTS
+      - name: 2. Setup Node.js 22 LTS
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       # Stage 3: Dependency Installation
@@ -145,10 +145,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20 LTS
+      - name: Setup Node.js 22 LTS
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
