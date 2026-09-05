@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Wrench, Shield, Sparkles, UserPlus, LogIn, Lock } from 'lucide-react';
 import coopHubLogo from '../assets/branding/coop-hub-logo.png';
 import LanguageSelector from '../components/ui/LanguageSelector';
+import { useTranslation } from '../hooks/useTranslation';
 import { gsap3dEngine } from '../services/animation/gsap3dEngine';
 import gsap from 'gsap';
 
 export default function Landing() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const heroBadgeRef = useRef(null);
     const titleRef = useRef(null);
@@ -66,14 +68,14 @@ export default function Landing() {
                         className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold uppercase tracking-wider mb-4 shadow-inner"
                         style={{ transformStyle: 'preserve-3d' }}
                     >
-                        <Sparkles size={14} /> Unified Cooperative Service Ecosystem
+                        <Sparkles size={14} /> {t("Unified Cooperative Service Ecosystem")}
                     </div>
                     <div ref={titleRef}>
                         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-                            Select Your Portal to Get Started
+                            {t("Select Your Portal to Get Started")}
                         </h1>
                         <p className="text-navy-300 text-sm sm:text-base mt-3 max-w-xl mx-auto leading-relaxed">
-                            Dedicated authenticated portals designed for Customers, Certified Pillar Technicians, and Cooperative Administrators.
+                            {t("Dedicated authenticated portals designed for Customers, Certified Pillar Technicians, and Cooperative Administrators.")}
                         </p>
                     </div>
                 </div>
@@ -93,10 +95,10 @@ export default function Landing() {
                             <div className="w-14 h-14 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-md">
                                 <ShoppingBag size={28} />
                             </div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-orange-400">Consumers</span>
-                            <h2 className="text-xl font-bold text-white mt-1 mb-2">Customer Portal</h2>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-orange-400">{t("Consumers")}</span>
+                            <h2 className="text-xl font-bold text-white mt-1 mb-2">{t("Customer Portal")}</h2>
                             <p className="text-navy-300 text-xs leading-relaxed mb-6">
-                                Book verified home services with real-time GPS tracking, OTP arrival verification, extra charge approval, and AI assistance.
+                                {t("Book verified home services with real-time GPS tracking, OTP arrival verification, extra charge approval, and AI assistance.")}
                             </p>
                         </div>
 
@@ -107,7 +109,7 @@ export default function Landing() {
                                 className="gsap-3d-btn w-full py-3 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all"
                             >
                                 <LogIn size={15} />
-                                <span>Customer Login (Email / OTP)</span>
+                                <span>{t("Customer Login (Email / OTP)")}</span>
                             </button>
                             <button
                                 data-3d-btn
@@ -115,7 +117,7 @@ export default function Landing() {
                                 className="gsap-3d-btn w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-navy-200 hover:text-white border border-white/10 font-semibold text-xs flex items-center justify-center gap-2 transition-all"
                             >
                                 <UserPlus size={14} />
-                                <span>New Customer? Register</span>
+                                <span>{t("New Customer? Register")}</span>
                             </button>
                         </div>
                     </div>
@@ -129,10 +131,10 @@ export default function Landing() {
                             <div className="w-14 h-14 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-md">
                                 <Wrench size={28} />
                             </div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">Service Partners</span>
-                            <h2 className="text-xl font-bold text-white mt-1 mb-2">Pillar Portal</h2>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">{t("Service Partners")}</span>
+                            <h2 className="text-xl font-bold text-white mt-1 mb-2">{t("Pillar Portal")}</h2>
                             <p className="text-navy-300 text-xs leading-relaxed mb-6">
-                                Manage incoming bookings, verify doorstep OTP, chat with customers, request extra charges, and track cooperative earnings.
+                                {t("Manage incoming bookings, verify doorstep OTP, chat with customers, request extra charges, and track cooperative earnings.")}
                             </p>
                         </div>
 
@@ -143,7 +145,7 @@ export default function Landing() {
                                 className="gsap-3d-btn w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
                             >
                                 <LogIn size={15} />
-                                <span>Pillar Login (ID + OTP)</span>
+                                <span>{t("Pillar Login (ID + OTP)")}</span>
                             </button>
                             <button
                                 data-3d-btn
@@ -151,7 +153,7 @@ export default function Landing() {
                                 className="gsap-3d-btn w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-navy-200 hover:text-white border border-white/10 font-semibold text-xs flex items-center justify-center gap-2 transition-all"
                             >
                                 <UserPlus size={14} />
-                                <span>Register as a Pillar Partner</span>
+                                <span>{t("Register as a Pillar Partner")}</span>
                             </button>
                         </div>
                     </div>
@@ -165,10 +167,10 @@ export default function Landing() {
                             <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-navy-950 transition-all shadow-md">
                                 <Shield size={28} />
                             </div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Cooperative Authority</span>
-                            <h2 className="text-xl font-bold text-white mt-1 mb-2">Admin Portal</h2>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">{t("Cooperative Authority")}</span>
+                            <h2 className="text-xl font-bold text-white mt-1 mb-2">{t("Admin Portal")}</h2>
                             <p className="text-navy-300 text-xs leading-relaxed mb-6">
-                                Platform administration, verify and approve pillars, manage service catalogue, audit live orders, and inspect welfare finance.
+                                {t("Platform administration, verify and approve pillars, manage service catalogue, audit live orders, and inspect welfare finance.")}
                             </p>
                         </div>
 
@@ -179,10 +181,10 @@ export default function Landing() {
                                 className="gsap-3d-btn w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-navy-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
                             >
                                 <Lock size={15} />
-                                <span>Admin Login (ID + OTP)</span>
+                                <span>{t("Admin Login (ID + OTP)")}</span>
                             </button>
                             <div className="py-2.5 px-4 rounded-xl bg-black/30 border border-white/5 text-[11px] text-navy-400 text-center font-medium">
-                                🔒 Internal access only (No registration)
+                                🔒 {t("Internal access only (No registration)")}
                             </div>
                         </div>
                     </div>
@@ -191,7 +193,7 @@ export default function Landing() {
 
             {/* Footer */}
             <footer className="max-w-7xl mx-auto w-full px-6 py-6 text-center text-xs text-navy-400 relative z-10 border-t border-white/5">
-                © {new Date().getFullYear()} COOP HUB. Connect | Serve | Empower. All rights reserved.
+                © {new Date().getFullYear()} COOP HUB. {t("Connect | Serve | Empower. All rights reserved.")}
             </footer>
         </div>
     );

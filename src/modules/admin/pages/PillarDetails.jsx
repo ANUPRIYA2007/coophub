@@ -87,17 +87,21 @@ export default function PillarDetails() {
       if (docs && docs.length > 0) {
         const primaryDoc = docs[0];
         setOcrResult({
-          engine: primaryDoc.ocr_provider || 'NVIDIA Nemotron Parse',
+          engine: primaryDoc.ocr_provider || 'NVIDIA Vision / Nemotron AI',
           document_type: primaryDoc.document_type || data?.document_type || 'aadhaar',
           document_type_code: primaryDoc.document_type || data?.document_type || 'aadhaar',
           extracted_name: primaryDoc.full_name || primaryDoc.extracted_data?.full_name || data?.full_name,
           extracted_dob: primaryDoc.date_of_birth || primaryDoc.extracted_data?.date_of_birth || data?.dob,
-          extracted_document_number: primaryDoc.document_number || primaryDoc.aadhaar_number || primaryDoc.pan_number || primaryDoc.voter_id_number || primaryDoc.driving_license_number || data?.document_number,
+          extracted_document_number: primaryDoc.document_number || primaryDoc.aadhaar_number || primaryDoc.pan_number || primaryDoc.voter_id_number || primaryDoc.driving_license_number || primaryDoc.passport_number || primaryDoc.ration_card_number || primaryDoc.registration_number || primaryDoc.certificate_number || data?.document_number,
           extracted_address: primaryDoc.address || primaryDoc.extracted_data?.address,
-          father_name: primaryDoc.father_name || primaryDoc.guardian_name || primaryDoc.extracted_data?.father_name,
+          father_name: primaryDoc.father_name || primaryDoc.guardian_name || primaryDoc.extracted_data?.father_name || primaryDoc.extracted_data?.care_of,
           vehicle_classes: primaryDoc.vehicle_classes || primaryDoc.extracted_data?.vehicle_classes,
+          trade: primaryDoc.trade || primaryDoc.extracted_data?.trade || primaryDoc.extracted_data?.skill,
+          expiry_date: primaryDoc.expiry_date || primaryDoc.extracted_data?.expiry_date,
+          district: primaryDoc.district || primaryDoc.extracted_data?.district,
+          issuing_authority: primaryDoc.issuing_authority || primaryDoc.extracted_data?.issuing_authority || primaryDoc.extracted_data?.issuer,
           raw_text_snippet: primaryDoc.ocr_raw_text,
-          confidence_score: primaryDoc.verification_score || 0.98,
+          confidence_score: primaryDoc.verification_score || 0.95,
           bounding_boxes: primaryDoc.extracted_data?.bounding_boxes || []
         });
 

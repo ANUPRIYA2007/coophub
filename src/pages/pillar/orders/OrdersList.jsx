@@ -115,11 +115,11 @@ export default function OrdersList() {
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
               title="Back to Pillar Dashboard Home"
             >
-              <ArrowLeft size={14} /> Back to Dashboard
+              <ArrowLeft size={14} /> {t("Back to Dashboard")}
             </button>
           </div>
           <h1 className="page-title">{t("orders.title")}</h1>
-          <p className="page-subtitle">Manage customer bookings, dispatch transit, and record completion</p>
+          <p className="page-subtitle">{t("Manage customer bookings, dispatch transit, and record completion")}</p>
         </div>
       </div>
 
@@ -149,84 +149,11 @@ export default function OrdersList() {
         ))}
       </div>
 
-      {/* 🚨 High-Priority Emergency Order Queue */}
-      {orders.some(o => (o.is_emergency || o.priority_level === 'EMERGENCY') && o.status === 'pending') && (
-        <div style={{ marginBottom: "var(--space-4)" }}>
-          {orders.filter(o => (o.is_emergency || o.priority_level === 'EMERGENCY') && o.status === 'pending').map(em => (
-            <div 
-              key={em.id} 
-              style={{
-                background: "rgba(239, 68, 68, 0.08)",
-                border: "2px solid #EF4444",
-                borderRadius: "var(--radius-lg)",
-                padding: "20px",
-                boxShadow: "0 6px 20px rgba(239, 68, 68, 0.25)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-                marginBottom: "12px"
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{ background: "#EF4444", color: "white", padding: "8px", borderRadius: "10px" }}>
-                    <Zap size={20} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: "0.75rem", fontWeight: "900", color: "#EF4444", textTransform: "uppercase", letterSpacing: "1px" }}>
-                      🚨 High-Priority Emergency Dispatch Offer (90s Window)
-                    </span>
-                    <h3 style={{ fontSize: "1.15rem", fontWeight: "900", color: "var(--color-text)", margin: "2px 0 0" }}>
-                      {em.service_name} • Order #{em.booking_code || em.id.slice(0, 8)}
-                    </h3>
-                  </div>
-                </div>
-                <span style={{ background: "#EF4444", color: "white", padding: "4px 12px", borderRadius: "20px", fontSize: "0.78rem", fontWeight: "900" }}>
-                  URGENT RESPONSE
-                </span>
-              </div>
-
-              <div style={{ background: "var(--color-surface)", padding: "12px", borderRadius: "8px", border: "1px solid var(--color-border)", fontSize: "0.85rem" }}>
-                <strong>Reported Emergency Hazard:</strong> {em.emergency_reason || em.customer_description || "Urgent on-site assistance requested."}
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-                <div style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>
-                  📍 {em.service_address || em.address_line || "Chennai"} • Distance: <strong>{em.distance_km || "1.8"} km</strong> • ETA: <strong>10 mins (ESTIMATED)</strong>
-                </div>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button
-                    onClick={async () => {
-                      await emergencyDispatchService.declineEmergencyOffer(em.id, user?.id, "Pillar unavailable");
-                      fetchOrders();
-                    }}
-                    className="btn btn-outline"
-                    style={{ borderColor: "#64748B", color: "#64748B", fontWeight: "700" }}
-                  >
-                    Decline
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await emergencyDispatchService.acceptEmergencyOffer(em.id, user?.id);
-                      handleStatusChange(em.id, "accepted");
-                    }}
-                    className="btn btn-primary"
-                    style={{ background: "#EF4444", color: "white", fontWeight: "900", display: "flex", alignItems: "center", gap: "6px" }}
-                  >
-                    <Zap size={16} /> Accept Emergency & Mobilize
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Content */}
       {loading ? (
         <div className="loading-container">
           <Loader2 size={36} className="spinner" />
-          <p>Loading real-time bookings from Supabase...</p>
+          <p>{t("Loading real-time bookings from Supabase...")}</p>
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="card">
@@ -234,11 +161,11 @@ export default function OrdersList() {
             <div className="empty-state-icon">
               <ClipboardList size={36} />
             </div>
-            <h3 className="empty-state-title">No {t(`orders.${activeTab}`).toLowerCase()} orders</h3>
+            <h3 className="empty-state-title">{t("No active orders found in this category")}</h3>
             <p className="empty-state-text">
               {activeTab === "pending"
-                ? "New incoming customer bookings in your service area will appear here automatically."
-                : `You currently have no ${activeTab} jobs.`}
+                ? t("New incoming customer bookings in your service area will appear here automatically.")
+                : t(`You currently have no ${activeTab} jobs.`)}
             </p>
           </div>
         </div>
@@ -264,10 +191,10 @@ export default function OrdersList() {
                       {t(`orders.${order.status}`)}
                     </span>
                   </div>
-                  <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "600" }}>{order.service_name}</h3>
+                  <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "600" }}>{t(order.service_name)}</h3>
                   {order.sub_service_name && (
                     <p style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>
-                      {order.sub_service_name}
+                      {t(order.sub_service_name)}
                     </p>
                   )}
                   {order.attachments && order.attachments.length > 0 && (
@@ -292,7 +219,7 @@ export default function OrdersList() {
                         }}
                         title="Customer uploaded photos / documents — Click to view"
                       >
-                        📎 {order.attachments.length} {order.attachments.length === 1 ? "Photo/PDF" : "Photos/PDFs"} Attached
+                        📎 {order.attachments.length} {t("Attached")}
                       </span>
                     </div>
                   )}
@@ -320,7 +247,7 @@ export default function OrdersList() {
                     }}
                     title="View Full Order Details"
                   >
-                    <Eye size={13} /> View Details
+                    <Eye size={13} /> {t("View Details")}
                   </button>
                 </div>
               </div>
@@ -339,7 +266,7 @@ export default function OrdersList() {
 
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
                     <Calendar size={16} color="var(--color-text-muted)" />
-                    <span>{order.scheduled_date || "Today"}</span>
+                    <span>{order.scheduled_date || t("Today")}</span>
                     {order.scheduled_time && (
                       <>
                         <span style={{ margin: "0 8px", color: "var(--color-border)" }}>|</span>
@@ -368,7 +295,7 @@ export default function OrdersList() {
                         padding: 0
                       }}
                     >
-                      🗺️ {expandedMapOrderId === order.id ? "Hide Live Navigation Map" : "Preview Live Route & GPS"}
+                      🗺️ {expandedMapOrderId === order.id ? t("Hide Live Navigation Map") : t("Preview Live Route & GPS")}
                       {expandedMapOrderId === order.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </button>
 
@@ -386,8 +313,8 @@ export default function OrdersList() {
                             lat: Number(user.lat),
                             lng: Number(user.lng)
                           } : null}
-                          pillarName={user?.full_name || "You (Technician)"}
-                          pillarRole="Technician"
+                          pillarName={user?.full_name || t("You (Technician)")}
+                          pillarRole={t("Technician")}
                           height="220px"
                         />
                       </div>
@@ -443,7 +370,7 @@ export default function OrdersList() {
                       className="btn btn-outline btn-sm"
                       title="Open Directions in Google Maps"
                     >
-                      🗺️ Maps
+                      🗺️ {t("Maps")}
                     </a>
                     <button
                       className="btn btn-outline btn-sm"
@@ -461,7 +388,7 @@ export default function OrdersList() {
                       style={{ flex: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                       onClick={() => setSelectedBookingForOtp(order.id)}
                     >
-                      <MapPin size={16} /> {t("orders.markArrived")} (Enter OTP)
+                      <MapPin size={16} /> {t("orders.markArrived")} ({t("Enter OTP")})
                     </button>
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude || 13.3627904},${order.longitude || 80.134144}`}
@@ -471,7 +398,7 @@ export default function OrdersList() {
                       style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                       title="Open Directions in Google Maps"
                     >
-                      🗺️ Maps
+                      🗺️ {t("Maps")}
                     </a>
                   </div>
                 )}
@@ -483,14 +410,14 @@ export default function OrdersList() {
                       style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
                       onClick={() => setSelectedBookingForExtra(order.id)}
                     >
-                      <DollarSign size={16} /> + Extra
+                      <DollarSign size={16} /> + {t("Extra")}
                     </button>
                     <button
                       className="btn btn-success btn-sm"
                       style={{ flex: 2, fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                       onClick={() => setSelectedOrderForCompletion(order)}
                     >
-                      <Check size={16} /> Complete & Finalize
+                      <Check size={16} /> {t("Complete & Finalize")}
                     </button>
                   </div>
                 )}
@@ -502,7 +429,7 @@ export default function OrdersList() {
                       style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontWeight: "700", padding: "10px 16px" }}
                       onClick={() => setSelectedOrderForReceipt(order)}
                     >
-                      <Printer size={16} /> Generate & View Official Receipt
+                      <Printer size={16} /> {t("Generate & View Official Receipt")}
                     </button>
                   </div>
                 )}

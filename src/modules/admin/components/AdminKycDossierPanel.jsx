@@ -43,7 +43,12 @@ export default function AdminKycDossierPanel({
       document_type: docType,
       document_number: docNumber,
       full_name: ocrResult?.extracted_name || pillar?.full_name,
-      date_of_birth: ocrResult?.extracted_dob || pillar?.dob
+      date_of_birth: ocrResult?.extracted_dob || pillar?.dob,
+      address: ocrResult?.extracted_address || primaryDoc.address,
+      expiry_date: ocrResult?.expiry_date || primaryDoc.expiry_date,
+      trade: ocrResult?.trade || primaryDoc.trade,
+      father_name: ocrResult?.father_name || primaryDoc.father_name || primaryDoc.guardian_name,
+      vehicle_classes: ocrResult?.vehicle_classes || primaryDoc.vehicle_classes
     },
     pillar || {}
   );

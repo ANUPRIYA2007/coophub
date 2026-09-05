@@ -106,6 +106,18 @@ export const documentValidationService = {
     if (docType.includes('driving') || docType.includes('license') || docType.includes('licence') || docType.includes('dl')) {
       return this.validateDrivingLicense(extractedData, pillarProfile);
     }
+    if (docType.includes('passport')) {
+      return this.validatePassport(extractedData, pillarProfile);
+    }
+    if (docType.includes('ration') || docType.includes('family_card') || docType.includes('tnepds')) {
+      return this.validateRationCard(extractedData, pillarProfile);
+    }
+    if (docType.includes('labour') || docType.includes('welfare') || docType.includes('tncwwb')) {
+      return this.validateLabourCard(extractedData, pillarProfile);
+    }
+    if (docType.includes('skill') || docType.includes('cert') || docType.includes('iti') || docType.includes('nsdc') || docType.includes('diploma') || docType.includes('trade_license') || docType.includes('experience')) {
+      return this.validateSkillCertificate(extractedData, pillarProfile);
+    }
 
     return this.validateGeneral(extractedData, pillarProfile);
   },
@@ -361,7 +373,225 @@ export const documentValidationService = {
   },
 
   /**
-   * General / Skill Certificate fallback validation
+   * Passport-specific validation
+   */
+  validatePassport(extractedData = {}, pillarProfile = {}) {
+    const mismatches = [];
+    const missingFields = [];
+    const warnings = [];
+
+    const passportNum = normalizeDocNumber(extractedData.document_number || extractedData.passport_number || '');
+    if (!passportNum) {
+      missingFields.push('passport_number');
+    } else if (!/^[A-Z][0-9]{7,8}$/.test(passportNum)) {
+      mismatches.push({
+        field: 'passport_number',
+        extracted: passportNum,
+        severity: 'HIGH',
+        message: `Passport number (${passportNum}) does not match standard 1 letter + 7-8 digits format.`
+      });
+    }
+
+    const submittedName = pillarProfile.full_name || pillarProfile.fullName || '';
+    const extractedName = extractedData.full_name || '';
+    if (!extractedName) {
+      missingFields.push('full_name');
+    } else if (submittedName) {
+      const nameScore = calculateNameSimilarity(submittedName, extractedName);
+      if (nameScore < 0.5) {
+        mismatches.push({
+          field: 'full_name',
+          submitted: submittedName,
+          extracted: extractedName,
+          severity: 'HIGH',
+          message: `Passport name "${extractedName}" does not match registered profile "${submittedName}".`
+        });
+      }
+    }
+
+    // Expiry check
+    if (extractedData.expiry_date) {
+      const exp = new Date(extractedData.expiry_date);
+      if (!isNaN(exp.getTime()) && exp.getTime() < Date.now()) {
+        mismatches.push({
+          field: 'expiry_date',
+          extracted: extractedData.expiry_date,
+          severity: 'HIGH',
+          message: `Passport expired on ${extractedData.expiry_date}. Current valid passport is required.`
+        });
+      }
+    }
+
+    // DOB check
+    const submittedDob = normalizeDate(pillarProfile.dob || pillarProfile.date_of_birth || '');
+    const extractedDob = normalizeDate(extractedData.date_of_birth || '');
+    if (submittedDob && extractedDob && submittedDob !== extractedDob && !submittedDob.includes(extractedDob)) {
+      mismatches.push({
+        field: 'date_of_birth',
+        submitted: submittedDob,
+        extracted: extractedDob,
+        severity: 'MEDIUM',
+        message: `Date of Birth differs: Submitted ${submittedDob} vs Passport ${extractedDob}.`
+      });
+    }
+
+    return this.assembleScoreAndClassification({
+      docType: 'passport',
+      mismatches,
+      missingFields,
+      warnings,
+      normalizedFields: {
+        name: normalizeName(extractedName),
+        document_number: passportNum,
+        dob: extractedDob,
+        expiry_date: extractedData.expiry_date || null
+      },
+      baseConfidence: extractedData.confidence || 0.96
+    });
+  },
+
+  /**
+   * Smart Ration Card-specific validation
+   */
+  validateRationCard(extractedData = {}, pillarProfile = {}) {
+    const mismatches = [];
+    const missingFields = [];
+    const warnings = [];
+
+    const rationNum = normalizeDocNumber(extractedData.document_number || extractedData.ration_card_number || '');
+    if (!rationNum) {
+      missingFields.push('ration_card_number');
+    } else if (rationNum.length < 8) {
+      mismatches.push({
+        field: 'ration_card_number',
+        extracted: rationNum,
+        severity: 'HIGH',
+        message: `Ration card number (${rationNum}) is too short.`
+      });
+    }
+
+    const submittedName = pillarProfile.full_name || pillarProfile.fullName || '';
+    const extractedName = extractedData.full_name || extractedData.family_head_name || '';
+    if (!extractedName) {
+      missingFields.push('full_name');
+    } else if (submittedName) {
+      const nameScore = calculateNameSimilarity(submittedName, extractedName);
+      if (nameScore < 0.5) {
+        mismatches.push({
+          field: 'full_name',
+          submitted: submittedName,
+          extracted: extractedName,
+          severity: 'HIGH',
+          message: `Ration card name "${extractedName}" does not align with registered name "${submittedName}".`
+        });
+      }
+    }
+
+    return this.assembleScoreAndClassification({
+      docType: 'ration_card',
+      mismatches,
+      missingFields,
+      warnings,
+      normalizedFields: {
+        name: normalizeName(extractedName),
+        document_number: rationNum,
+        address: extractedData.address || null
+      },
+      baseConfidence: extractedData.confidence || 0.92
+    });
+  },
+
+  /**
+   * Labour Welfare Board Card-specific validation
+   */
+  validateLabourCard(extractedData = {}, pillarProfile = {}) {
+    const mismatches = [];
+    const missingFields = [];
+    const warnings = [];
+
+    const regNum = normalizeDocNumber(extractedData.document_number || extractedData.registration_number || '');
+    if (!regNum) {
+      missingFields.push('registration_number');
+    }
+
+    const submittedName = pillarProfile.full_name || pillarProfile.fullName || '';
+    const extractedName = extractedData.full_name || extractedData.worker_name || '';
+    if (!extractedName) {
+      missingFields.push('full_name');
+    } else if (submittedName) {
+      const nameScore = calculateNameSimilarity(submittedName, extractedName);
+      if (nameScore < 0.5) {
+        mismatches.push({
+          field: 'full_name',
+          submitted: submittedName,
+          extracted: extractedName,
+          severity: 'HIGH',
+          message: `Labour card worker name "${extractedName}" does not match registered name "${submittedName}".`
+        });
+      }
+    }
+
+    return this.assembleScoreAndClassification({
+      docType: 'labour_card',
+      mismatches,
+      missingFields,
+      warnings,
+      normalizedFields: {
+        name: normalizeName(extractedName),
+        document_number: regNum,
+        trade: extractedData.trade || null
+      },
+      baseConfidence: extractedData.confidence || 0.94
+    });
+  },
+
+  /**
+   * Skill Certificate validation
+   */
+  validateSkillCertificate(extractedData = {}, pillarProfile = {}) {
+    const mismatches = [];
+    const missingFields = [];
+    const warnings = [];
+
+    const certNum = normalizeDocNumber(extractedData.document_number || extractedData.certificate_number || '');
+    if (!certNum) {
+      missingFields.push('certificate_number');
+    }
+
+    const submittedName = pillarProfile.full_name || pillarProfile.fullName || '';
+    const extractedName = extractedData.worker_name || extractedData.full_name || '';
+    if (!extractedName) {
+      missingFields.push('full_name');
+    } else if (submittedName) {
+      const nameScore = calculateNameSimilarity(submittedName, extractedName);
+      if (nameScore < 0.5) {
+        mismatches.push({
+          field: 'full_name',
+          submitted: submittedName,
+          extracted: extractedName,
+          severity: 'HIGH',
+          message: `Certificate name "${extractedName}" does not align with registered name "${submittedName}".`
+        });
+      }
+    }
+
+    return this.assembleScoreAndClassification({
+      docType: 'skill_certificate',
+      mismatches,
+      missingFields,
+      warnings,
+      normalizedFields: {
+        name: normalizeName(extractedName),
+        document_number: certNum,
+        trade: extractedData.skill || extractedData.trade || null,
+        issuing_organization: extractedData.issuing_organization || extractedData.issuer || null
+      },
+      baseConfidence: extractedData.confidence || 0.95
+    });
+  },
+
+  /**
+   * General / Other Government ID fallback validation
    */
   validateGeneral(extractedData = {}, pillarProfile = {}) {
     const mismatches = [];

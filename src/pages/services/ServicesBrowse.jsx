@@ -18,8 +18,8 @@ export default function ServicesBrowse() {
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            <h1 className="text-2xl font-bold text-navy-800 mb-1">{t('navigation.find_services') || 'Find Services'}</h1>
-            <p className="text-sm text-navy-400 mb-6">{t('home.all_services') || 'Browse available services in your area'}</p>
+            <h1 className="text-2xl font-bold text-navy-800 mb-1">{t('Find Services')}</h1>
+            <p className="text-sm text-navy-400 mb-6">{t('Browse available services in your area')}</p>
 
             {/* Search */}
             <div className="relative max-w-xl mb-8">
@@ -33,7 +33,7 @@ export default function ServicesBrowse() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="block w-full pl-12 pr-4 py-3 bg-white border border-navy-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm text-navy-800 placeholder:text-navy-300"
-                    placeholder={t('home.search_placeholder') || 'Search services...'}
+                    placeholder={t('Search services, workers...')}
                 />
             </div>
 

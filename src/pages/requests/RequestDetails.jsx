@@ -230,14 +230,14 @@ export default function RequestDetails() {
 
     const statusBadge = (status) => {
         switch (status) {
-            case 'pending': return { text: 'Searching for Pillar', bg: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-            case 'accepted': case 'assigned': return { text: 'Pillar Assigned', bg: 'bg-blue-100 text-blue-800 border-blue-200' };
-            case 'on_the_way': return { text: 'Pillar En Route', bg: 'bg-orange-100 text-orange-800 border-orange-200' };
-            case 'arrived': return { text: 'Pillar Arrived', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
-            case 'in_progress': return { text: 'Service in Progress', bg: 'bg-purple-100 text-purple-800 border-purple-200' };
-            case 'completed': return { text: 'Service Completed', bg: 'bg-green-100 text-green-800 border-green-200' };
-            case 'cancelled': return { text: 'Cancelled', bg: 'bg-red-100 text-red-800 border-red-200' };
-            default: return { text: status.replace(/_/g, ' '), bg: 'bg-navy-100 text-navy-800 border-navy-200' };
+            case 'pending': return { text: t('Searching for Pillar'), bg: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+            case 'accepted': case 'assigned': return { text: t('Pillar Assigned'), bg: 'bg-blue-100 text-blue-800 border-blue-200' };
+            case 'on_the_way': return { text: t('Pillar En Route'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
+            case 'arrived': return { text: t('Pillar Arrived'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+            case 'in_progress': return { text: t('Service in Progress'), bg: 'bg-purple-100 text-purple-800 border-purple-200' };
+            case 'completed': return { text: t('Service Completed'), bg: 'bg-green-100 text-green-800 border-green-200' };
+            case 'cancelled': return { text: t('Cancelled'), bg: 'bg-red-100 text-red-800 border-red-200' };
+            default: return { text: t(status.replace(/_/g, ' ')), bg: 'bg-navy-100 text-navy-800 border-navy-200' };
         }
     };
 
@@ -254,7 +254,7 @@ export default function RequestDetails() {
                             <ArrowLeft size={20} />
                         </button>
                         <div>
-                            <h1 className="font-bold text-navy-900 text-base leading-tight">Request Tracker</h1>
+                            <h1 className="font-bold text-navy-900 text-base leading-tight">{t('Request Tracker')}</h1>
                             <p className="text-[11px] font-mono text-navy-400">ID: {requestData.id.split('-')[0]}</p>
                         </div>
                     </div>
@@ -279,21 +279,21 @@ export default function RequestDetails() {
                                 </div>
                                 <div>
                                     <span className="text-base sm:text-lg text-white font-bold block">
-                                        {requestData.status === 'arrived' ? "🎉 Technician Arrived at Doorstep!" : "🔐 Secure Arrival Verification PIN"}
+                                        {requestData.status === 'arrived' ? `🎉 ${t("Technician Arrived at Doorstep!")}` : `🔐 ${t("Secure Arrival Verification PIN")}`}
                                     </span>
                                     <span className="text-[11px] text-orange-300 font-normal">
-                                        {requestData.status === 'arrived' ? "Share this PIN with Pillar to start job" : "Provide this code to technician upon arrival"}
+                                        {requestData.status === 'arrived' ? t("Share this PIN with Pillar to start job") : t("Provide this code to technician upon arrival")}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
                         <p className="text-xs text-navy-200 mb-4 max-w-md">
-                            For your safety and proof of service, our cooperative system requires this 6-digit PIN before the technician can start the work timer.
+                            {t("For your safety and proof of service, our cooperative system requires this 6-digit PIN before the technician can start the work timer.")}
                         </p>
 
                         <div className="flex items-center space-x-4 bg-black/60 border border-white/15 px-6 py-3.5 rounded-2xl w-fit shadow-inner">
-                            <span className="text-xs text-navy-400 font-bold uppercase tracking-wider">Arrival PIN:</span>
+                            <span className="text-xs text-navy-400 font-bold uppercase tracking-wider">{t("Arrival PIN")}:</span>
                             <span className="font-mono text-3xl sm:text-4xl font-extrabold tracking-widest text-orange-400 select-all">
                                 {displayOtp}
                             </span>
@@ -316,19 +316,19 @@ export default function RequestDetails() {
                                 </div>
                                 <div>
                                     <div className="flex items-center space-x-2">
-                                        <h3 className="font-bold text-navy-900 text-lg leading-tight">{pillar.full_name || "Coop Technician"}</h3>
+                                        <h3 className="font-bold text-navy-900 text-lg leading-tight">{pillar.full_name || t("Coop Technician")}</h3>
                                         <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                                            <ShieldCheck size={12} /> Verified
+                                            <ShieldCheck size={12} /> {t("Verified")}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-navy-500 font-medium">{pillar.role || "Certified Cooperative Technician"}</p>
+                                    <p className="text-xs text-navy-500 font-medium">{t(pillar.role || "Certified Cooperative Technician")}</p>
                                     <div className="flex items-center space-x-2 mt-1 text-xs text-navy-600">
                                         <span className="flex items-center text-amber-500 font-bold">
                                             <Star size={13} className="fill-amber-400 text-amber-400 mr-1" />
                                             {pillar.rating || 5.0}
                                         </span>
                                         <span className="text-navy-300">•</span>
-                                        <span className="text-navy-500">Cooperative Verified</span>
+                                        <span className="text-navy-500">{t("Cooperative Verified")}</span>
                                     </div>
                                 </div>
                             </div>
@@ -341,7 +341,7 @@ export default function RequestDetails() {
                                 className="flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold transition-all shadow-xs"
                             >
                                 <MessageSquare size={16} />
-                                <span>Message Pillar</span>
+                                <span>{t("Message Pillar")}</span>
                             </button>
 
                             <button

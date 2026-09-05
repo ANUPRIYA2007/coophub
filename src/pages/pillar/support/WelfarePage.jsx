@@ -7,6 +7,7 @@
 // ==============================================================================
 
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "../../../i18n/useTranslation";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { welfareService } from "../../../modules/admin/services/welfareService";
@@ -23,6 +24,7 @@ import {
 export default function WelfarePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const pillarId = user?.id || "p-1";
 
   const [loading, setLoading] = useState(true);
@@ -142,20 +144,20 @@ export default function WelfarePage() {
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
               title="Back to Pillar Dashboard Home"
             >
-              <ArrowLeft size={14} /> Back to Dashboard
+              <ArrowLeft size={14} /> {t("Back to Dashboard")}
             </button>
             <span style={{ 
               background: "rgba(255, 121, 0, 0.15)", color: "var(--color-secondary)", 
               fontSize: "0.75rem", fontWeight: "800", padding: "2px 8px", borderRadius: "6px", letterSpacing: "0.5px" 
             }}>
-              PILLAR SOCIAL SECURITY
+              {t("PILLAR SOCIAL SECURITY")}
             </span>
           </div>
           <h1 className="page-title" style={{ margin: 0, fontSize: "1.65rem", fontWeight: "800" }}>
-            Welfare & Insurance
+            {t("Welfare & Insurance")}
           </h1>
           <p className="page-subtitle" style={{ margin: "4px 0 0 0", fontSize: "0.9rem", color: "var(--color-text-secondary)" }}>
-            Your cooperative provident fund savings, group health shield, claims tracker, and government social schemes.
+            {t("Your cooperative provident fund savings, group health shield, claims tracker, and government social schemes.")}
           </p>
         </div>
 
@@ -165,7 +167,7 @@ export default function WelfarePage() {
           className="btn btn-outline btn-sm" 
           style={{ display: "flex", alignItems: "center", gap: "6px" }}
         >
-          <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
+          <RefreshCw size={14} className={loading ? "spin" : ""} /> {t("Refresh")}
         </button>
       </div>
 
@@ -176,7 +178,7 @@ export default function WelfarePage() {
           display: "flex", justifyContent: "space-between", alignItems: "center"
         }}>
           <span style={{ color: "#EF4444", fontSize: "0.88rem", fontWeight: "600" }}>{error}</span>
-          <button onClick={loadPillarWelfareData} className="btn btn-sm btn-primary">Retry</button>
+          <button onClick={loadPillarWelfareData} className="btn btn-sm btn-primary">{t("Retry")}</button>
         </div>
       )}
 
@@ -193,7 +195,7 @@ export default function WelfarePage() {
         <div className="card" style={{ padding: "var(--space-4)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
             <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--color-text-secondary)", textTransform: "uppercase" }}>
-              PF Balance
+              {t("PF Balance")}
             </span>
             <div style={{ background: "rgba(16, 185, 129, 0.15)", padding: "6px", borderRadius: "8px" }}>
               <Landmark size={16} color="#10B981" />

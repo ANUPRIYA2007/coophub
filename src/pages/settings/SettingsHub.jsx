@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
+import { SUPPORTED_LANGUAGES } from '../../i18n/languages';
 import { supabase } from '../../lib/supabase';
 
 export default function SettingsHub() {
@@ -15,14 +16,10 @@ export default function SettingsHub() {
         promotions: false
     });
 
-    // Abstracted Language Options natively matching system arrays
-    const languageOptions = [
-        { code: 'en', label: 'English' },
-        { code: 'hi', label: 'हिंदी' },
-        { code: 'ta', label: 'தமிழ்' },
-        { code: 'te', label: 'తెలుగు' },
-        { code: 'kn', label: 'ಕನ್ನಡ' }
-    ];
+    const languageOptions = SUPPORTED_LANGUAGES.map((l) => ({
+        code: l.code,
+        label: `${l.nativeName} (${l.name})`
+    }));
 
     useEffect(() => {
         const fetchPreferences = async () => {
@@ -91,7 +88,7 @@ export default function SettingsHub() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </button>
-                    <h1 className="font-bold text-navy-800 text-lg">{t('navigation.settings') || 'Settings'}</h1>
+                    <h1 className="font-bold text-navy-800 text-lg">{t('Settings')}</h1>
                 </header>
 
                 {/* Section 1: Language */}
@@ -99,7 +96,7 @@ export default function SettingsHub() {
                     <div className="p-5 border-b border-navy-50 bg-navy-50/50">
                         <h2 className="font-semibold text-navy-900 text-lg flex items-center">
                             <svg className="w-5 h-5 mr-2 text-navy-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
-                            App Language
+                            {t('App Language')}
                         </h2>
                     </div>
                     <div className="p-5">
@@ -122,14 +119,14 @@ export default function SettingsHub() {
                     <div className="p-5 border-b border-navy-50 bg-navy-50/50">
                         <h2 className="font-semibold text-navy-900 text-lg flex items-center">
                             <svg className="w-5 h-5 mr-2 text-navy-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                            Notification Preferences
+                            {t('Notification Preferences')}
                         </h2>
                     </div>
                     <div className="divide-y divide-navy-50">
                         <label className="flex items-center justify-between p-5 cursor-pointer hover:bg-navy-50 transition-colors">
                             <div>
-                                <h3 className="font-medium text-navy-800">Request Updates</h3>
-                                <p className="text-xs text-navy-500 mt-0.5">Receive alerts when status changes</p>
+                                <h3 className="font-medium text-navy-800">{t('Request Updates')}</h3>
+                                <p className="text-xs text-navy-500 mt-0.5">{t('Receive alerts when status changes')}</p>
                             </div>
                             <div className={`w-12 h-6 rounded-full transition-colors p-1 flex ${prefs.request_updates ? 'bg-orange-500 justify-end' : 'bg-navy-200 justify-start'}`}>
                                 <input type="checkbox" className="hidden" checked={prefs.request_updates} onChange={() => handleToggle('request_updates')} />
@@ -138,8 +135,8 @@ export default function SettingsHub() {
                         </label>
                         <label className="flex items-center justify-between p-5 cursor-pointer hover:bg-navy-50 transition-colors">
                             <div>
-                                <h3 className="font-medium text-navy-800">Pillar Messages</h3>
-                                <p className="text-xs text-navy-500 mt-0.5">Alerts for unread chat messages</p>
+                                <h3 className="font-medium text-navy-800">{t('Pillar Messages')}</h3>
+                                <p className="text-xs text-navy-500 mt-0.5">{t('Alerts for unread chat messages')}</p>
                             </div>
                             <div className={`w-12 h-6 rounded-full transition-colors p-1 flex ${prefs.messages ? 'bg-orange-500 justify-end' : 'bg-navy-200 justify-start'}`}>
                                 <input type="checkbox" className="hidden" checked={prefs.messages} onChange={() => handleToggle('messages')} />
@@ -148,8 +145,8 @@ export default function SettingsHub() {
                         </label>
                         <label className="flex items-center justify-between p-5 cursor-pointer hover:bg-navy-50 transition-colors">
                             <div>
-                                <h3 className="font-medium text-navy-800">Platform Promotions</h3>
-                                <p className="text-xs text-navy-500 mt-0.5">Discount codes and seasonal alerts</p>
+                                <h3 className="font-medium text-navy-800">{t('Platform Promotions')}</h3>
+                                <p className="text-xs text-navy-500 mt-0.5">{t('Discount codes and seasonal alerts')}</p>
                             </div>
                             <div className={`w-12 h-6 rounded-full transition-colors p-1 flex ${prefs.promotions ? 'bg-orange-500 justify-end' : 'bg-navy-200 justify-start'}`}>
                                 <input type="checkbox" className="hidden" checked={prefs.promotions} onChange={() => handleToggle('promotions')} />
@@ -164,20 +161,20 @@ export default function SettingsHub() {
                     <div className="p-5 border-b border-navy-50 bg-navy-50/50">
                         <h2 className="font-semibold text-navy-900 text-lg flex items-center">
                             <svg className="w-5 h-5 mr-2 text-navy-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                            Account Security
+                            {t('Account Security')}
                         </h2>
                     </div>
                     <div className="p-5 space-y-4">
                         <button className="w-full text-left p-4 rounded-xl border border-navy-100 flex justify-between items-center bg-navy-50 text-navy-400 font-medium cursor-not-allowed">
-                            Change Password
-                            <span className="text-xs bg-navy-100 text-navy-500 px-2 py-1 rounded">Unavailable</span>
+                            {t('Change Password')}
+                            <span className="text-xs bg-navy-100 text-navy-500 px-2 py-1 rounded">{t('Unavailable')}</span>
                         </button>
                         <button className="w-full text-left p-4 rounded-xl border border-navy-100 flex justify-between items-center bg-navy-50 text-navy-400 font-medium cursor-not-allowed">
-                            Delete Account permanently
-                            <span className="text-xs bg-navy-100 text-navy-500 px-2 py-1 rounded">Contact Support</span>
+                            {t('Delete Account permanently')}
+                            <span className="text-xs bg-navy-100 text-navy-500 px-2 py-1 rounded">{t('Contact Support')}</span>
                         </button>
                         <button onClick={handleLogout} className="w-full text-left p-4 rounded-xl border border-red-100 flex justify-between items-center text-red-600 font-bold hover:bg-red-50 transition-colors">
-                            Sign out of session
+                            {t('Sign out of session')}
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                         </button>
                     </div>

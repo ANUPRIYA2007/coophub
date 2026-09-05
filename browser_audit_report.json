@@ -1,0 +1,1100 @@
+{
+  "meta": {
+    "totalSupportedLanguages": 23,
+    "routesTested": 4,
+    "buildStatus": "PASS (exit code 0 — 55.64s)",
+    "auditTimestamp": "2026-09-05T14:51:09.285Z"
+  },
+  "languageResults": {
+    "en": {
+      "code": "en",
+      "name": "English",
+      "nativeName": "English",
+      "routes": {
+        "Customer Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "Create Account"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "COOP Admin"
+        }
+      },
+      "summary": {
+        "passed": 3,
+        "bypassed": 0,
+        "errors": 1,
+        "passRate": "75%"
+      }
+    },
+    "hi": {
+      "code": "hi",
+      "name": "Hindi",
+      "nativeName": "हिन्दी",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "COOP Admin",
+          "bypassedBy": "Admin"
+        }
+      },
+      "summary": {
+        "passed": 0,
+        "bypassed": 3,
+        "errors": 1,
+        "passRate": "0%"
+      }
+    },
+    "ta": {
+      "code": "ta",
+      "name": "Tamil",
+      "nativeName": "தமிழ்",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "COOP Admin",
+          "bypassedBy": "Admin"
+        }
+      },
+      "summary": {
+        "passed": 0,
+        "bypassed": 3,
+        "errors": 1,
+        "passRate": "0%"
+      }
+    },
+    "te": {
+      "code": "te",
+      "name": "Telugu",
+      "nativeName": "తెలుగు",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "కూప్ అడ్మిన్"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "kn": {
+      "code": "kn",
+      "name": "Kannada",
+      "nativeName": "ಕನ್ನಡ",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "కూప్ అడ్మిన్"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "bn": {
+      "code": "bn",
+      "name": "Bengali",
+      "nativeName": "বাংলা",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "కూప్ అడ్మిన్"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "mr": {
+      "code": "mr",
+      "name": "Marathi",
+      "nativeName": "मराठी",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "gu": {
+      "code": "gu",
+      "name": "Gujarati",
+      "nativeName": "ગુજરાતી",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "ml": {
+      "code": "ml",
+      "name": "Malayalam",
+      "nativeName": "മലയാളം",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "pa": {
+      "code": "pa",
+      "name": "Punjabi",
+      "nativeName": "ਪੰਜਾਬੀ",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "or": {
+      "code": "or",
+      "name": "Odia",
+      "nativeName": "ଓଡ଼ିଆ",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "as": {
+      "code": "as",
+      "name": "Assamese",
+      "nativeName": "অসমীয়া",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "ur": {
+      "code": "ur",
+      "name": "Urdu",
+      "nativeName": "اردو",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "sa": {
+      "code": "sa",
+      "name": "Sanskrit",
+      "nativeName": "संस्कृतम्",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "ks": {
+      "code": "ks",
+      "name": "Kashmiri",
+      "nativeName": "کٲشُر / कॉशुर",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "sd": {
+      "code": "sd",
+      "name": "Sindhi",
+      "nativeName": "سنڌي / सिन्धी",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "ne": {
+      "code": "ne",
+      "name": "Nepali",
+      "nativeName": "नेपाली",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "kok": {
+      "code": "kok",
+      "name": "Konkani",
+      "nativeName": "कोंकणी",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "mai": {
+      "code": "mai",
+      "name": "Maithili",
+      "nativeName": "मैथिली",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "कोप प्रशासक"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "brx": {
+      "code": "brx",
+      "name": "Bodo",
+      "nativeName": "बर'",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "क'प एडमिन"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "sat": {
+      "code": "sat",
+      "name": "Santali",
+      "nativeName": "ᱥᱟᱱᱛᱟᱲᱤ",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "क'प एडमिन"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "mni": {
+      "code": "mni",
+      "name": "Manipuri (Meitei)",
+      "nativeName": "মৈতৈলোন্ / ꯃꯤꯇꯩꯂꯣꯟ",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "কওপ এদমিন"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    },
+    "doi": {
+      "code": "doi",
+      "name": "Dogri",
+      "nativeName": "डोगरी",
+      "routes": {
+        "Customer Login": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Welcome Back",
+          "bypassedBy": "Welcome Back"
+        },
+        "Customer Register": {
+          "status": "BYPASSED",
+          "selector": "h1",
+          "renderedText": "Create Account",
+          "bypassedBy": "Create"
+        },
+        "Pillar Login": {
+          "status": "UNVERIFIED",
+          "selector": "body",
+          "renderedText": ""
+        },
+        "Admin Login": {
+          "status": "PASSED",
+          "selector": "h1",
+          "renderedText": "কওপ এদমিন"
+        }
+      },
+      "summary": {
+        "passed": 1,
+        "bypassed": 2,
+        "errors": 1,
+        "passRate": "25%"
+      }
+    }
+  },
+  "summary": {
+    "totalLanguagesTested": 23,
+    "totalLanguagesPassed": 0,
+    "totalLanguagesBypassed": 46,
+    "totalErrors": 23,
+    "bypassedDetails": [
+      {
+        "lang": "hi",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "hi",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "hi",
+        "route": "Admin Login",
+        "renderedText": "COOP Admin",
+        "bypassedBy": "Admin"
+      },
+      {
+        "lang": "ta",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "ta",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "ta",
+        "route": "Admin Login",
+        "renderedText": "COOP Admin",
+        "bypassedBy": "Admin"
+      },
+      {
+        "lang": "te",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "te",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "kn",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "kn",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "bn",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "bn",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "mr",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "mr",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "gu",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "gu",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "ml",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "ml",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "pa",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "pa",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "or",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "or",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "as",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "as",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "ur",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "ur",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "sa",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "sa",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "ks",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "ks",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "sd",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "sd",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "ne",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "ne",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "kok",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "kok",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "mai",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "mai",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "brx",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "brx",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "sat",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "sat",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "mni",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "mni",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      },
+      {
+        "lang": "doi",
+        "route": "Customer Login",
+        "renderedText": "Welcome Back",
+        "bypassedBy": "Welcome Back"
+      },
+      {
+        "lang": "doi",
+        "route": "Customer Register",
+        "renderedText": "Create Account",
+        "bypassedBy": "Create"
+      }
+    ],
+    "errorDetails": []
+  }
+}

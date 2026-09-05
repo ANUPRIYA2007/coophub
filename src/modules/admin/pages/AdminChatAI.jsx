@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
+import { getLanguageMetadata } from "../../../i18n/languages.js";
+import { translateDynamic } from "../../../i18n/centralEngine.js";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
 import { useNavigate } from "react-router-dom";
@@ -36,23 +38,38 @@ export default function AdminChatAI() {
   const [isListening, setIsListening] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState(null);
   const [heroState, setHeroState] = useState("idle");
+  const [placeholderText, setPlaceholderText] = useState("Ask about workforce telemetry, Chronos-2 forecast, Pillar verification, or dispatch...");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Initial welcome message
+  // Initial welcome message (dynamically translated for any supported language)
   useEffect(() => {
-    const welcomeGreeting = language === "ta"
-      ? "வணக்கம் கூட்டுறவு நிர்வாகி! 🙏 நான் CoopBot, உங்கள் 24/7 AI செயல்பாட்டு மற்றும் பணி ஒதுக்கீட்டு ஆலோசகர்.\n\nChronos-2 தேவை முன்கணிப்பு, பில்லர் திறன் சரிபார்ப்பு, தானியங்கி பணி ஒதுக்கீடு, மற்றும் நேரலை வருவாய் பகுப்பாய்வு பற்றி என்னிடம் கேட்கலாம்."
-      : "Welcome Cooperative Administrator! 👋 I am CoopBot, your 24/7 AI Operations Intelligence & Dispatch Assistant.\n\nYou can query Chronos-2 demand forecasts, workforce allocation candidates, technician KYC verification status, or platform revenue audits.";
+    let isMounted = true;
+    const baseGreeting = "Welcome Cooperative Administrator! 👋 I am CoopBot, your 24/7 AI Operations Intelligence & Dispatch Assistant.\n\nYou can query Chronos-2 demand forecasts, workforce allocation candidates, technician KYC verification status, or platform revenue audits.";
+    const basePlaceholder = "Ask about workforce telemetry, Chronos-2 forecast, Pillar verification, or dispatch...";
 
-    setMessages([
-      {
-        id: "admin-welcome-1",
-        sender: "hero",
-        text: welcomeGreeting,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]);
+    const loadTranslations = async () => {
+      let greeting = baseGreeting;
+      let placeholder = basePlaceholder;
+      if (language !== "en") {
+        greeting = await translateDynamic(baseGreeting, language, "en");
+        placeholder = await translateDynamic(basePlaceholder, language, "en");
+      }
+      if (isMounted) {
+        setMessages([
+          {
+            id: "admin-welcome-1",
+            sender: "hero",
+            text: greeting,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+        setPlaceholderText(placeholder);
+      }
+    };
+
+    loadTranslations();
+    return () => { isMounted = false; };
   }, [language]);
 
   useEffect(() => {
@@ -76,7 +93,8 @@ export default function AdminChatAI() {
     window.speechSynthesis.cancel();
     const cleanText = text.replace(/[*#_`]/g, "").trim();
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+    const meta = getLanguageMetadata(language);
+    utterance.lang = meta?.bcp47 || "en-IN";
     utterance.rate = 1.0;
     utterance.pitch = 1.05;
 
@@ -111,7 +129,8 @@ export default function AdminChatAI() {
 
     try {
       const recognition = new SR();
-      recognition.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+      const meta = getLanguageMetadata(language);
+      recognition.lang = meta?.bcp47 || "en-IN";
       recognition.interimResults = false;
 
       recognition.onstart = () => {
@@ -241,14 +260,16 @@ export default function AdminChatAI() {
     },
   ];
 
-  const clearChat = () => {
+  const clearChat = async () => {
+    let clearMsg = "Chat history cleared. CoopBot Operations AI is ready for your instructions.";
+    if (language !== "en") {
+      clearMsg = await translateDynamic(clearMsg, language, "en");
+    }
     setMessages([
       {
         id: `welcome-${Date.now()}`,
         sender: "hero",
-        text: language === "ta"
-          ? "அரட்டை மீட்டமைக்கப்பட்டது. புதிய செயல்பாட்டுக் கேள்விகளைக் கேட்கலாம்."
-          : "Chat history cleared. CoopBot Operations AI is ready for your instructions.",
+        text: clearMsg,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
@@ -605,11 +626,7 @@ export default function AdminChatAI() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              language === "ta"
-                ? "Chronos-2 முன்னறிவிப்பு, பில்லர் ஒதுக்கீடு அல்லது வருவாய் பற்றி கேளுங்கள்..."
-                : "Ask about workforce telemetry, Chronos-2 forecast, Pillar verification, or dispatch..."
-            }
+            placeholder={placeholderText}
             style={{
               flex: 1,
               height: "44px",

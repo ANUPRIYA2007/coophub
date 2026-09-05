@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
+import { getLanguageMetadata } from "../../../i18n/languages.js";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
 import { pillarProfileService } from "../../../services/pillar/profileService";
@@ -208,7 +209,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(alertMsg);
-        utterance.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+        const meta = getLanguageMetadata(language);
+        utterance.lang = meta?.bcp47 || "en-IN";
         utterance.rate = 1.0;
         utterance.pitch = 1.1;
         utterance.onstart = () => { setIsSpeaking(true); setHeroState("speaking"); };
@@ -349,7 +351,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     if (!text || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+    const meta = getLanguageMetadata(language);
+    utterance.lang = meta?.bcp47 || "en-IN";
     utterance.rate = 1.0;
     utterance.pitch = 1.1;
     utterance.onstart = () => { setIsSpeaking(true); setHeroState("speaking"); };
@@ -365,7 +368,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     if (isListening) { setIsListening(false); return; }
     try {
       const recognition = new SR();
-      recognition.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+      const meta = getLanguageMetadata(language);
+      recognition.lang = meta?.bcp47 || "en-IN";
       recognition.interimResults = false;
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
@@ -387,18 +391,18 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   };
 
   const navItems = [
-    { name: t("nav.dashboard"), path: "/dashboard", icon: LayoutDashboard },
-    { name: t("nav.orders"), path: "/dashboard/orders", icon: ClipboardList },
-    { name: t("nav.earnings"), path: "/dashboard/earnings", icon: Wallet },
-    { name: t("nav.history"), path: "/dashboard/history", icon: Clock },
-    { name: t("nav.welfare") || "Welfare & Insurance", path: "/dashboard/welfare", icon: HeartHandshake },
-    { name: t("nav.chat"), path: "/dashboard/chat", icon: MessageSquare },
+    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    { name: "Orders", path: "/dashboard/orders", icon: ClipboardList },
+    { name: "Earnings", path: "/dashboard/earnings", icon: Wallet },
+    { name: "History", path: "/dashboard/history", icon: Clock },
+    { name: "Welfare & Insurance", path: "/dashboard/welfare", icon: HeartHandshake },
+    { name: "Chat", path: "/dashboard/chat", icon: MessageSquare },
   ];
 
   const bottomNavItems = [
-    { name: t("nav.profile"), path: "/dashboard/profile", icon: User },
-    { name: t("nav.settings"), path: "/dashboard/settings", icon: Settings },
-    { name: t("nav.support"), path: "/dashboard/support", icon: HelpCircle },
+    { name: "Profile", path: "/dashboard/profile", icon: User },
+    { name: "Settings", path: "/dashboard/settings", icon: Settings },
+    { name: "Support", path: "/dashboard/support", icon: HelpCircle },
     { name: "Portal Hub (Home)", path: "/", icon: Layers },
   ];
 
@@ -511,7 +515,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                 title="Click to toggle Online / Offline status"
               >
                 <span className={`status-dot ${isAvailable ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-                <span>{isAvailable ? "Available (Online)" : "Offline (Paused)"}</span>
+                <span>{isAvailable ? t("Available (Online)") : t("Offline (Paused)")}</span>
               </button>
             </div>
           </div>
@@ -530,7 +534,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                     className={`framer-side-menu-link ${isActive ? 'active' : ''}`}
                   >
                     <div className="framer-indicator" />
-                    <span>{item.name}</span>
+                    <span>{t(item.name)}</span>
                   </Link>
                 </li>
               );
@@ -538,7 +542,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           </ul>
 
           <div style={{ margin: "var(--space-4) var(--space-4) var(--space-2)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.5, fontWeight: "bold", fontFamily: "Geist Mono, monospace" }}>
-            Settings & Help
+            {t("Settings & Help")}
           </div>
 
           <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-4)" }}>
@@ -552,7 +556,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                     className={`framer-side-menu-link ${isActive ? 'active' : ''}`}
                   >
                     <div className="framer-indicator" />
-                    <span>{item.name}</span>
+                    <span>{t(item.name)}</span>
                   </Link>
                 </li>
               );

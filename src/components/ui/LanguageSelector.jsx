@@ -1,17 +1,12 @@
 import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { SUPPORTED_LANGUAGES } from '../../i18n/languages';
 import { Globe } from 'lucide-react';
 
 export default function LanguageSelector({ className = '' }) {
-    const { language, setLanguage, languages, supportedLanguages } = useLanguage();
+    const { language, setLanguage } = useLanguage();
 
-    const langList = supportedLanguages || [
-        { code: 'en', nativeName: 'English' },
-        { code: 'ta', nativeName: 'தமிழ்' },
-        { code: 'hi', nativeName: 'हिन्दी' },
-        { code: 'te', nativeName: 'తెలుగు' },
-        { code: 'kn', nativeName: 'ಕನ್ನಡ' }
-    ];
+    const langList = SUPPORTED_LANGUAGES;
 
     return (
         <div className={`relative flex items-center ${className}`}>
@@ -26,7 +21,7 @@ export default function LanguageSelector({ className = '' }) {
             >
                 {langList.map((lang) => (
                     <option key={lang.code} value={lang.code} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-slate-100 py-1">
-                        {lang.nativeName || lang.name || lang.code.toUpperCase()}
+                        {lang.nativeName} ({lang.name})
                     </option>
                 ))}
             </select>

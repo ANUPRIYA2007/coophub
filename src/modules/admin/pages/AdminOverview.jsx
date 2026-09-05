@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { adminService } from "../services/adminService";
+import { useTranslation } from "../../../i18n/useTranslation";
 import { 
   Users, UserCheck, Clock, Activity, DollarSign, TrendingUp, 
   ArrowUpRight, CheckCircle2, ShieldCheck, MapPin, Wrench, Star,
@@ -11,6 +12,7 @@ import { gsap3dEngine } from "../../../services/animation/gsap3dEngine";
 import TypewriterEffect from "../../../components/ui/TypewriterEffect";
 
 export default function AdminOverview() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const isDemo = localStorage.getItem("coophub_demo_admin") === "true" || localStorage.getItem("coophub_demo_user") === "true";
   const [isAdminOnline, setIsAdminOnline] = useState(() => localStorage.getItem("coophub_admin_online") !== "false");
@@ -117,16 +119,16 @@ export default function AdminOverview() {
               background: "rgba(245, 124, 32, 0.15)", color: "var(--color-secondary)", 
               fontSize: "0.75rem", fontWeight: "800", padding: "2px 8px", borderRadius: "10px", textTransform: "uppercase" 
             }}>
-              Cooperative Central Console
+              {t("Cooperative Central Console")}
             </span>
-            <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>• Chennai Metro Hub</span>
+            <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>• {t("Chennai Metro Hub")}</span>
           </div>
           <h1 style={{ fontSize: "1.6rem", fontWeight: "800", color: "var(--color-text)", margin: 0 }}>
-            Executive Operations Dashboard
+            {t("Executive Operations Dashboard")}
           </h1>
           <div style={{ minHeight: "20px", marginTop: "6px", fontSize: "14px", color: "var(--color-text-muted)" }}>
             <TypewriterEffect
-              words={[{ word: "Manage and monitor the COOP HUB platform." }]}
+              words={[{ word: t("Manage and monitor the COOP HUB platform.") }]}
               typingSpeed={50}
               deletingSpeed={30}
               pauseDuration={999999}
@@ -166,7 +168,7 @@ export default function AdminOverview() {
             title="Click to toggle Admin Online / Offline status"
           >
             <span className={`status-dot ${isAdminOnline ? "available" : "offline"}`} style={{ width: "8px", height: "8px" }}></span>
-            {isAdminOnline ? "● Operations Online" : "○ Operations Paused"}
+            {isAdminOnline ? t("Operations Online") : t("Operations Paused")}
           </div>
 
           <button
@@ -175,7 +177,7 @@ export default function AdminOverview() {
             style={{ display: "flex", alignItems: "center", gap: "6px" }}
             disabled={loading}
           >
-            <RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh Telemetry
+            <RefreshCw size={15} className={loading ? "spin" : ""} /> {t("Refresh Telemetry")}
           </button>
         </div>
       </div>
@@ -215,14 +217,14 @@ export default function AdminOverview() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <h3 style={{ margin: 0, color: "#FFFFFF", fontSize: "1.05rem", fontWeight: "700" }}>
-                CoopBot AI Operations Assistant
+                {t("CoopBot AI Operations Assistant")}
               </h3>
               <span style={{ background: "rgba(16, 185, 129, 0.2)", color: "#10B981", fontSize: "10px", fontWeight: "700", padding: "2px 8px", borderRadius: "10px", border: "1px solid rgba(16, 185, 129, 0.4)" }}>
-                Active Live
+                {t("Active Live")}
               </span>
             </div>
             <p style={{ margin: "4px 0 0 0", color: "#94A3B8", fontSize: "12.5px" }}>
-              Query Chronos-2 demand forecasts, execute instant candidate allocation, and inspect cooperative telemetry via natural language.
+              {t("Query Chronos-2 demand forecasts, execute instant candidate allocation, and inspect cooperative telemetry via natural language.")}
             </p>
           </div>
         </div>
@@ -246,7 +248,7 @@ export default function AdminOverview() {
               transition: "transform 0.15s ease",
             }}
           >
-            <Bot size={15} /> Launch Chat AI Workspace →
+            <Bot size={15} /> {t("Launch Chat AI Workspace →")}
           </button>
         </div>
       </div>
@@ -260,41 +262,41 @@ export default function AdminOverview() {
       }}>
         <MetricCard 
           icon={<DollarSign size={22} />} 
-          title="Total GMV (Volume)" 
+          title={t("Total GMV (Volume)")} 
           value={`₹${(stats.totalRevenue || 0).toLocaleString()}`} 
-          sub={`₹${(stats.dailyGmv || 0).toLocaleString()} Today • ₹${(stats.platformCommission || 0).toLocaleString()} Platform Fee (8.5%)`}
+          sub={`₹${(stats.dailyGmv || 0).toLocaleString()} ${t("Today")} • ₹${(stats.platformCommission || 0).toLocaleString()} ${t("Platform Fee (8.5%)")}`}
           color="var(--color-primary)" 
           onClick={() => navigate("/admin/finance")}
         />
         <MetricCard 
           icon={<Users size={22} />} 
-          title="Registered Pillars" 
+          title={t("Registered Pillars")} 
           value={stats.totalPillars || 0} 
-          sub={`${stats.activePillars || 0} Active • ${stats.availablePillars || 0} Available Now`}
+          sub={`${stats.activePillars || 0} ${t("Active")} • ${stats.availablePillars || 0} ${t("Available Now")}`}
           color="var(--color-secondary)" 
           onClick={() => navigate("/admin/pillars")}
         />
         <MetricCard 
           icon={<Activity size={22} />} 
-          title="Live Service Orders" 
+          title={t("Live Service Orders")} 
           value={stats.totalBookings || 0} 
-          sub={`${stats.activeJobs || 0} Active In-Field • ${stats.pendingBookings || 0} Pending Dispatch`}
+          sub={`${stats.activeJobs || 0} ${t("Active In-Field")} • ${stats.pendingBookings || 0} ${t("Pending Dispatch")}`}
           color="#10B981" 
           onClick={() => navigate("/admin/requests")}
         />
         <MetricCard 
           icon={<UserCheck size={22} />} 
-          title="Registered Customers" 
+          title={t("Registered Customers")} 
           value={stats.totalCustomers || 0} 
-          sub="Verified accounts directory →"
+          sub={t("Verified accounts directory →")}
           color="#8B5CF6" 
           onClick={() => navigate("/admin/customers")}
         />
         <MetricCard 
           icon={<Star size={22} />} 
-          title="Customer Satisfaction" 
+          title={t("Customer Satisfaction")} 
           value={`${stats.customerSatisfaction || 4.9} ★`} 
-          sub={`${stats.reviewCount || 0} Verified Reviews • ${stats.emergencyRequests || 0} Emergency`}
+          sub={`${stats.reviewCount || 0} ${t("Verified Reviews")} • ${stats.emergencyRequests || 0} ${t("Emergency")}`}
           color="#F59E0B" 
           onClick={() => navigate("/admin/feedback")}
         />
@@ -313,11 +315,11 @@ export default function AdminOverview() {
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
             <div>
-              <h2 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>Revenue & Booking Velocity</h2>
-              <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>Monthly cooperative transaction volume</span>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>{t("Revenue & Booking Velocity")}</h2>
+              <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>{t("Monthly cooperative transaction volume")}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--color-success)", fontWeight: "700", fontSize: "0.85rem" }}>
-              <TrendingUp size={16} /> +24% MoM
+              <TrendingUp size={16} /> +24% {t("MoM")}
             </div>
           </div>
 
@@ -343,7 +345,7 @@ export default function AdminOverview() {
                     }} 
                   />
                   <span style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--color-text)", marginTop: "8px" }}>
-                    {d.month}
+                    {t(d.month)}
                   </span>
                 </div>
               );
@@ -360,16 +362,16 @@ export default function AdminOverview() {
           boxShadow: "var(--shadow-sm)"
         }}>
           <div style={{ marginBottom: "var(--space-4)" }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>Category Service Share</h2>
-            <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>Distribution of booked service trades</span>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>{t("Category Service Share")}</h2>
+            <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>{t("Distribution of booked service trades")}</span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             {categoryDistribution.map((cat) => (
               <div key={cat.name}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: "600", marginBottom: "4px" }}>
-                  <span style={{ color: "var(--color-text)" }}>{cat.name}</span>
-                  <span style={{ color: "var(--color-text-secondary)" }}>{cat.count} Jobs ({cat.percentage}%)</span>
+                  <span style={{ color: "var(--color-text)" }}>{t(cat.name)}</span>
+                  <span style={{ color: "var(--color-text-secondary)" }}>{cat.count} {t("Jobs")} ({cat.percentage}%)</span>
                 </div>
                 <div style={{ width: "100%", height: "8px", background: "var(--color-surface-hover)", borderRadius: "4px", overflow: "hidden" }}>
                   <div style={{ width: `${cat.percentage}%`, height: "100%", background: cat.color, borderRadius: "4px" }} />
@@ -380,7 +382,7 @@ export default function AdminOverview() {
 
           <div style={{ marginTop: "var(--space-4)", display: "flex", justifyContent: "flex-end" }}>
             <Link to="/admin/services" className="btn btn-outline btn-sm" style={{ fontSize: "0.8rem" }}>
-              Configure Services Catalog →
+              {t("Configure Services Catalog →")}
             </Link>
           </div>
         </div>
@@ -397,11 +399,11 @@ export default function AdminOverview() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
           <div>
-            <h2 style={{ fontSize: "1.15rem", fontWeight: "700", margin: 0 }}>Live Settlement & Dispatch Feed</h2>
-            <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>Real-time completed orders and technician payouts</span>
+            <h2 style={{ fontSize: "1.15rem", fontWeight: "700", margin: 0 }}>{t("Live Settlement & Dispatch Feed")}</h2>
+            <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>{t("Real-time completed orders and technician payouts")}</span>
           </div>
           <Link to="/admin/requests" className="btn btn-primary btn-sm">
-            View All Requests
+            {t("View All Requests")}
           </Link>
         </div>
 
@@ -409,20 +411,20 @@ export default function AdminOverview() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
             <thead>
               <tr style={{ background: "var(--color-surface-hover)", borderBottom: "1px solid var(--color-border)" }}>
-                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>Ref ID</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>Customer</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>Service</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>Assigned Pillar</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>Amount</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>Status</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-text-secondary)" }}>Timestamp</th>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>{t("Ref ID")}</th>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>{t("Customer")}</th>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>{t("Service")}</th>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>{t("Assigned Pillar")}</th>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>{t("Amount")}</th>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--color-text-secondary)" }}>{t("Status")}</th>
+                <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-text-secondary)" }}>{t("Timestamp")}</th>
               </tr>
             </thead>
             <tbody>
               {recentTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ padding: "32px", textAlign: "center", color: "var(--color-text-secondary)" }}>
-                    No service transactions recorded yet in the live database. Live orders will populate automatically.
+                    {t("No service transactions recorded yet in the live database. Live orders will populate automatically.")}
                   </td>
                 </tr>
               ) : (
@@ -430,7 +432,7 @@ export default function AdminOverview() {
                   <tr key={tx.id} style={{ borderBottom: "1px solid var(--color-border)" }} className="hover-row">
                     <td style={{ padding: "10px 14px", fontWeight: "700", color: "var(--color-primary)" }}>{tx.id}</td>
                     <td style={{ padding: "10px 14px", fontWeight: "600" }}>{tx.customer}</td>
-                    <td style={{ padding: "10px 14px" }}>{tx.service}</td>
+                    <td style={{ padding: "10px 14px" }}>{t(tx.service)}</td>
                     <td style={{ padding: "10px 14px", color: "var(--color-secondary)", fontWeight: "600" }}>{tx.pillar}</td>
                     <td style={{ padding: "10px 14px", fontWeight: "700" }}>{tx.amount}</td>
                     <td style={{ padding: "10px 14px" }}>
@@ -442,10 +444,10 @@ export default function AdminOverview() {
                         background: (tx.status?.toLowerCase() === "completed" || tx.status === "Completed") ? "var(--color-success-light)" : "rgba(59,130,246,0.15)",
                         color: (tx.status?.toLowerCase() === "completed" || tx.status === "Completed") ? "var(--color-success)" : "#3B82F6"
                       }}>
-                        {tx.status?.replace('_', ' ')?.replace(/\b\w/g, c => c.toUpperCase())}
+                        {t(tx.status?.replace('_', ' ')?.replace(/\b\w/g, c => c.toUpperCase()))}
                       </span>
                     </td>
-                    <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-text-muted)", fontSize: "0.8rem" }}>{tx.time}</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-text-muted)", fontSize: "0.8rem" }}>{t(tx.time)}</td>
                   </tr>
                 ))
               )}

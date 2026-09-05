@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { LanguageProvider as PillarLanguageProvider } from './i18n/LanguageContext';
-import { LanguageProvider as CustomerLanguageProvider } from './context/LanguageContext';
+import { LanguageProvider } from './i18n/LanguageContext';
+import AutoTranslate from './i18n/AutoTranslate';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import App from './App';
@@ -16,15 +16,15 @@ import './index.css';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <CustomerLanguageProvider>
-        <PillarLanguageProvider>
+      <LanguageProvider>
+        <AutoTranslate>
           <AuthProvider>
             <ThemeProvider>
               <App />
             </ThemeProvider>
           </AuthProvider>
-        </PillarLanguageProvider>
-      </CustomerLanguageProvider>
+        </AutoTranslate>
+      </LanguageProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

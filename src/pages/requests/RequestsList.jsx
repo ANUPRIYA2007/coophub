@@ -53,7 +53,7 @@ export default function RequestsList() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </button>
-                    <h1 className="font-bold text-navy-800 text-lg">{t('navigation.my_requests') || 'My Requests'}</h1>
+                    <h1 className="font-bold text-navy-800 text-lg">{t('My Requests')}</h1>
                 </header>
 
                 {error && (
@@ -65,19 +65,19 @@ export default function RequestsList() {
                         <div className="w-20 h-20 bg-navy-50 rounded-full flex items-center justify-center mx-auto mb-4">
                             <svg className="w-10 h-10 text-navy-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                         </div>
-                        <h3 className="font-semibold text-lg text-navy-800 mt-2">{t('requests.empty_title') || 'No active requests'}</h3>
-                        <p className="text-navy-500 mt-2">{t('requests.empty_desc') || "You don't have any service requests tracked at the moment."}</p>
-                        <button onClick={() => navigate('/home')} className="btn-primary mt-6">{t('navigation.home') || 'Explore Services'}</button>
+                        <h3 className="font-semibold text-lg text-navy-800 mt-2">{t('No active requests')}</h3>
+                        <p className="text-navy-500 mt-2">{t("You don't have any service requests tracked at the moment.")}</p>
+                        <button onClick={() => navigate('/home')} className="btn-primary mt-6">{t('Explore Services')}</button>
                     </div>
                 ) : (
                     <>
                         {/* Dynamic Filters based ONLY on existing database records */}
                         {activeStatuses.length > 1 && (
                             <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-                                <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${filter === 'all' ? 'bg-navy-800 text-white' : 'bg-white border border-navy-200 text-navy-600 hover:bg-navy-50'}`}>All</button>
+                                <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${filter === 'all' ? 'bg-navy-800 text-white' : 'bg-white border border-navy-200 text-navy-600 hover:bg-navy-50'}`}>{t('All')}</button>
                                 {activeStatuses.map(status => (
                                     <button key={status} onClick={() => setFilter(status)} className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium capitalize transition-colors ${filter === status ? 'bg-orange-500 text-white border-transparent' : 'bg-white border border-navy-200 text-navy-600 hover:bg-orange-50'}`}>
-                                        {status.replace('_', ' ')}
+                                        {t(status.replace('_', ' '))}
                                     </button>
                                 ))}
                             </div>
@@ -85,18 +85,18 @@ export default function RequestsList() {
 
                         <div className="space-y-4">
                             {filteredRequests.map(req => {
-                                const serviceName = req.services?.name_translations?.[language] || req.services?.name_translations?.['en'] || 'Service';
-                                const subName = req.sub_services?.name_translations?.[language] || req.sub_services?.name_translations?.['en'] || '';
+                                const serviceName = req.services?.name_translations?.[language] || req.services?.name_translations?.['en'] || req.services?.name || t('Service');
+                                const subName = req.sub_services?.name_translations?.[language] || req.sub_services?.name_translations?.['en'] || req.sub_services?.name || '';
 
                                 return (
                                     <div key={req.id} onClick={() => navigate(`/requests/${req.id}`)} className="bg-white rounded-2xl p-5 border border-navy-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
-                                                <h3 className="font-semibold text-navy-800 text-lg group-hover:text-orange-600 transition-colors">{serviceName}</h3>
-                                                {subName && <p className="text-sm text-navy-600">{subName}</p>}
+                                                <h3 className="font-semibold text-navy-800 text-lg group-hover:text-orange-600 transition-colors">{t(serviceName)}</h3>
+                                                {subName && <p className="text-sm text-navy-600">{t(subName)}</p>}
                                             </div>
                                             <span className="px-3 py-1 bg-navy-50 text-navy-700 text-xs font-bold uppercase tracking-wide rounded-full border border-navy-100">
-                                                {req.status}
+                                                {t(req.status?.replace('_', ' '))}
                                             </span>
                                         </div>
 

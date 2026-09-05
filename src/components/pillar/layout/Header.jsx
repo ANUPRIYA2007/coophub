@@ -147,30 +147,6 @@ export default function Header({ toggleSidebar }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", position: "relative" }} ref={dropdownRef}>
-        {/* Chat AI Quick Launcher for Admin */}
-        {isAdmin && (
-          <button
-            onClick={() => navigate('/admin/chatai')}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "rgba(245, 124, 32, 0.12)",
-              border: "1px solid rgba(245, 124, 32, 0.3)",
-              color: "var(--color-secondary)",
-              padding: "6px 14px",
-              borderRadius: "20px",
-              fontSize: "12px",
-              fontWeight: "700",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-            title="Open CoopBot AI Operations Console"
-          >
-            <Bot size={15} />
-            <span className="hide-on-mobile">Chat AI</span>
-          </button>
-        )}
 
         {/* Language Selector */}
         <select 

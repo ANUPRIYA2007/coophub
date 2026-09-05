@@ -26,13 +26,19 @@ import crypto from 'crypto';
 export class DigiLockerService {
   constructor() {
     this.tspProvider = (process.env.DIGILOCKER_TSP_PROVIDER || 'meripehchaan').toLowerCase();
-    this.clientId = process.env.DIGILOCKER_CLIENT_ID || null;
-    this.clientSecret = process.env.DIGILOCKER_CLIENT_SECRET || null;
+    this.clientId = process.env.DIGILOCKER_CLIENT_ID || process.env.SANDBOX_CLIENT_ID || null;
+    this.clientSecret = process.env.DIGILOCKER_CLIENT_SECRET || process.env.SANDBOX_CLIENT_SECRET || null;
+    this.sandboxApiKey = process.env.SANDBOX_API_KEY || null;
+    this.sandboxApiSecret = process.env.SANDBOX_API_SECRET || null;
     this.redirectUri = process.env.DIGILOCKER_REDIRECT_URI || 'http://localhost:5000/api/kyc/digilocker/callback';
     this.isSandbox = process.env.DIGILOCKER_SANDBOX_MODE === 'true' || process.env.NODE_ENV === 'test';
 
     // Provider-specific base endpoint configuration
-    if (this.tspProvider === 'setu') {
+    if (this.tspProvider === 'sandbox.co.in' || this.tspProvider === 'sandbox') {
+      this.authBaseUrl = process.env.DIGILOCKER_AUTH_URL || 'https://api.sandbox.co.in/kyc/digilocker/init';
+      this.tokenBaseUrl = process.env.DIGILOCKER_TOKEN_URL || 'https://api.sandbox.co.in/authenticate';
+      this.apiBaseUrl = process.env.DIGILOCKER_API_URL || 'https://api.sandbox.co.in';
+    } else if (this.tspProvider === 'setu') {
       this.authBaseUrl = process.env.DIGILOCKER_AUTH_URL || 'https://digilocker.setu.co/oauth/authorize';
       this.tokenBaseUrl = process.env.DIGILOCKER_TOKEN_URL || 'https://digilocker.setu.co/oauth/token';
       this.apiBaseUrl = process.env.DIGILOCKER_API_URL || 'https://digilocker.setu.co/v1';
@@ -46,16 +52,13 @@ export class DigiLockerService {
       this.apiBaseUrl = process.env.DIGILOCKER_API_URL || 'https://api.signzy.tech/api/v2/digilocker';
     } else {
       // Default: National Digital Locker / MeriPehchaan (NIC / MeitY)
-      this.authBaseUrl = process.env.DIGILOCKER_AUTH_URL || (this.isSandbox
-        ? 'https://sandbox.digilocker.meripehchaan.gov.in/public/oauth2/1/authorize'
-        : 'https://digilocker.meripehchaan.gov.in/public/oauth2/1/authorize');
-      this.tokenBaseUrl = process.env.DIGILOCKER_TOKEN_URL || (this.isSandbox
-        ? 'https://sandbox.digilocker.meripehchaan.gov.in/public/oauth2/1/token'
-        : 'https://digilocker.meripehchaan.gov.in/public/oauth2/1/token');
-      this.apiBaseUrl = process.env.DIGILOCKER_API_URL || (this.isSandbox
-        ? 'https://sandbox.digilocker.meripehchaan.gov.in/public/oauth2/1'
-        : 'https://digilocker.meripehchaan.gov.in/public/oauth2/1');
+      this.authBaseUrl = process.env.DIGILOCKER_AUTH_URL || 'https://digilocker.meripehchaan.gov.in/public/oauth2/1/authorize';
+      this.tokenBaseUrl = process.env.DIGILOCKER_TOKEN_URL || 'https://api.digitallocker.gov.in/public/oauth2/1/token';
+      this.apiBaseUrl = process.env.DIGILOCKER_API_URL || 'https://api.digitallocker.gov.in/public/oauth2/1';
     }
+
+    // In-Memory CSRF & Verification Session Store
+    this.sessions = new Map();
   }
 
   /**
@@ -80,8 +83,19 @@ export class DigiLockerService {
    * Check whether legitimate DigiLocker credentials are configured in environment
    */
   getStatus() {
-    const hasKeys = Boolean(this.clientId && this.clientSecret);
-    const isPlaceholder = this.isPlaceholderCredential(this.clientId) || this.isPlaceholderCredential(this.clientSecret);
+    let hasKeys = false;
+    let isPlaceholder = true;
+
+    if (this.tspProvider === 'sandbox.co.in' || this.tspProvider === 'sandbox') {
+      const apiKey = this.sandboxApiKey || this.clientId;
+      const apiSecret = this.sandboxApiSecret || this.clientSecret;
+      hasKeys = Boolean(apiKey && apiSecret);
+      isPlaceholder = this.isPlaceholderCredential(apiKey) || this.isPlaceholderCredential(apiSecret);
+    } else {
+      hasKeys = Boolean(this.clientId && this.clientSecret);
+      isPlaceholder = this.isPlaceholderCredential(this.clientId) || this.isPlaceholderCredential(this.clientSecret);
+    }
+
     const isConfigured = hasKeys && !isPlaceholder;
 
     return {
@@ -98,7 +112,7 @@ export class DigiLockerService {
         ? `DigiLocker TSP gateway (${this.tspProvider.toUpperCase()}) credentials configured.`
         : (hasKeys
             ? 'Placeholder credentials detected. Real DigiLocker TSP sandbox connection is NOT CONFIGURED.'
-            : 'DigiLocker API credentials (DIGILOCKER_CLIENT_ID / DIGILOCKER_CLIENT_SECRET) are not configured in this environment.')
+            : `DigiLocker API credentials for ${this.tspProvider.toUpperCase()} are not configured in this environment.`)
     };
   }
 
@@ -130,6 +144,19 @@ export class DigiLockerService {
       scope: 'files.issued'
     });
 
+    const sessionRecord = {
+      state: csrfState,
+      pillarId: pillarId || null,
+      status: 'AWAITING_AUTHORIZATION',
+      created_at: new Date().toISOString(),
+      consent: {
+        recorded: true,
+        purpose: consentPurpose,
+        timestamp: new Date().toISOString()
+      }
+    };
+    this.sessions.set(csrfState, sessionRecord);
+
     return {
       success: true,
       status: 'READY',
@@ -137,12 +164,31 @@ export class DigiLockerService {
       state: csrfState,
       tsp: this.tspProvider,
       pillarId: pillarId || null,
-      consent: {
-        recorded: true,
-        purpose: consentPurpose,
-        timestamp: new Date().toISOString()
-      }
+      consent: sessionRecord.consent
     };
+  }
+
+  /**
+   * Retrieve session verification status by state token
+   */
+  getSessionStatus(state) {
+    if (!state) return { success: false, status: 'INVALID_STATE', error: 'State parameter missing' };
+    const session = this.sessions.get(state);
+    if (!session) return { success: false, status: 'NOT_FOUND', error: 'Session state not found or expired' };
+    return { success: true, ...session };
+  }
+
+  /**
+   * Mark session as cancelled (e.g. user cancelled DigiLocker consent)
+   */
+  cancelSession(state, reason = 'User cancelled authorization') {
+    if (!state) return { success: false, status: 'INVALID_STATE' };
+    const session = this.sessions.get(state) || { state };
+    session.status = 'CANCELLED';
+    session.error = reason;
+    session.updated_at = new Date().toISOString();
+    this.sessions.set(state, session);
+    return { success: true, ...session };
   }
 
   /**
@@ -191,10 +237,12 @@ export class DigiLockerService {
     }
 
     try {
+      const basicAuth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
       const tokenResponse = await fetch(this.tokenBaseUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${basicAuth}`
         },
         signal: AbortSignal.timeout(8000),
         body: new URLSearchParams({
@@ -208,7 +256,6 @@ export class DigiLockerService {
 
       if (!tokenResponse.ok) {
         const errText = await tokenResponse.text();
-        // Safe logging without leaking sensitive codes
         console.error(`[DigiLocker TSP] Token exchange failed with status ${tokenResponse.status}`);
         return {
           success: false,
@@ -221,26 +268,57 @@ export class DigiLockerService {
       const tokenData = await tokenResponse.json();
       const accessToken = tokenData.access_token;
 
+      // Fetch issued documents list if token acquired
+      let docSummary = { count: 0, fetched: false };
+      if (accessToken) {
+        const filesRes = await this.getIssuedFiles(accessToken);
+        if (filesRes.success) {
+          docSummary = { count: filesRes.count, fetched: true, documents: filesRes.documents };
+        }
+      }
+
       // Safe metadata extraction
       const maskedName = tokenData.name ? tokenData.name : null;
       const maskedDob = tokenData.dob ? tokenData.dob : null;
 
-      return {
+      const verificationResult = {
         success: true,
-        status: 'AUTHENTICATED',
+        status: 'VERIFIED',
         tsp_provider: this.tspProvider,
         digilocker_id: tokenData.digilockerid ? `DL-ID-****${String(tokenData.digilockerid).slice(-4)}` : null,
         name: maskedName,
         dob: maskedDob,
         gender: tokenData.gender || null,
+        documents_fetched: docSummary.fetched,
+        document_count: docSummary.count,
+        documents: docSummary.documents || [],
         authoritative_verified: true,
         verification_method: 'digilocker_tsp',
-        verified_at: new Date().toISOString(),
-        // Internal handle for document retrieval (never exposed to client)
-        _tokenRef: accessToken ? 'VALID_TOKEN_ACQUIRED' : null
+        verified_at: new Date().toISOString()
       };
+
+      const stateKey = returnedState || expectedState;
+      if (stateKey) {
+        const existingSession = this.sessions.get(stateKey) || {};
+        this.sessions.set(stateKey, {
+          ...existingSession,
+          ...verificationResult,
+          state: stateKey
+        });
+      }
+
+      return verificationResult;
     } catch (networkErr) {
       console.error('[DigiLocker TSP] Network exception during verification:', networkErr.message);
+      const stateKey = returnedState || expectedState;
+      if (stateKey) {
+        this.sessions.set(stateKey, {
+          state: stateKey,
+          status: 'FAILED',
+          error: `Network exception during verification: ${networkErr.message}`,
+          updated_at: new Date().toISOString()
+        });
+      }
       return {
         success: false,
         status: 'NETWORK_ERROR',

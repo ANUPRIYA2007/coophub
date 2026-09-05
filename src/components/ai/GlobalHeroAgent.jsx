@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { useTranslation } from '../../hooks/useTranslation';
+import { useTranslation } from '../../i18n/useTranslation.js';
+import { translateDynamic } from '../../i18n/centralEngine.js';
+import { getLanguageMetadata } from '../../i18n/languages.js';
 import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare, Send, Mic, MicOff, ChevronUp, ChevronDown, Bell } from 'lucide-react';
 import Hero3D from '../hero3d/Hero3D';
 import { aiService } from '../../services/pillar/aiService';
@@ -128,13 +130,16 @@ export default function GlobalHeroAgent({ inline = false }) {
             }
         }
 
-        const fallback = matched?.[language] || matched?.en || (
-            language === 'ta'
-                ? 'வணக்கம்! நான் உங்கள் COOP HUB நேரடி வழிகாட்டி. உங்களுக்கு உதவ எப்போதும் தயார்!'
-                : 'Hello! I am CoopBot, your live service guide. How can I assist your home today?'
-        );
-
-        setHeroGreeting(fallback);
+        const baseFallback = matched?.[language] || matched?.en || 'Hello! I am CoopBot, your live service guide. How can I assist your home today?';
+        
+        const resolveInitial = async () => {
+            let initial = baseFallback;
+            if (language !== 'en' && !matched?.[language]) {
+                initial = await translateDynamic(baseFallback, language, 'en');
+            }
+            if (isMounted) setHeroGreeting(initial);
+        };
+        resolveInitial();
 
         // Query Live AI intelligence asynchronously for smart contextual guidance
         aiService.chatWithMascot({
@@ -168,7 +173,7 @@ export default function GlobalHeroAgent({ inline = false }) {
 
     // Global Interactive Live Focus & Error Tracking
     useEffect(() => {
-        const handleFocusIn = (e) => {
+        const handleFocusIn = async (e) => {
             const target = e.target;
             if (!target || !['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
 
@@ -176,74 +181,33 @@ export default function GlobalHeroAgent({ inline = false }) {
             setActiveInputName(name);
             setAnimState('speaking');
 
+            let baseFocusMsg = "I'm watching your progress! Fill in the highlighted field.";
+
             // Contextual dynamic speech guidance per field
             if (name.includes('documenttype') || name.includes('document_type')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'உங்கள் அரசு அடையாள அட்டையைத் தேர்ந்தெடுக்கவும் (ஆதார், பான், வாக்காளர் அட்டை அல்லது ஓட்டுநர் உரிமம்).'
-                        : 'Select your preferred government document: Aadhaar, PAN Card, Voter ID, or Driving Licence.'
-                );
+                baseFocusMsg = 'Select your preferred government document: Aadhaar, PAN Card, Voter ID, or Driving Licence.';
             } else if (name.includes('documentnumber') || name.includes('document_number')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'அரசு ஆவண எண்ணை உள்ளிடவும். உங்கள் தனிப்பட்ட தரவு பாதுகாப்பாக மறைக்கப்படும்.'
-                        : 'Enter your official government document number. Sensitive digits are securely masked.'
-                );
+                baseFocusMsg = 'Enter your official government document number. Sensitive digits are securely masked.';
             } else if (name.includes('fullname') || name.includes('name')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'உங்கள் முழு பெயரை உள்ளிடவும். இது தொழில்நுட்ப வல்லுநருக்கு அடையாளம் காண உதவும்.'
-                        : 'Enter your full legal name so your technician can identify you.'
-                );
+                baseFocusMsg = 'Enter your full legal name so your technician can identify you.';
             } else if (name.includes('email')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'உங்கள் சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும். முன்பதிவு உறுதிப்படுத்தல் இங்கே அனுப்பப்படும்.'
-                        : 'Enter your email address to receive real-time booking updates and invoices.'
-                );
+                baseFocusMsg = 'Enter your email address to receive real-time booking updates and invoices.';
             } else if (name.includes('mobile') || name.includes('phone')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'உங்கள் 10 இலக்க மொபைல் எண்ணை உள்ளிடவும். வீட்டு வருகை OTP இதற்கே அனுப்பப்படும்.'
-                        : 'Enter your 10-digit mobile number for arrival verification and OTP.'
-                );
+                baseFocusMsg = 'Enter your 10-digit mobile number for arrival verification and OTP.';
             } else if (name.includes('password')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'குறைந்தது 8 எழுத்துக்கள், ஒரு பெரிய எழுத்து மற்றும் எண்களுடன் பாதுகாப்பான கடவுச்சொல்லை உருவாக்கவும்.'
-                        : 'Create a secure password with 8+ characters, including numbers and uppercase letters.'
-                );
+                baseFocusMsg = 'Create a secure password with 8+ characters, including numbers and uppercase letters.';
             } else if (name.includes('address') || name.includes('city') || name.includes('area')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'உங்கள் சரியான வீட்டு முகவரியை உள்ளிடவும் அல்லது தானியங்கி GPS இருப்பிடத்தைத் தேர்ந்தெடுக்கவும்.'
-                        : 'Enter your exact street address or use Current GPS Location for accurate doorstep arrival.'
-                );
+                baseFocusMsg = 'Enter your exact street address or use Current GPS Location for accurate doorstep arrival.';
             } else if (name.includes('date') || name.includes('time')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'சேவைக்கான உங்கள் விருப்பமான தேதி மற்றும் நேரத்தைத் தேர்ந்தெடுக்கவும்.'
-                        : 'Pick your preferred service date and time slot, or enable flexible timing.'
-                );
+                baseFocusMsg = 'Pick your preferred service date and time slot, or enable flexible timing.';
             } else if (name.includes('description') || name.includes('tell_us_more')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'உங்கள் சாதனத்தின் சிக்கலை சுருக்கமாக விவரிக்கவும், இதனால் வல்லுநர் தேவையான கருவிகளை எடுத்து வருவார்.'
-                        : 'Describe your issue clearly so your Pillar arrives prepared with the right spare parts.'
-                );
+                baseFocusMsg = 'Describe your issue clearly so your Pillar arrives prepared with the right spare parts.';
             } else if (name.includes('search')) {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'மின்சாரம், பிளம்பிங், ஏசி பழுது போன்ற உங்களுக்குத் தேவையான சேவையைத் தேடுங்கள்.'
-                        : 'Search any home service (Electrician, AC Repair, Plumber) to see verified nearby Pillars.'
-                );
-            } else {
-                setHeroGreeting(
-                    language === 'ta'
-                        ? 'நான் உங்கள் பதிவை கவனித்து வருகிறேன்! அடுத்த விவரத்தை நிரப்பவும்.'
-                        : "I'm watching your progress! Fill in the highlighted field."
-                );
+                baseFocusMsg = 'Search any home service (Electrician, AC Repair, Plumber) to see verified nearby Pillars.';
             }
+
+            const promptText = language !== 'en' ? await translateDynamic(baseFocusMsg, language, 'en') : baseFocusMsg;
+            setHeroGreeting(promptText);
         };
 
         const handleFocusOut = (e) => {
@@ -255,27 +219,18 @@ export default function GlobalHeroAgent({ inline = false }) {
                 // Dynamic contextual validation on blur
                 if (name.includes('email') && val && (!val.includes('@') || !val.includes('.'))) {
                     setAnimState('error');
-                    setHeroGreeting(
-                        language === 'ta'
-                            ? 'அச்சச்சோ! மின்னஞ்சல் முகவரி முழுமையடையவில்லை. சரியான "@" மற்றும் முகவரியைச் சேர்க்கவும்!'
-                            : "Oops! That email address looks incomplete. Please include a valid '@' and domain!"
-                    );
+                    const baseMsg = "Oops! That email address looks incomplete. Please include a valid '@' and domain!";
+                    translateDynamic(baseMsg, language, 'en').then(msg => setHeroGreeting(msg));
                     return;
                 } else if ((name.includes('mobile') || name.includes('phone')) && val && val.replace(/\D/g, '').length < 10) {
                     setAnimState('warning');
-                    setHeroGreeting(
-                        language === 'ta'
-                            ? 'அச்சச்சோ! மொபைல் எண் 10 இலக்கங்களாக இருக்க வேண்டும். தயவுசெய்து சரிபார்க்கவும்!'
-                            : "Oops! Mobile number needs to be 10 digits. Please double-check your number!"
-                    );
+                    const baseMsg = "Oops! Mobile number needs to be 10 digits. Please double-check your number!";
+                    translateDynamic(baseMsg, language, 'en').then(msg => setHeroGreeting(msg));
                     return;
                 } else if (name.includes('password') && val && val.length < 6) {
                     setAnimState('warning');
-                    setHeroGreeting(
-                        language === 'ta'
-                            ? 'அச்சச்சோ! கடவுச்சொல் மிகவும் சிறியது. குறைந்தது 6+ எழுத்துக்களைப் பயன்படுத்தவும்!'
-                            : "Oops! Password is a bit too short. Please use at least 6 characters for security!"
-                    );
+                    const baseMsg = "Oops! Password is a bit too short. Please use at least 6 characters for security!";
+                    translateDynamic(baseMsg, language, 'en').then(msg => setHeroGreeting(msg));
                     return;
                 }
             }
@@ -291,11 +246,8 @@ export default function GlobalHeroAgent({ inline = false }) {
             const target = e.target;
             const fieldLabel = target.name || target.id || target.placeholder || 'required field';
             setAnimState('error');
-            setHeroGreeting(
-                language === 'ta'
-                    ? `அச்சச்சோ! ${fieldLabel} விடுபட்டுள்ளது. தயவுசெய்து தேவையான விவரங்களை நிரப்பவும்!`
-                    : `Oops! It looks like ${fieldLabel} is missing or incorrect. Please fill it in to continue!`
-            );
+            const baseMsg = `Oops! It looks like ${fieldLabel} is missing or incorrect. Please fill it in to continue!`;
+            translateDynamic(baseMsg, language, 'en').then(msg => setHeroGreeting(msg));
         };
 
         // Custom live event dispatch listener for validation errors / successes
@@ -326,9 +278,10 @@ export default function GlobalHeroAgent({ inline = false }) {
     }, [language]);
 
     // Voice Speech Synthesis
-    const speakGreeting = (e) => {
+    const speakGreeting = (e, overrideText) => {
         e?.stopPropagation();
-        if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis || !heroGreeting) return;
+        const textToSpeak = overrideText || heroGreeting;
+        if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis || !textToSpeak) return;
 
         try {
             if (isSpeaking) {
@@ -338,15 +291,9 @@ export default function GlobalHeroAgent({ inline = false }) {
             }
 
             window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(heroGreeting.replace(/[^\w\s\u0B80-\u0BFF\u0900-\u097F\u0C00-\u0C7F\u0C80-\u0CFF]/gi, ''));
-            const langCodeMap = {
-                ta: 'ta-IN',
-                hi: 'hi-IN',
-                te: 'te-IN',
-                kn: 'kn-IN',
-                en: 'en-US'
-            };
-            utterance.lang = langCodeMap[language] || 'en-US';
+            const utterance = new SpeechSynthesisUtterance(textToSpeak.replace(/[^\w\s\u0B80-\u0BFF\u0900-\u097F\u0C00-\u0C7F\u0C80-\u0CFF\u0980-\u09FF\u0A80-\u0AFF\u0B00-\u0B7F\u0A00-\u0A7F\u0D00-\u0D7F\u0600-\u06FF]/gi, ''));
+            const meta = getLanguageMetadata(language);
+            utterance.lang = meta?.bcp47 || 'en-IN';
             utterance.rate = 1.0;
             utterance.pitch = 1.05;
 
@@ -388,8 +335,8 @@ export default function GlobalHeroAgent({ inline = false }) {
         if (isListening) { setIsListening(false); return; }
         try {
             const recognition = new SR();
-            const langCodeMap = { ta: 'ta-IN', hi: 'hi-IN', te: 'te-IN', kn: 'kn-IN', en: 'en-US' };
-            recognition.lang = langCodeMap[language] || 'en-US';
+            const meta = getLanguageMetadata(language);
+            recognition.lang = meta?.bcp47 || 'en-IN';
             recognition.interimResults = false;
             recognition.onstart = () => setIsListening(true);
             recognition.onend = () => setIsListening(false);

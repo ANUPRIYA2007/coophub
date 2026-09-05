@@ -1,3 +1,11 @@
-# COOP HUB Minimal Python OCR Dependencies for CI/CD Testing
-requests>=2.31.0
+# COOP HUB Production Python OCR Service Dependencies
+# Compatible with Python 3.10 - 3.14 on Linux & Windows
+torch>=2.1.0
+torchvision>=0.16.0
+easyocr>=1.7.0
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pillow>=10.0.0
 numpy>=1.24.0
+requests>=2.31.0
+python-multipart>=0.0.9

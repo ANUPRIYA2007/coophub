@@ -125,7 +125,7 @@ export default function Login() {
             {/* Top Navigation & Language Selector */}
             <div className="absolute top-4 left-4 z-10">
                 <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-orange-600 transition-colors bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-navy-100 shadow-xs">
-                    <ArrowLeft size={14} /> Back to Portals
+                    <ArrowLeft size={14} /> {t('Back to Portals')}
                 </Link>
             </div>
 
@@ -162,10 +162,10 @@ export default function Login() {
                         <div className="text-center mb-6">
                             <img src={coopHubLogo} alt="COOP HUB" className="w-24 h-auto mx-auto mb-4" />
                             <div className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-700 mb-2">
-                                <ShoppingBag size={12} /> Customer Portal
+                                <ShoppingBag size={12} /> {t("Customer Portal")}
                             </div>
-                            <h1 className="heading-2 mb-1">{t('auth.login_title')}</h1>
-                            <p className="text-muted text-xs sm:text-sm">{t('auth.login_subtitle')}</p>
+                            <h1 className="heading-2 mb-1">{t('Welcome Back')}</h1>
+                            <p className="text-muted text-xs sm:text-sm">{t('Sign in to your customer account')}</p>
                         </div>
 
                         {/* Status alerts */}
@@ -195,7 +195,7 @@ export default function Login() {
                                         : 'text-navy-500 hover:text-navy-800'
                                 }`}
                             >
-                                Email & Password
+                                {t("Email & Password")}
                             </button>
                             <button
                                 type="button"
@@ -206,7 +206,7 @@ export default function Login() {
                                         : 'text-navy-500 hover:text-navy-800'
                                 }`}
                             >
-                                Email OTP Code
+                                {t("Email OTP Code")}
                             </button>
                         </div>
 
@@ -214,7 +214,7 @@ export default function Login() {
                         <form onSubmit={loginMode === 'otp' && !otpSent ? handleSendOtp : handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-xs font-semibold text-navy-800 mb-1.5" htmlFor="email">
-                                    {t('auth.email')}
+                                    {t('Email Address')}
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-navy-400">
@@ -229,7 +229,7 @@ export default function Login() {
                                         onBlur={() => setActiveField(null)}
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all hover:border-navy-300 text-sm"
-                                        placeholder={t('auth.email_placeholder')}
+                                        placeholder={t('name@example.com')}
                                         required
                                     />
                                 </div>
@@ -239,10 +239,10 @@ export default function Login() {
                                 <div>
                                     <div className="flex justify-between items-center mb-1.5">
                                         <label className="block text-xs font-semibold text-navy-800" htmlFor="password">
-                                            {t('auth.password')}
+                                            {t('Password')}
                                         </label>
                                         <Link to="/forgot-password" className="text-xs font-semibold text-orange-500 hover:text-orange-600 transition-colors">
-                                            {t('auth.forgot_password_link')}
+                                            {t('Forgot password?')}
                                         </Link>
                                     </div>
                                     <PasswordInput
@@ -252,7 +252,7 @@ export default function Login() {
                                         onFocus={() => setActiveField('password')}
                                         onBlur={() => setActiveField(null)}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        placeholder={t('auth.password_placeholder')}
+                                        placeholder={t('Enter your password')}
                                         required
                                     />
                                 </div>
@@ -265,7 +265,7 @@ export default function Login() {
                                             <div>
                                                 <div className="flex justify-between items-center mb-1.5">
                                                     <label className="block text-xs font-semibold text-navy-800">
-                                                        Enter Email OTP Code
+                                                        {t("Enter Email OTP Code")}
                                                     </label>
                                                     <button
                                                         type="button"
@@ -273,7 +273,7 @@ export default function Login() {
                                                         disabled={loading}
                                                         className="text-xs font-semibold text-orange-600 hover:text-orange-700 transition-colors"
                                                     >
-                                                        Resend OTP
+                                                        {t("Resend OTP")}
                                                     </button>
                                                 </div>
                                                 <div className="relative">
@@ -288,7 +288,7 @@ export default function Login() {
                                                         onFocus={() => setActiveField('otp')}
                                                         onBlur={() => setActiveField(null)}
                                                         onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                                                        placeholder="Enter OTP Code"
+                                                        placeholder={t("Enter OTP Code")}
                                                         className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono tracking-[0.3em] text-center text-lg font-bold"
                                                         required
                                                         autoFocus
@@ -296,7 +296,7 @@ export default function Login() {
                                                 </div>
                                             </div>
                                             <p className="text-[11px] text-navy-500 text-center">
-                                                Check your email inbox or spam folder for the code.
+                                                {t("Check your email inbox or spam folder for the code.")}
                                             </p>
                                         </div>
                                     ) : (
@@ -306,7 +306,7 @@ export default function Login() {
                                                 onClick={() => setOtpSent(true)}
                                                 className="text-xs font-semibold text-orange-600 hover:text-orange-700 transition-colors underline"
                                             >
-                                                Already have an OTP code? Enter Code
+                                                {t("Already have an OTP code? Enter Code")}
                                             </button>
                                         </div>
                                     )}
@@ -324,12 +324,12 @@ export default function Login() {
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
-                                        {loginMode === 'otp' && !otpSent ? 'Sending OTP Code...' : 'Verifying & Logging In...'}
+                                        {loginMode === 'otp' && !otpSent ? t('Sending OTP Code...') : t('Verifying & Logging In...')}
                                     </span>
                                 ) : loginMode === 'otp' && !otpSent ? (
-                                    'Send 6-Digit OTP to Email'
+                                    t('Send 6-Digit OTP to Email')
                                 ) : (
-                                    t('auth.login_btn') || 'Log In'
+                                    t('Log In')
                                 )}
                             </button>
                         </form>
@@ -341,27 +341,27 @@ export default function Login() {
                                 onClick={handleDemoFill}
                                 className="text-xs font-semibold text-orange-600 hover:text-orange-700 transition-colors"
                             >
-                                ⚡ Fill Demo Customer Credentials
+                                ⚡ {t("Fill Demo Customer Credentials")}
                             </button>
                         </div>
 
                         {/* Register Account Link */}
                         <div className="mt-6 pt-5 border-t border-navy-100 text-center text-xs text-navy-600 space-y-3">
                             <div>
-                                {t('auth.create_account_link')}{' '}
+                                {t("Don't have an account?")}{' '}
                                 <Link to="/register" className="font-bold text-orange-600 hover:underline">
-                                    {t('auth.create_account_action')}
+                                    {t('Register here')}
                                 </Link>
                             </div>
 
                             {/* Switch to Pillar or Admin Portal */}
                             <div className="pt-2 border-t border-navy-50 flex items-center justify-center gap-3 text-[11px] text-navy-500">
                                 <Link to="/pillar/login" className="hover:text-blue-600 flex items-center gap-1 font-medium">
-                                    <Wrench size={12} /> Pillar Login
+                                    <Wrench size={12} /> {t("Pillar Login")}
                                 </Link>
                                 <span>•</span>
                                 <Link to="/admin/login" className="hover:text-amber-600 flex items-center gap-1 font-medium">
-                                    <Shield size={12} /> Admin Login
+                                    <Shield size={12} /> {t("Admin Login")}
                                 </Link>
                             </div>
                         </div>

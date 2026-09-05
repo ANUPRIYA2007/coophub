@@ -36,11 +36,11 @@ export default function SupportPage() {
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
               title="Back to Pillar Dashboard Home"
             >
-              <ArrowLeft size={14} /> Back to Dashboard
+              <ArrowLeft size={14} /> {t("Back to Dashboard")}
             </button>
           </div>
           <h1 className="page-title">{t("support.title")}</h1>
-          <p className="page-subtitle">Get fast help from our administrative and technical support team</p>
+          <p className="page-subtitle">{t("Get fast help from our administrative and technical support team")}</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           <Plus size={16} /> {t("support.createTicket")}
@@ -70,17 +70,17 @@ export default function SupportPage() {
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
-                    <span style={{ fontWeight: "700", color: "var(--color-primary)" }}>{tkt.id} • {tkt.subject}</span>
+                    <span style={{ fontWeight: "700", color: "var(--color-primary)" }}>{tkt.id} • {t(tkt.subject)}</span>
                     <span className={`badge ${tkt.status === "resolved" ? "badge-success" : tkt.status === "inProgress" ? "badge-info" : "badge-warning"}`}>
-                      {tkt.status}
+                      {t(tkt.status)}
                     </span>
                   </div>
                   <div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>
-                    Category: <strong>{tkt.category}</strong> | Priority: <strong>{tkt.priority}</strong>
+                    {t('Category:')} <strong>{t(tkt.category)}</strong> | {t('Priority:')} <strong>{t(tkt.priority)}</strong>
                   </div>
                   {tkt.response && (
                     <div style={{ marginTop: "var(--space-3)", padding: "var(--space-3)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-md)", fontSize: "var(--font-size-sm)" }}>
-                      <strong>{t("support.adminResponse")}:</strong> {tkt.response}
+                      <strong>{t("support.adminResponse")}:</strong> {t(tkt.response)}
                     </div>
                   )}
                 </div>

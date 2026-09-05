@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
+import { getLanguageMetadata } from "../../../i18n/languages.js";
+import { translateDynamic } from "../../../i18n/centralEngine.js";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
 import { heroNotificationHub } from "../../../services/ai/heroNotificationHub";
-import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX, Bell } from "lucide-react";
+import { Send, Mic, MicOff, X, Sparkles, MessageSquare, Bot, Volume2, VolumeX, Bell, Paperclip, Check, User, FileText } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Hero3D from "../../hero3d/Hero3D";
 
 export default function MascotFloating() {
   const { t, language } = useTranslation();
-  const { isAuthenticated, session } = useAuth();
+  const { isAuthenticated, session, profile, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -22,7 +24,17 @@ export default function MascotFloating() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [activeNotifBubble, setActiveNotifBubble] = useState(null);
   const [isVoiceMuted, setIsVoiceMuted] = useState(heroNotificationHub.isMuted);
+  const [attachment, setAttachment] = useState(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
   const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // Dynamic user profile from real authentication state (zero fake data)
+  const userAvatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
+  const userDisplayName = profile?.full_name || profile?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
+  const userInitial = userDisplayName ? userDisplayName.charAt(0).toUpperCase() : null;
 
   // Listen for global custom event to open Chat Assistant
   useEffect(() => {
@@ -35,27 +47,32 @@ export default function MascotFloating() {
 
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-  // Initial greeting
+  // Initial greeting (dynamically translated for any supported language)
   useEffect(() => {
-    let initialGreeting = "";
-    if (isAdminRoute) {
-      initialGreeting = language === "ta"
-        ? "வணக்கம் நிர்வாகி! நான் CoopBot, உங்கள் செயல்பாட்டு AI உதவியாளர். பில்லர்கள், சேவை கோரிக்கைகள், அல்லது வருவாய் பற்றி என்னிடம் கேட்கலாம்."
-        : "Welcome Administrator! I am CoopBot, your 24/7 AI Operations Assistant. Ask about workforce telemetry, service requests, pillar verification, or revenue analytics.";
-    } else {
-      initialGreeting = language === "ta"
-        ? "வணக்கம் பில்லர்! உங்கள் ஆர்டர்கள், வருமானம் அல்லது வாடிக்கையாளர் அரட்டை பற்றி என்னிடம் எப்போது வேண்டுமானாலும் கேட்கலாம்."
-        : "Welcome! I am CoopBot, your 24/7 AI Assistant. Ask about your bookings, earnings, arrival OTPs, or customer chats.";
-    }
+    let isMounted = true;
+    const baseGreeting = isAdminRoute
+      ? "Welcome Administrator! I am CoopBot, your 24/7 AI Operations Assistant. Ask about workforce telemetry, service requests, pillar verification, or revenue analytics."
+      : "Welcome! I am CoopBot, your 24/7 AI Assistant. Ask about your bookings, earnings, arrival OTPs, or customer chats.";
 
-    setMessages([
-      {
-        id: "msg-welcome",
-        sender: "mascot",
-        text: initialGreeting,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]);
+    const loadGreeting = async () => {
+      let greeting = baseGreeting;
+      if (language !== "en") {
+        greeting = await translateDynamic(baseGreeting, language, "en");
+      }
+      if (isMounted) {
+        setMessages([
+          {
+            id: "msg-welcome",
+            sender: "mascot",
+            text: greeting,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      }
+    };
+
+    loadGreeting();
+    return () => { isMounted = false; };
   }, [language, isAdminRoute]);
 
   // Unified Hero AI Realtime Notification Subscription & Voice Announcements
@@ -90,18 +107,48 @@ export default function MascotFloating() {
     return () => unsubscribe();
   }, [language]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottomIfNeeded = () => {
+    const el = scrollContainerRef.current;
+    if (!el) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom <= 140) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   useEffect(() => {
     if (isOpen) {
-      scrollToBottom();
+      scrollToBottomIfNeeded();
       // Mark notifications as read when chat is opened
       heroNotificationHub.markAllRead();
       setUnreadNotifCount(0);
     }
   }, [messages, isOpen]);
+
+  // File Attachment Handlers
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAttachment({
+        name: file.name,
+        size: `${(file.size / 1024).toFixed(1)} KB`,
+        file,
+      });
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveAttachment = () => {
+    setAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   // Text-To-Speech (Agent Speaks aloud)
   const speakText = (text, msgId) => {
@@ -118,7 +165,8 @@ export default function MascotFloating() {
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+    const meta = getLanguageMetadata(language);
+    utterance.lang = meta?.bcp47 || "en-IN";
     utterance.rate = 1.0;
     utterance.pitch = 1.05;
 
@@ -131,14 +179,19 @@ export default function MascotFloating() {
 
   const handleSend = async (e) => {
     e?.preventDefault();
-    if (!input.trim() || isTyping) return;
+    if ((!input.trim() && !attachment) || isTyping) return;
 
     const userText = input.trim();
+    const sentAttachment = attachment;
     setInput("");
+    setAttachment(null);
+    setIsInputFocused(false);
+
     const userMsg = {
       id: `user-${Date.now()}`,
       sender: "user",
       text: userText,
+      attachment: sentAttachment,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
@@ -146,8 +199,12 @@ export default function MascotFloating() {
     setIsTyping(true);
 
     try {
+      const combinedText = sentAttachment
+        ? `[Attachment: ${sentAttachment.name}] ${userText}`.trim()
+        : userText;
+
       // Direct live AI pipeline with Chronos-2 & Intent Router
-      const res = await aiService.chatWithMascot(userText, {
+      const res = await aiService.chatWithMascot(combinedText, {
         language,
         role: isAdminRoute ? "admin" : "pillar",
         currentPath: location.pathname
@@ -195,7 +252,8 @@ export default function MascotFloating() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    recognition.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+    const meta = getLanguageMetadata(language);
+    recognition.lang = meta?.bcp47 || "en-IN";
     recognition.interimResults = false;
 
     recognition.onstart = () => setIsListening(true);
@@ -364,6 +422,7 @@ export default function MascotFloating() {
       {/* ============================================================ */}
       {isOpen && (
         <div
+          className="coopbot-window-enter"
           style={{
             position: "fixed",
             bottom: "102px",
@@ -381,7 +440,6 @@ export default function MascotFloating() {
             zIndex: "var(--z-mascot, 500)",
             overflow: "hidden",
             border: "1px solid var(--color-border)",
-            animation: "slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
           {/* Header */}
@@ -398,8 +456,8 @@ export default function MascotFloating() {
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div
                 style={{
-                  width: "44px",
-                  height: "44px",
+                  width: "42px",
+                  height: "42px",
                   borderRadius: "50%",
                   background: "#1B2A4A",
                   overflow: "hidden",
@@ -408,12 +466,13 @@ export default function MascotFloating() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
                 <Hero3D mode="avatar" state={isListening ? 'listening' : isTyping ? 'thinking' : speakingMsgId ? 'speaking' : 'idle'} style={{ width: "100%", height: "100%" }} />
               </div>
               <div>
-                <h4 style={{ fontWeight: "800", fontSize: "16px", margin: 0, letterSpacing: "0.3px", color: "white" }}>CoopBot AI</h4>
+                <h4 style={{ fontWeight: "800", fontSize: "15px", margin: 0, letterSpacing: "0.3px", color: "white" }}>CoopBot AI</h4>
                 <span style={{ fontSize: "11px", opacity: 0.9, display: "flex", alignItems: "center", gap: "5px" }}>
                   <span className="status-dot available" style={{ width: "6px", height: "6px" }}></span>
                   {isAdminRoute ? "Cooperative Admin Intelligence" : "Authenticated Pillar Assistant"}
@@ -439,11 +498,18 @@ export default function MascotFloating() {
                   alignItems: "center",
                   justifyContent: "center"
                 }}
+                aria-label={isVoiceMuted ? "Unmute voice announcements" : "Mute voice announcements"}
                 title={isVoiceMuted ? "Unmute Hero Voice Announcements" : "Mute Hero Voice Announcements"}
               >
                 {isVoiceMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
               </button>
-              <button className="btn-icon" onClick={() => setIsOpen(false)} style={{ color: "white" }}>
+              <button
+                className="btn-icon"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close chat"
+                title="Close chat"
+                style={{ color: "white", background: "transparent", border: "none", cursor: "pointer", padding: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
                 <X size={20} />
               </button>
             </div>
@@ -512,34 +578,62 @@ export default function MascotFloating() {
             )}
           </div>
 
-          {/* Messages Feed */}
+          {/* Messages Feed with Intelligent Scroll */}
           <div
+            ref={scrollContainerRef}
             style={{
               flex: 1,
               padding: "16px",
               overflowY: "auto",
               display: "flex",
               flexDirection: "column",
-              gap: "12px",
+              gap: "14px",
               background: "var(--color-background)",
             }}
           >
             {messages.map((m) => (
               <div
                 key={m.id}
+                className="coopbot-msg-in"
                 style={{
                   display: "flex",
+                  alignItems: "flex-end",
+                  gap: "8px",
                   justifyContent: m.sender === "user" ? "flex-end" : "flex-start",
                 }}
               >
+                {/* Assistant profile avatar on left */}
+                {m.sender === "mascot" && (
+                  <div
+                    style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "50%",
+                      background: "#1B2A4A",
+                      overflow: "hidden",
+                      border: "1.5px solid var(--color-secondary)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    title="CoopBot"
+                  >
+                    <Hero3D mode="avatar" state={speakingMsgId === m.id ? 'speaking' : 'idle'} style={{ width: "100%", height: "100%" }} />
+                  </div>
+                )}
+
                 <div
                   style={{
-                    maxWidth: "84%",
+                    maxWidth: "80%",
                     padding: "12px 16px",
                     borderRadius: "16px",
+                    borderBottomLeftRadius: m.sender === "mascot" ? "4px" : "16px",
+                    borderBottomRightRadius: m.sender === "user" ? "4px" : "16px",
                     background: m.sender === "user" ? "var(--color-secondary)" : m.isNotification ? "rgba(255, 121, 0, 0.08)" : "var(--color-surface)",
                     color: m.sender === "user" ? "#FFFFFF" : "var(--color-text)",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
                     border: m.sender === "user" ? "none" : m.isNotification ? "1px solid #FF7900" : "1px solid var(--color-border)",
                     fontSize: "13.5px",
                     lineHeight: "1.5",
@@ -547,6 +641,26 @@ export default function MascotFloating() {
                     position: "relative",
                   }}
                 >
+                  {/* Attachment metadata preview inside user message */}
+                  {m.attachment && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "6px 10px",
+                        marginBottom: "6px",
+                        borderRadius: "8px",
+                        background: "rgba(0,0,0,0.15)",
+                        fontSize: "11.5px",
+                      }}
+                    >
+                      <Paperclip size={13} />
+                      <span style={{ fontWeight: "600" }}>{m.attachment.name}</span>
+                      <span style={{ opacity: 0.8, fontSize: "10px" }}>({m.attachment.size})</span>
+                    </div>
+                  )}
+
                   <p style={{ margin: 0, color: m.sender === "user" ? "#FFFFFF" : "var(--color-text)" }}>{m.text}</p>
 
                   {/* Speaker Button on Assistant Messages */}
@@ -565,8 +679,10 @@ export default function MascotFloating() {
                           color: speakingMsgId === m.id ? "var(--color-secondary)" : "var(--color-text-secondary)",
                           background: speakingMsgId === m.id ? "rgba(245, 124, 32, 0.15)" : "transparent",
                           borderRadius: "6px",
+                          border: "none",
                           cursor: "pointer",
                         }}
+                        aria-label="Text-to-speech"
                         title="Listen to response (Text-to-Speech)"
                       >
                         {speakingMsgId === m.id ? <VolumeX size={14} /> : <Volume2 size={14} />}
@@ -577,10 +693,14 @@ export default function MascotFloating() {
                     </div>
                   )}
 
+                  {/* User message timestamp + real sent tick */}
                   {m.sender === "user" && (
-                    <span style={{ fontSize: "9.5px", opacity: 0.8, display: "block", marginTop: "4px", textAlign: "right", color: "rgba(255,255,255,0.9)" }}>
-                      {m.timestamp}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "4px", marginTop: "4px" }}>
+                      <span style={{ fontSize: "9.5px", opacity: 0.85, color: "rgba(255,255,255,0.9)" }}>
+                        {m.timestamp}
+                      </span>
+                      <Check size={11} className="text-white/80 stroke-[2.5]" aria-label="Sent" />
+                    </div>
                   )}
 
                   {m.route && (
@@ -603,54 +723,249 @@ export default function MascotFloating() {
                     </button>
                   )}
                 </div>
+
+                {/* Real user avatar on right (no fake identities) */}
+                {m.sender === "user" && (
+                  <div
+                    style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #FF7900, #EA580C)",
+                      overflow: "hidden",
+                      border: "1.5px solid rgba(255,255,255,0.3)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                    }}
+                    title={userDisplayName || "User"}
+                  >
+                    {userAvatarUrl ? (
+                      <img src={userAvatarUrl} alt={userDisplayName || "User"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : userInitial ? (
+                      <span>{userInitial}</span>
+                    ) : (
+                      <User size={14} />
+                    )}
+                  </div>
+                )}
               </div>
             ))}
 
+            {/* AI thinking indicator with pulsing dots beside CoopBot avatar */}
             {isTyping && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--color-text-muted)", fontSize: "12px", background: "var(--color-surface)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "12px", width: "fit-content" }}>
-                <Bot size={16} color="var(--color-secondary)" />
-                <span>CoopBot is thinking...</span>
+              <div className="coopbot-msg-in" style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    background: "#1B2A4A",
+                    overflow: "hidden",
+                    border: "1.5px solid var(--color-secondary)",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Hero3D mode="avatar" state="thinking" style={{ width: "100%", height: "100%" }} />
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    padding: "8px 14px",
+                    borderRadius: "16px",
+                    borderBottomLeftRadius: "4px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <span className="coopbot-dot-1" style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--color-secondary)", display: "inline-block" }} />
+                  <span className="coopbot-dot-2" style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--color-secondary)", display: "inline-block" }} />
+                  <span className="coopbot-dot-3" style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--color-secondary)", display: "inline-block" }} />
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", marginLeft: "4px", fontWeight: "500" }}>Thinking...</span>
+                </div>
               </div>
             )}
 
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Chat Input Bar */}
+          {/* Restored Attachment Preview Chip */}
+          {attachment && (
+            <div
+              style={{
+                padding: "6px 12px",
+                background: "var(--color-surface-hover)",
+                borderTop: "1px solid var(--color-border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: "11.5px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                <FileText size={13} color="var(--color-secondary)" />
+                <span style={{ fontWeight: "600", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{attachment.name}</span>
+                <span style={{ color: "var(--color-text-muted)" }}>({attachment.size})</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveAttachment}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: "2px" }}
+                aria-label="Remove attachment"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          )}
+
+          {/* Hidden File Input for Restored Attachment Upload */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            style={{ display: "none" }}
+            aria-hidden="true"
+          />
+
+          {/* Composer Structure: [ ATTACHMENT ] [ ASK ME ANYTHING... ] [ MICROPHONE ] [ SEND ] */}
           <form
             onSubmit={handleSend}
             style={{
-              padding: "12px",
+              padding: isInputFocused ? "14px 12px" : "10px 12px",
               background: "var(--color-surface)",
               borderTop: "1px solid var(--color-border)",
               display: "flex",
               gap: "8px",
               alignItems: "center",
+              transition: "all 0.2s ease",
             }}
           >
+            {/* 1. ATTACHMENT BUTTON (LEFT) */}
             <button
               type="button"
+              onClick={() => fileInputRef.current?.click()}
               className="btn-icon"
-              onClick={toggleVoice}
+              aria-label="Attach file"
+              title="Attach file"
               style={{
-                color: isListening ? "var(--color-error)" : "var(--color-text-muted)",
-                background: isListening ? "var(--color-error-bg)" : "transparent",
+                width: "38px",
+                height: "38px",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--color-text-muted)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                flexShrink: 0,
               }}
-              title="Voice Input (Speech-to-Text)"
             >
-              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+              <Paperclip size={18} />
             </button>
 
+            {/* 2. CHAT INPUT (MIDDLE) WITH FOCUS EXPANSION */}
             <input
               type="text"
               className="form-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
               placeholder="Ask me anything..."
-              style={{ flex: 1, padding: "8px 14px", height: "42px", borderRadius: "12px", background: "var(--color-background)", color: "var(--color-text)", border: "1px solid var(--color-border)" }}
+              aria-label="Ask me anything"
+              style={{
+                flex: 1,
+                padding: "8px 14px",
+                height: isInputFocused ? "44px" : "40px",
+                borderRadius: "12px",
+                background: "var(--color-background)",
+                color: "var(--color-text)",
+                border: isInputFocused ? "1px solid var(--color-secondary)" : "1px solid var(--color-border)",
+                boxShadow: isInputFocused ? "0 0 0 2px rgba(245, 124, 32, 0.15)" : "none",
+                transition: "all 0.2s ease",
+                fontSize: "13px",
+              }}
             />
 
-            <button type="submit" className="btn btn-primary btn-icon" style={{ width: "42px", height: "42px", borderRadius: "12px" }}>
+            {/* 3. MICROPHONE WITH EQUALIZER & PULSE RING ANIMATION */}
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={toggleVoice}
+              aria-label={isListening ? "Stop voice listening" : "Start voice input"}
+              title={isListening ? "Listening... click to stop" : "Voice Input (Speech-to-Text)"}
+              style={{
+                position: "relative",
+                width: "38px",
+                height: "38px",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: isListening ? "white" : "var(--color-text-muted)",
+                background: isListening ? "#EF4444" : "transparent",
+                border: "none",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                flexShrink: 0,
+              }}
+            >
+              {isListening && (
+                <span
+                  className="coopbot-mic-ring"
+                  style={{
+                    position: "absolute",
+                    inset: "-4px",
+                    borderRadius: "14px",
+                    border: "2px solid #EF4444",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+              {isListening ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "2px", height: "14px" }}>
+                  <span className="coopbot-wave-1" style={{ width: "2px", background: "white", borderRadius: "2px", height: "100%" }} />
+                  <span className="coopbot-wave-2" style={{ width: "2px", background: "white", borderRadius: "2px", height: "100%" }} />
+                  <span className="coopbot-wave-3" style={{ width: "2px", background: "white", borderRadius: "2px", height: "100%" }} />
+                  <span className="coopbot-wave-4" style={{ width: "2px", background: "white", borderRadius: "2px", height: "100%" }} />
+                </div>
+              ) : (
+                <Mic size={18} />
+              )}
+            </button>
+
+            {/* 4. SEND BUTTON (RIGHT) */}
+            <button
+              type="submit"
+              className="btn btn-primary btn-icon"
+              disabled={!input.trim() && !attachment}
+              aria-label="Send message"
+              title="Send message"
+              style={{
+                width: "38px",
+                height: "38px",
+                borderRadius: "10px",
+                opacity: !input.trim() && !attachment ? 0.5 : 1,
+                cursor: !input.trim() && !attachment ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
               <Send size={16} />
             </button>
           </form>

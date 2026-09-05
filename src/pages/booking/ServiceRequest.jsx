@@ -203,24 +203,24 @@ export default function ServiceRequest() {
                         </svg>
                     </button>
                     <div className="flex-1">
-                        <h1 className="font-bold text-navy-800 text-lg">{t('booking.request_service')}</h1>
+                        <h1 className="font-bold text-navy-800 text-lg">{t('Request Service')}</h1>
                         <div className="flex items-center gap-1.5 text-[11px] text-navy-400 font-semibold">
-                            <span>Step {step} of 4</span>
+                            <span>{t('Step')} {step} {t('of')} 4</span>
                             <span>•</span>
-                            <span>{step === 1 ? 'Location' : step === 2 ? 'Schedule' : step === 3 ? 'Select Pillar' : 'Confirm'}</span>
+                            <span>{step === 1 ? t('Location') : step === 2 ? t('Schedule') : step === 3 ? t('Select Pillar') : t('Confirm')}</span>
                         </div>
                     </div>
                 </header>
 
                 <div className="mb-6">
-                    <h2 className="heading-3">{serviceInfo.name}</h2>
-                    <p className="text-navy-500 mt-1">{subServiceInfo ? `› ${subServiceInfo.name}` : ''}</p>
+                    <h2 className="heading-3">{t(serviceInfo.name)}</h2>
+                    <p className="text-navy-500 mt-1">{subServiceInfo ? `› ${t(subServiceInfo.name)}` : ''}</p>
                 </div>
 
                 {error && (
                     <div className="mb-6 p-4 rounded-xl bg-danger-50 text-danger-600 text-sm font-medium border border-danger-100 flex items-start">
                         <AlertTriangle className="w-5 h-5 mr-2 shrink-0" />
-                        <span>{error}</span>
+                        <span>{t(error)}</span>
                     </div>
                 )}
 
@@ -228,7 +228,7 @@ export default function ServiceRequest() {
                     {/* Step 1: Location */}
                     {step === 1 && (
                         <div className="space-y-5 animate-fade-in">
-                            <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2">{t('booking.location')}</h2>
+                            <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2">{t('Service Location')}</h2>
 
                             <div
                                 onClick={() => setShowMapPicker(true)}
@@ -238,10 +238,10 @@ export default function ServiceRequest() {
                                     <MapPin size={24} />
                                 </div>
                                 <h3 className="font-bold text-navy-900 text-sm">
-                                    {formData.latitude ? "Change Location on Google Map" : "Pin Location on Google Map & Places Search"}
+                                    {formData.latitude ? t("Change Location on Google Map") : t("Pin Location on Google Map & Places Search")}
                                 </h3>
                                 <p className="text-xs text-navy-500 max-w-sm mx-auto">
-                                    Search landmarks, use live GPS, or drag the map pin to ensure your technician arrives at the exact spot.
+                                    {t("Search landmarks, use live GPS, or drag the map pin to ensure your technician arrives at the exact spot.")}
                                 </p>
                             </div>
 
@@ -249,22 +249,22 @@ export default function ServiceRequest() {
                                 <div className="bg-white border border-emerald-200 rounded-2xl p-4 shadow-xs space-y-2">
                                     <div className="flex items-center justify-between">
                                         <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
-                                            <CheckCircle2 size={14} /> Confirmed Google Coordinates
+                                            <CheckCircle2 size={14} /> {t("Confirmed Google Coordinates")}
                                         </span>
                                         <button
                                             type="button"
                                             onClick={() => setShowMapPicker(true)}
                                             className="text-xs font-bold text-orange-600 hover:underline"
                                         >
-                                            Edit Pin
+                                            {t("Edit Pin")}
                                         </button>
                                     </div>
                                     <p className="font-bold text-navy-900 text-sm">
-                                        {formData.address_line || "Selected Map Location"}
+                                        {formData.address_line || t("Selected Map Location")}
                                     </p>
                                     <div className="flex flex-wrap gap-3 text-xs text-navy-600 pt-1 border-t border-navy-100">
-                                        <span>Area: <strong>{formData.area || "-"}</strong></span>
-                                        <span>City: <strong>{formData.city || "-"}</strong></span>
+                                        <span>{t("Area")}: <strong>{formData.area || "-"}</strong></span>
+                                        <span>{t("City")}: <strong>{formData.city || "-"}</strong></span>
                                         <span className="text-navy-400 font-mono text-[11px]">
                                             GPS: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
                                         </span>
@@ -274,16 +274,16 @@ export default function ServiceRequest() {
 
                             <div className="space-y-4 pt-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-navy-700">Detailed Address / Building / Flat:</span>
+                                    <span className="text-xs font-bold text-navy-700">{t("Detailed Address / Building / Flat:")}</span>
                                 </div>
-                                <input type="text" name="address_line" value={formData.address_line} onChange={handleFormChange} placeholder="Door No, Building Name, Street..." className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all outline-none text-xs" required />
+                                <input type="text" name="address_line" value={formData.address_line} onChange={handleFormChange} placeholder={t("Door No, Building Name, Street...")} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all outline-none text-xs" required />
                                 <div className="grid grid-cols-2 gap-4">
-                                    <input type="text" name="area" value={formData.area} onChange={handleFormChange} placeholder={t('booking.area')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
-                                    <input type="text" name="city" value={formData.city} onChange={handleFormChange} placeholder={t('booking.city')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" required />
+                                    <input type="text" name="area" value={formData.area} onChange={handleFormChange} placeholder={t('Area')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
+                                    <input type="text" name="city" value={formData.city} onChange={handleFormChange} placeholder={t('City')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" required />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <input type="text" name="state" value={formData.state} onChange={handleFormChange} placeholder="State" className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
-                                    <input type="text" name="postal_code" value={formData.postal_code} onChange={handleFormChange} placeholder="Postal Code" className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
+                                    <input type="text" name="state" value={formData.state} onChange={handleFormChange} placeholder={t("State")} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
+                                    <input type="text" name="postal_code" value={formData.postal_code} onChange={handleFormChange} placeholder={t("Postal Code")} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
                                 </div>
                             </div>
 
@@ -296,7 +296,7 @@ export default function ServiceRequest() {
                             />
 
                             <div className="mt-8 pt-4">
-                                <button onClick={nextStep} className="btn-primary w-full shadow-lg shadow-orange-500/20 py-3.5">Continue</button>
+                                <button onClick={nextStep} className="btn-primary w-full shadow-lg shadow-orange-500/20 py-3.5">{t("Continue")}</button>
                             </div>
                         </div>
                     )}
@@ -360,8 +360,8 @@ export default function ServiceRequest() {
                             </div>
 
                             <div className="flex gap-3 pt-4">
-                                <button onClick={() => setStep(1)} className="btn-secondary flex-1 py-3.5">Back</button>
-                                <button onClick={nextStep} className="btn-primary flex-1 py-3.5 shadow-lg shadow-orange-500/20">Select Pillar</button>
+                                <button onClick={() => setStep(1)} className="btn-secondary flex-1 py-3.5">{t('Back')}</button>
+                                <button onClick={nextStep} className="btn-primary flex-1 py-3.5 shadow-lg shadow-orange-500/20">{t('Select Pillar')}</button>
                             </div>
                         </div>
                     )}
@@ -370,9 +370,9 @@ export default function ServiceRequest() {
                     {step === 3 && (
                         <div className="space-y-5 animate-fade-in">
                             <div>
-                                <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2 mb-2">Select Your Cooperative Technician</h2>
+                                <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2 mb-2">{t('Select Your Cooperative Technician')}</h2>
                                 <p className="text-xs text-navy-500">
-                                    Browse certified Pillars in your vicinity, or let the AI allocation engine match the top-rated available specialist.
+                                    {t('Browse certified Pillars in your vicinity, or let the AI allocation engine match the top-rated available specialist.')}
                                 </p>
                             </div>
 
@@ -391,13 +391,13 @@ export default function ServiceRequest() {
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className="font-bold text-navy-900 text-sm">⚡ AI Auto-Match Best Pillar</span>
+                                            <span className="font-bold text-navy-900 text-sm">{t('⚡ AI Auto-Match Best Pillar')}</span>
                                             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                                                Recommended
+                                                {t('Recommended')}
                                             </span>
                                         </div>
                                         <p className="text-xs text-navy-500 mt-0.5">
-                                            Dispatches nearest verified specialist with highest trade score and fastest ETA.
+                                            {t('Dispatches nearest verified specialist with highest trade score and fastest ETA.')}
                                         </p>
                                     </div>
                                 </div>
@@ -411,16 +411,16 @@ export default function ServiceRequest() {
                             {/* Option 2: Live Pillars from Database */}
                             <div className="space-y-3 pt-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-navy-400 block">
-                                    Available Technicians Nearby ({availablePillars.length})
+                                    {t('Available Technicians Nearby')} ({availablePillars.length})
                                 </span>
 
                                 {loadingPillars ? (
                                     <div className="text-center py-8 text-xs font-semibold text-navy-400 animate-pulse">
-                                        Querying live cooperative database for active technicians...
+                                        {t('Querying live cooperative database for active technicians...')}
                                     </div>
                                 ) : availablePillars.length === 0 ? (
                                     <div className="p-4 rounded-xl bg-navy-50 text-xs text-navy-600 text-center">
-                                        No individual technicians found matching criteria. AI Auto-Dispatch will handle matching.
+                                        {t('No individual technicians found matching criteria. AI Auto-Dispatch will handle matching.')}
                                     </div>
                                 ) : (
                                     availablePillars.map(p => (
@@ -441,7 +441,7 @@ export default function ServiceRequest() {
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <span className="font-bold text-navy-900 text-sm truncate">{p.full_name}</span>
                                                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                                            {p.role}
+                                                            {t(p.role)}
                                                         </span>
                                                     </div>
                                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy-500 mt-1">
@@ -449,7 +449,7 @@ export default function ServiceRequest() {
                                                             <Star size={12} fill="currentColor" /> {p.rating}
                                                         </span>
                                                         <span>•</span>
-                                                        <span>{p.completed_jobs} completed jobs</span>
+                                                        <span>{p.completed_jobs} {t('completed jobs')}</span>
                                                         <span>•</span>
                                                         <span className="flex items-center gap-1 text-navy-600 font-semibold">
                                                             <MapPin size={12} /> ~{p.distance} km
@@ -461,7 +461,7 @@ export default function ServiceRequest() {
                                             <div className="text-right shrink-0">
                                                 <span className="font-mono font-black text-navy-900 text-sm block">₹{p.starting_price}</span>
                                                 <span className="text-[10px] text-emerald-600 font-bold uppercase block">
-                                                    {p.is_available ? 'Available' : 'Busy'}
+                                                    {p.is_available ? t('Available') : t('Busy')}
                                                 </span>
                                             </div>
 
@@ -476,8 +476,8 @@ export default function ServiceRequest() {
                             </div>
 
                             <div className="flex gap-3 pt-4 border-t border-navy-100">
-                                <button onClick={() => setStep(2)} className="btn-secondary flex-1 py-3.5">Back</button>
-                                <button onClick={() => setStep(4)} className="btn-primary flex-1 py-3.5 shadow-lg shadow-orange-500/20">Review Summary</button>
+                                <button onClick={() => setStep(2)} className="btn-secondary flex-1 py-3.5">{t('Back')}</button>
+                                <button onClick={() => setStep(4)} className="btn-primary flex-1 py-3.5 shadow-lg shadow-orange-500/20">{t('Review Summary')}</button>
                             </div>
                         </div>
                     )}
@@ -485,25 +485,25 @@ export default function ServiceRequest() {
                     {/* Step 4: Summary & Confirm */}
                     {step === 4 && (
                         <div className="space-y-6 animate-fade-in">
-                            <h2 className="font-semibold text-xl text-navy-800 border-b border-navy-100 pb-3">{t('booking.confirm_title')}</h2>
+                            <h2 className="font-semibold text-xl text-navy-800 border-b border-navy-100 pb-3">{t('Review & Confirm Booking')}</h2>
 
                             <div className="space-y-4">
                                 {formData.is_emergency && (
                                     <div className="p-3 bg-red-100 border border-red-300 rounded-xl text-center">
                                         <span className="text-xs font-black text-red-700 tracking-wider uppercase">
-                                            🚨 HIGH PRIORITY EMERGENCY SERVICE DISPATCH
+                                            🚨 {t('HIGH PRIORITY EMERGENCY SERVICE DISPATCH')}
                                         </span>
                                     </div>
                                 )}
                                 <div className="bg-navy-50 p-4 rounded-xl">
-                                    <p className="text-xs text-muted mb-1">Service Requested</p>
-                                    <p className="font-medium text-navy-800">{serviceInfo.name}{subServiceInfo ? ` - ${subServiceInfo.name}` : ''}</p>
+                                    <p className="text-xs text-muted mb-1">{t('Service Requested')}</p>
+                                    <p className="font-medium text-navy-800">{t(serviceInfo.name)}{subServiceInfo ? ` - ${t(subServiceInfo.name)}` : ''}</p>
                                 </div>
                                 <div className="bg-navy-50 p-4 rounded-xl">
-                                    <p className="text-xs text-muted mb-1">Assigned Pillar / Technician</p>
+                                    <p className="text-xs text-muted mb-1">{t('Assigned Pillar / Technician')}</p>
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium text-navy-800">
-                                            {selectedPillarId === 'auto_match' ? '⚡ AI Auto-Match (Nearest Certified Pillar)' : chosenPillarDetails?.full_name}
+                                            {selectedPillarId === 'auto_match' ? t('⚡ AI Auto-Match (Nearest Certified Pillar)') : chosenPillarDetails?.full_name}
                                         </span>
                                         {chosenPillarDetails && (
                                             <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
@@ -513,22 +513,22 @@ export default function ServiceRequest() {
                                     </div>
                                 </div>
                                 <div className="bg-navy-50 p-4 rounded-xl">
-                                    <p className="text-xs text-muted mb-1">Location</p>
+                                    <p className="text-xs text-muted mb-1">{t('Location')}</p>
                                     {formData.location_type === 'geolocation' ? (
-                                        <p className="font-medium text-navy-800">Coordinates: {formData.latitude}, {formData.longitude}</p>
+                                        <p className="font-medium text-navy-800">{t('Coordinates')}: {formData.latitude}, {formData.longitude}</p>
                                     ) : (
                                         <p className="font-medium text-navy-800">{[formData.address_line, formData.area, formData.city].filter(Boolean).join(', ')}</p>
                                     )}
                                 </div>
                                 <div className="bg-navy-50 p-4 rounded-xl">
-                                    <p className="text-xs text-muted mb-1">Schedule</p>
+                                    <p className="text-xs text-muted mb-1">{t('Schedule')}</p>
                                     <p className="font-medium text-navy-800">
-                                        {formData.is_emergency ? '⚡ Immediate Emergency Dispatch' : (formData.flexible_timing ? 'Flexible Timing' : `${formData.preferred_date} at ${formData.preferred_time}`)}
+                                        {formData.is_emergency ? t('⚡ Immediate Emergency Dispatch') : (formData.flexible_timing ? t('Flexible Timing') : `${formData.preferred_date} at ${formData.preferred_time}`)}
                                     </p>
                                 </div>
                                 {formData.customer_description && (
                                     <div className="bg-navy-50 p-4 rounded-xl">
-                                        <p className="text-xs text-muted mb-1">Notes</p>
+                                        <p className="text-xs text-muted mb-1">{t('Notes')}</p>
                                         <p className="font-medium text-navy-800">{formData.customer_description}</p>
                                     </div>
                                 )}
@@ -536,8 +536,8 @@ export default function ServiceRequest() {
 
                             <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 mt-4 flex items-center justify-between">
                                 <div>
-                                    <span className="text-xs text-orange-800/80 block">Estimated Service Base</span>
-                                    <span className="text-sm font-bold text-orange-950">Standard Cooperative Tariff</span>
+                                    <span className="text-xs text-orange-800/80 block">{t('Estimated Service Base')}</span>
+                                    <span className="text-sm font-bold text-orange-950">{t('Standard Cooperative Tariff')}</span>
                                 </div>
                                 <span className="font-mono font-black text-xl text-orange-600">
                                     ₹{chosenPillarDetails?.starting_price || subServiceInfo?.base_price || 450}
@@ -545,9 +545,9 @@ export default function ServiceRequest() {
                             </div>
 
                             <div className="flex gap-3 pt-6 mt-6 border-t border-navy-100">
-                                <button onClick={() => setStep(3)} disabled={isSubmitting} className="btn-secondary flex-1 py-3.5">Back</button>
+                                <button onClick={() => setStep(3)} disabled={isSubmitting} className="btn-secondary flex-1 py-3.5">{t('Back')}</button>
                                 <button onClick={submitRequest} disabled={isSubmitting} className="btn-primary flex-[2] py-3.5 shadow-lg shadow-orange-500/20">
-                                    {isSubmitting ? 'Submitting...' : t('booking.confirm_btn')}
+                                    {isSubmitting ? t('Submitting...') : t('Confirm Booking')}
                                 </button>
                             </div>
                         </div>

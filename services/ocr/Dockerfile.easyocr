@@ -1,0 +1,44 @@
+# ============================================================
+# COOP HUB Dedicated EasyOCR Secondary Engine Container
+# Lightweight CPU-optimized Python 3.11 image with PyTorch & EasyOCR
+# ============================================================
+
+FROM python:3.11-slim
+
+# Prevent interactive prompts & bufferless output
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=UTF-8 \
+    PORT=8002
+
+WORKDIR /app
+
+# Install minimal system dependencies for OpenCV and Pillow
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PyTorch CPU first for minimal container layer size
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Copy requirements and install dependencies
+COPY scripts/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy service code
+COPY services/ocr/ /app/services/ocr/
+
+# Create model cache directory
+RUN mkdir -p /root/.EasyOCR/model
+
+# Expose microservice port
+EXPOSE 8002
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:8002/health || exit 1
+
+# Start FastAPI server via Uvicorn
+CMD ["uvicorn", "services.ocr.easyocr_server:app", "--host", "0.0.0.0", "--port", "8002"]

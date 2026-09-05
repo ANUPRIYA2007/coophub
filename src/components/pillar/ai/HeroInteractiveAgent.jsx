@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
+import { translateDynamic } from "../../../i18n/centralEngine.js";
 import { Sparkles, Bot, AlertCircle, CheckCircle2, MessageSquare, Send, ShieldCheck, FileText, Lock } from "lucide-react";
 import { aiService } from "../../../services/pillar/aiService";
 import Hero3D from "../../hero3d/Hero3D";
@@ -30,130 +31,99 @@ export default function HeroInteractiveAgent({
 
   // Reactive state changes based on real user actions and newly added steps
   useEffect(() => {
-    if (formSuccess) {
-      setHeroState("success");
-      setHeroMessage(
-        language === "ta" 
-          ? "அருமை! உங்கள் ஆவணங்கள் சரிபார்ப்புக்கு வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது!" 
-          : "Awesome! Your registration and ID document are submitted for PaddleOCR verification!"
-      );
-      return;
-    }
+    let isMounted = true;
 
-    if (formError) {
-      setHeroState("error");
-      setHeroMessage(`⚠️ Oops! ${formError}`);
-      return;
-    }
-
-    if (activeField) {
-      setHeroState("speaking");
-      switch (activeField) {
-        case "identifier":
-        case "email":
-          setHeroMessage(
-            language === "ta" 
-              ? "உங்கள் சரியான மின்னஞ்சல் அல்லது பதிவு செய்த பில்லர் ஐடியை உள்ளிடவும்!"
-              : "Enter your registered email or Unique Pillar ID. I'll guide your sign-in!"
-          );
-          break;
-        case "pillarId":
-          setHeroMessage(
-            language === "ta"
-              ? "நிர்வாகத்தால் ஒதுக்கப்பட்ட உங்கள் பில்லர் ஐடியை (எ.கா. PIL-CHE-042) உள்ளிடவும்."
-              : "Enter your unique Pillar ID (e.g. PIL-CHE-042) or mobile number to receive an OTP."
-          );
-          break;
-        case "password":
-          setHeroMessage(
-            language === "ta"
-              ? "குறைந்தது 8 எழுத்துக்கள் கொண்ட பாதுகாப்பான கடவுச்சொல்லை உள்ளிடவும்."
-              : "Make sure your password is at least 8 characters long with numbers and letters."
-          );
-          break;
-        case "otp":
-          setHeroMessage(
-            language === "ta"
-              ? "உங்கள் மொபைலுக்கு அனுப்பப்பட்ட 6 இலக்க OTP எண்ணை உள்ளிடவும்."
-              : "Enter the 6-digit OTP code sent to your phone via SMS."
-          );
-          break;
-        case "fullName":
-          setHeroMessage(
-            language === "ta"
-              ? "உங்கள் அரசு அடையாள அட்டையில் உள்ளவாறு முழு சட்டப்பூர்வ பெயரை உள்ளிடவும்."
-              : "Enter your full legal name exactly as it appears on your Government ID."
-          );
-          break;
-        case "mainServices":
-          setHeroMessage(
-            language === "ta"
-              ? "உங்கள் முதன்மை தொழில் பிரிவைத் தேர்ந்தெடுக்கவும் (மின்சார வல்லுநர், பிளம்பர், ஏசி பழுது)."
-              : "Select your core trade specialization (Electrician, Plumber, AC Repair, etc.)."
-          );
-          break;
-        case "subServices":
-          setHeroMessage("Add comma-separated sub-skills (e.g. Wiring, DB Box, Pipe Fitting, Inverter).");
-          break;
-        case "experience":
-          setHeroMessage("Select your verified years of on-field technical trade experience.");
-          break;
-        case "serviceArea":
-          setHeroMessage("Specify your operating localities or pin codes across Chennai for job dispatch.");
-          break;
-        case "documentType":
-          setHeroMessage("Select your Government ID type: Aadhaar, PAN Card, Voter ID, or Driving Licence.");
-          break;
-        case "customDocumentType":
-          setHeroMessage("Specify your custom government identity document title.");
-          break;
-        case "documentNumber":
-          setHeroMessage("Enter your official document number. Sensitive digits are automatically masked for privacy.");
-          break;
-        case "dob":
-          setHeroMessage("Select your Date of Birth as printed on your uploaded identity document.");
-          break;
-        default:
-          setHeroMessage("I'm watching your progress! Fill in the highlighted field.");
+    const resolveMessage = async () => {
+      if (formSuccess) {
+        setHeroState("success");
+        const baseSuccess = "Awesome! Your registration and ID document are submitted for PaddleOCR verification!";
+        const msg = language !== "en" ? await translateDynamic(baseSuccess, language, "en") : baseSuccess;
+        if (isMounted) setHeroMessage(msg);
+        return;
       }
-      return;
-    }
 
-    // Default idle messages based on exact step lifecycle
-    setHeroState("idle");
-    if (mode === "login") {
-      setHeroMessage(
-        language === "ta"
-          ? "வணக்கம்! உங்கள் COOP HUB பில்லர் கணக்கில் உள்நுழையவும். உங்களுக்கு உதவ நான் எப்போதும் தயார்!"
-          : "Welcome to COOP HUB Pillar Portal! Enter your assigned Pillar ID or login with Password/OTP."
-      );
-    } else if (mode === "register") {
-      if (currentStep === 1) {
-        setHeroMessage(
-          language === "ta"
-            ? "படி 1/4: உங்கள் தனிப்பட்ட சுயவிவர தகவல்களை உள்ளிட்டு 'Next' பொத்தானை அழுத்தவும்!"
-            : "Step 1 of 4: Enter your personal profile details to begin your Pillar registration!"
-        );
-      } else if (currentStep === 2) {
-        setHeroMessage(
-          language === "ta"
-            ? "படி 2/4: உங்கள் முதன்மை தொழில் திறன் மற்றும் சேவை பகுதிகளைத் தேர்ந்தெடுக்கவும்!"
-            : "Step 2 of 4: Select your trade skills and operating service areas across Chennai!"
-        );
-      } else if (currentStep === 3) {
-        setHeroMessage(
-          language === "ta"
-            ? "படி 3/4: ஆதார், பான், வாக்காளர் அட்டை அல்லது ஓட்டுநர் உரிமத்தைப் பதிவேற்றி சரிபார்க்கவும்!"
-            : "Step 3 of 4: Upload your Government Identity Document for PaddleOCR administrative verification!"
-        );
-      } else if (currentStep === 4) {
-        setHeroMessage(
-          language === "ta"
-            ? "படி 4/4: உங்கள் திறன் சான்றிதழ்களைப் பதிவேற்றி பில்லர் பதிவை நிறைவு செய்யவும்!"
-            : "Step 4 of 4: Upload optional trade skill certificates to boost your verified ranking and complete registration!"
-        );
+      if (formError) {
+        setHeroState("error");
+        setHeroMessage(`⚠️ Oops! ${formError}`);
+        return;
       }
-    }
+
+      if (activeField) {
+        setHeroState("speaking");
+        let baseFieldMsg = "I'm watching your progress! Fill in the highlighted field.";
+        switch (activeField) {
+          case "identifier":
+          case "email":
+            baseFieldMsg = "Enter your registered email or Unique Pillar ID. I'll guide your sign-in!";
+            break;
+          case "pillarId":
+            baseFieldMsg = "Enter your unique Pillar ID (e.g. PIL-CHE-042) or mobile number to receive an OTP.";
+            break;
+          case "password":
+            baseFieldMsg = "Make sure your password is at least 8 characters long with numbers and letters.";
+            break;
+          case "otp":
+            baseFieldMsg = "Enter the 6-digit OTP code sent to your phone via SMS.";
+            break;
+          case "fullName":
+            baseFieldMsg = "Enter your full legal name exactly as it appears on your Government ID.";
+            break;
+          case "mainServices":
+            baseFieldMsg = "Select your core trade specialization (Electrician, Plumber, AC Repair, etc.).";
+            break;
+          case "subServices":
+            baseFieldMsg = "Add comma-separated sub-skills (e.g. Wiring, DB Box, Pipe Fitting, Inverter).";
+            break;
+          case "experience":
+            baseFieldMsg = "Select your verified years of on-field technical trade experience.";
+            break;
+          case "serviceArea":
+            baseFieldMsg = "Specify your operating localities or pin codes across Chennai for job dispatch.";
+            break;
+          case "documentType":
+            baseFieldMsg = "Select your Government ID type: Aadhaar, PAN Card, Voter ID, or Driving Licence.";
+            break;
+          case "customDocumentType":
+            baseFieldMsg = "Specify your custom government identity document title.";
+            break;
+          case "documentNumber":
+            baseFieldMsg = "Enter your official document number. Sensitive digits are automatically masked for privacy.";
+            break;
+          case "dob":
+            baseFieldMsg = "Select your Date of Birth as printed on your uploaded identity document.";
+            break;
+          default:
+            baseFieldMsg = "I'm watching your progress! Fill in the highlighted field.";
+        }
+
+        const msg = language !== "en" ? await translateDynamic(baseFieldMsg, language, "en") : baseFieldMsg;
+        if (isMounted) setHeroMessage(msg);
+        return;
+      }
+
+      // Default idle messages based on exact step lifecycle
+      setHeroState("idle");
+      let baseIdleMsg = "Welcome to COOP HUB Pillar Portal! Enter your assigned Pillar ID or login with Password/OTP.";
+      if (mode === "login") {
+        baseIdleMsg = "Welcome to COOP HUB Pillar Portal! Enter your assigned Pillar ID or login with Password/OTP.";
+      } else if (mode === "register") {
+        if (currentStep === 1) {
+          baseIdleMsg = "Step 1 of 4: Enter your personal profile details to begin your Pillar registration!";
+        } else if (currentStep === 2) {
+          baseIdleMsg = "Step 2 of 4: Select your trade skills and operating service areas across Chennai!";
+        } else if (currentStep === 3) {
+          baseIdleMsg = "Step 3 of 4: Upload your Government Identity Document for PaddleOCR administrative verification!";
+        } else if (currentStep === 4) {
+          baseIdleMsg = "Step 4 of 4: Upload optional trade skill certificates to boost your verified ranking and complete registration!";
+        }
+      }
+
+      const msg = language !== "en" ? await translateDynamic(baseIdleMsg, language, "en") : baseIdleMsg;
+      if (isMounted) setHeroMessage(msg);
+    };
+
+    resolveMessage();
+    return () => { isMounted = false; };
   }, [activeField, formError, formSuccess, mode, currentStep, language]);
 
   const handleAsk = async (e) => {

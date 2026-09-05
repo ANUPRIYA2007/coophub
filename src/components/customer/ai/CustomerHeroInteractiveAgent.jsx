@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../hooks/useTranslation";
+import { translateDynamic } from "../../../i18n/centralEngine.js";
 import { Sparkles, Bot, AlertCircle, CheckCircle2, MessageSquare, Send, ShieldCheck, FileText, Lock } from "lucide-react";
 import Hero3D from "../../hero3d/Hero3D";
 import { aiService } from "../../../services/pillar/aiService";
@@ -29,96 +30,73 @@ export default function CustomerHeroInteractiveAgent({
 
   // Reactive state changes based on real user actions
   useEffect(() => {
-    if (formSuccess) {
-      setHeroState("success");
-      setHeroMessage(
-        language === "ta"
-          ? "அருமை! உங்கள் கணக்கு வெற்றிகரமாக உருவாக்கப்பட்டது! COOP HUB-க்கு வரவேற்கிறோம்!"
-          : "Awesome! Your customer account has been created successfully. Welcome to COOP HUB!"
-      );
-      return;
-    }
+    let isMounted = true;
 
-    if (formError) {
-      setHeroState("error");
-      setHeroMessage(`⚠️ Oops! ${formError}`);
-      return;
-    }
-
-    if (activeField) {
-      setHeroState("speaking");
-      switch (activeField) {
-        case "email":
-          setHeroMessage(
-            language === "ta"
-              ? "உங்கள் சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும். உள்நுழைய அல்லது OTP பெற இது உதவும்!"
-              : "Enter your registered email address to sign in or receive your login OTP."
-          );
-          break;
-        case "password":
-          setHeroMessage(
-            language === "ta"
-              ? "குறைந்தது 8 எழுத்துக்கள் கொண்ட உங்கள் பாதுகாப்பான கடவுச்சொல்லை உள்ளிடவும்."
-              : "Enter your secure password to access your customer dashboard."
-          );
-          break;
-        case "confirmPassword":
-          setHeroMessage(
-            language === "ta"
-              ? "கடவுச்சொல்லை உறுதிப்படுத்த மீண்டும் சரியாக உள்ளிடவும்."
-              : "Re-enter your password to confirm they match."
-          );
-          break;
-        case "otp":
-          setHeroMessage(
-            language === "ta"
-              ? "உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்ட 6 இலக்க OTP எண்ணை உள்ளிடவும்."
-              : "Enter the 6-digit OTP code sent directly to your email inbox."
-          );
-          break;
-        case "fullName":
-          setHeroMessage(
-            language === "ta"
-              ? "உங்கள் முழு பெயரை உள்ளிட்டு COOP HUB-ல் சேருங்கள்!"
-              : "Enter your full name to personalize your booking experience."
-          );
-          break;
-        case "mobile":
-        case "phone":
-          setHeroMessage(
-            language === "ta"
-              ? "புக் செய்த சேவைகளின் புதுப்பிப்புகளைப் பெற உங்கள் 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்."
-              : "Enter your 10-digit mobile number for order dispatch and technician updates."
-          );
-          break;
-        case "address":
-          setHeroMessage(
-            language === "ta"
-              ? "தொழில்நுட்ப வல்லுநர் வருகைக்காக உங்கள் வீட்டு முகவரியை உள்ளிடவும்."
-              : "Provide your service address or locality in Chennai."
-          );
-          break;
-        default:
-          setHeroMessage("I'm watching your progress! Fill in the highlighted field.");
+    const resolveCustomerMessage = async () => {
+      if (formSuccess) {
+        setHeroState("success");
+        const baseSuccess = "Awesome! Your customer account has been created successfully. Welcome to COOP HUB!";
+        const msg = language !== "en" ? await translateDynamic(baseSuccess, language, "en") : baseSuccess;
+        if (isMounted) setHeroMessage(msg);
+        return;
       }
-      return;
-    }
 
-    // Default idle messages based on mode
-    setHeroState("idle");
-    if (mode === "login") {
-      setHeroMessage(
-        language === "ta"
-          ? "வணக்கம்! உங்கள் COOP HUB வாடிக்கையாளர் கணக்கில் உள்நுழையவும். உங்களுக்கு உதவ நான் எப்போதும் தயார்!"
-          : "Welcome to COOP HUB Customer Portal! Sign in with your email, password, or instant OTP."
-      );
-    } else if (mode === "register") {
-      setHeroMessage(
-        language === "ta"
-          ? "வணக்கம்! COOP HUB-ல் புதிய வாடிக்கையாளர் கணக்கை உருவாக்க விவரங்களை உள்ளிடவும்!"
-          : "Create your COOP HUB customer account to book verified cooperative technicians across Chennai!"
-      );
-    }
+      if (formError) {
+        setHeroState("error");
+        setHeroMessage(`⚠️ Oops! ${formError}`);
+        return;
+      }
+
+      if (activeField) {
+        setHeroState("speaking");
+        let baseFieldMsg = "I'm watching your progress! Fill in the highlighted field.";
+        switch (activeField) {
+          case "email":
+            baseFieldMsg = "Enter your registered email address to sign in or receive your login OTP.";
+            break;
+          case "password":
+            baseFieldMsg = "Enter your secure password to access your customer dashboard.";
+            break;
+          case "confirmPassword":
+            baseFieldMsg = "Re-enter your password to confirm they match.";
+            break;
+          case "otp":
+            baseFieldMsg = "Enter the 6-digit OTP code sent directly to your email inbox.";
+            break;
+          case "fullName":
+            baseFieldMsg = "Enter your full name to personalize your booking experience.";
+            break;
+          case "mobile":
+          case "phone":
+            baseFieldMsg = "Enter your 10-digit mobile number for order dispatch and technician updates.";
+            break;
+          case "address":
+            baseFieldMsg = "Provide your service address or locality in Chennai.";
+            break;
+          default:
+            baseFieldMsg = "I'm watching your progress! Fill in the highlighted field.";
+        }
+
+        const msg = language !== "en" ? await translateDynamic(baseFieldMsg, language, "en") : baseFieldMsg;
+        if (isMounted) setHeroMessage(msg);
+        return;
+      }
+
+      // Default idle messages based on mode
+      setHeroState("idle");
+      let baseIdleMsg = "Welcome to COOP HUB Customer Portal! Sign in with your email, password, or instant OTP.";
+      if (mode === "login") {
+        baseIdleMsg = "Welcome to COOP HUB Customer Portal! Sign in with your email, password, or instant OTP.";
+      } else if (mode === "register") {
+        baseIdleMsg = "Create your COOP HUB customer account to book verified cooperative technicians across Chennai!";
+      }
+
+      const msg = language !== "en" ? await translateDynamic(baseIdleMsg, language, "en") : baseIdleMsg;
+      if (isMounted) setHeroMessage(msg);
+    };
+
+    resolveCustomerMessage();
+    return () => { isMounted = false; };
   }, [activeField, formError, formSuccess, mode, language]);
 
   const handleAsk = async (e) => {

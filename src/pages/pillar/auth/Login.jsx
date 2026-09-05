@@ -258,7 +258,7 @@ export default function Login() {
             e.currentTarget.style.transform = "translateY(0)";
           }}
         >
-          <ArrowLeft size={16} /> Back to Portals
+          <ArrowLeft size={16} /> {t("Back to Portals")}
         </button>
       </div>
 
@@ -343,7 +343,7 @@ export default function Login() {
                 {t("auth.pillarLogin")}
               </h2>
               <p style={{ color: "var(--color-text-secondary)", fontSize: "13.5px", marginTop: "4px" }}>
-                Access your assigned jobs, customer requests & earnings
+                {t("Access your assigned jobs, customer requests & earnings")}
               </p>
             </div>
 
@@ -362,19 +362,19 @@ export default function Login() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#B45309", fontWeight: "800", fontSize: "0.95rem", marginBottom: "8px" }}>
                   <Clock size={20} />
-                  <span>⏳ KYC Verification In Progress</span>
+                  <span>⏳ {t("KYC Verification In Progress")}</span>
                 </div>
                 
                 <div style={{ background: "white", padding: "12px 14px", borderRadius: "10px", border: "1px solid #FDE68A", marginBottom: "12px" }}>
-                  <div style={{ fontSize: "0.72rem", color: "#64748B", textTransform: "uppercase", fontWeight: "800", letterSpacing: "0.5px" }}>Official Application ID</div>
+                  <div style={{ fontSize: "0.72rem", color: "#64748B", textTransform: "uppercase", fontWeight: "800", letterSpacing: "0.5px" }}>{t("Official Application ID")}</div>
                   <div style={{ fontSize: "1.25rem", color: "#FF7900", fontWeight: "900", fontFamily: "'Courier New', monospace" }}>{pendingInfo.applicationId}</div>
                   <div style={{ fontSize: "0.85rem", color: "#1E293B", fontWeight: "600", marginTop: "4px" }}>
-                    Applicant: <strong>{pendingInfo.name}</strong> • {pendingInfo.trade}
+                    {t("Applicant")}: <strong>{pendingInfo.name}</strong> • {pendingInfo.trade}
                   </div>
                 </div>
 
                 <div style={{ fontSize: "0.84rem", color: "#92400E", lineHeight: "1.5", marginBottom: "14px" }}>
-                  Your registration details and government identity document are currently under administrative review. Once verified by the Cooperative Administration, your permanent <strong>Unique Pillar ID</strong> (e.g. <code>PIL-CHE-042</code>) will be activated and sent to your email.
+                  {t("Your registration details and government identity document are currently under administrative review.")}
                 </div>
 
                 <button
@@ -382,7 +382,7 @@ export default function Login() {
                   onClick={() => setPendingInfo(null)}
                   style={{ width: "100%", background: "#F59E0B", color: "white", padding: "10px", borderRadius: "8px", fontWeight: "700", border: "none", cursor: "pointer", fontSize: "0.85rem" }}
                 >
-                  Dismiss Status
+                  {t("Dismiss Status")}
                 </button>
               </div>
             ) : rejectedInfo ? (
@@ -398,10 +398,10 @@ export default function Login() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#DC2626", fontWeight: "800", fontSize: "0.95rem", marginBottom: "6px" }}>
                   <AlertCircle size={20} />
-                  <span>❌ Verification Rejected</span>
+                  <span>❌ {t("Verification Rejected")}</span>
                 </div>
                 <div style={{ fontSize: "0.82rem", color: "#64748B", textTransform: "uppercase", fontWeight: "700", marginBottom: "2px" }}>
-                  Reason for rejection:
+                  {t("Reason for rejection")}:
                 </div>
                 <div style={{ fontSize: "0.9rem", color: "#991B1B", fontWeight: "600", marginBottom: "14px", lineHeight: "1.5" }}>
                   {rejectedInfo.reason || error}
@@ -411,7 +411,7 @@ export default function Login() {
                   className="btn btn-primary"
                   style={{ display: "block", textAlign: "center", background: "#FF7900", color: "white", padding: "10px 16px", fontSize: "0.85rem", fontWeight: "800", borderRadius: "8px", textDecoration: "none" }}
                 >
-                  REVIEW & RESUBMIT
+                  {t("REVIEW & RESUBMIT")}
                 </Link>
               </div>
             ) : error ? (
@@ -473,7 +473,7 @@ export default function Login() {
               }}
             >
               <div style={{ fontSize: "12px", fontWeight: "700", color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                🧪 Demo Access
+                🧪 {t("Demo Access")}
               </div>
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
@@ -498,7 +498,7 @@ export default function Login() {
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--color-secondary)")}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--color-border)")}
                 >
-                  Auto-fill Demo Pillar
+                  {t("Auto-fill Demo Pillar")}
                 </button>
               </div>
             </div>
@@ -525,7 +525,7 @@ export default function Login() {
                   transition: "all 0.2s ease"
                 }}
               >
-                🔑 Pillar ID & Password
+                🔑 {t("Pillar ID & Password")}
               </button>
               <button
                 type="button"
@@ -547,7 +547,7 @@ export default function Login() {
                   transition: "all 0.2s ease"
                 }}
               >
-                📱 OTP Login
+                📱 {t("OTP Login")}
               </button>
             </div>
 
@@ -573,7 +573,7 @@ export default function Login() {
                   gap: "4px"
                 }}
               >
-                {showLookup ? "✕ Close ID Lookup" : "🔍 Don't know your Pillar ID? Find / Check Status"}
+                {showLookup ? `✕ ${t("Close ID Lookup")}` : `🔍 ${t("Don't know your Pillar ID? Find / Check Status")}`}
               </button>
             </div>
 
@@ -590,10 +590,10 @@ export default function Login() {
                 }}
               >
                 <div style={{ fontSize: "13px", fontWeight: "800", color: "#0F172A", marginBottom: "6px" }}>
-                  🔍 Find Your Assigned Pillar ID
+                  🔍 {t("Find Your Assigned Pillar ID")}
                 </div>
                 <p style={{ fontSize: "12px", color: "#64748B", marginBottom: "10px" }}>
-                  Enter your registered Email or Mobile number to check your approval status and retrieve your ID.
+                  {t("Enter your registered Email or Mobile number to check your approval status and retrieve your ID.")}
                 </p>
 
                 <form onSubmit={handleLookupPillarId} style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
@@ -612,7 +612,7 @@ export default function Login() {
                     disabled={lookupLoading}
                     style={{ padding: "8px 14px", fontSize: "12px", fontWeight: "700", background: "#0F172A", color: "white", whiteSpace: "nowrap" }}
                   >
-                    {lookupLoading ? "Searching..." : "Lookup"}
+                    {lookupLoading ? t("Searching...") : t("Lookup")}
                   </button>
                 </form>
 
@@ -625,7 +625,7 @@ export default function Login() {
                 {lookupResult && (
                   <div style={{ background: "white", borderRadius: "10px", padding: "12px", border: "1px solid #E2E8F0", marginTop: "10px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748B", textTransform: "uppercase" }}>Registration Match</span>
+                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748B", textTransform: "uppercase" }}>{t("Registration Match")}</span>
                       <span style={{ 
                         fontSize: "11px", 
                         fontWeight: "800", 
@@ -634,7 +634,7 @@ export default function Login() {
                         background: lookupResult.status === "verified" ? "#DCFCE7" : "#FEF3C7", 
                         color: lookupResult.status === "verified" ? "#15803D" : "#B45309" 
                       }}>
-                        {lookupResult.status === "verified" ? "✅ APPROVED & ACTIVE" : "⏳ UNDER VERIFICATION"}
+                        {lookupResult.status === "verified" ? `✅ ${t("APPROVED & ACTIVE")}` : `⏳ ${t("UNDER VERIFICATION")}`}
                       </span>
                     </div>
 
@@ -644,7 +644,7 @@ export default function Login() {
 
                     {lookupResult.pillarCode ? (
                       <div style={{ marginTop: "8px", padding: "8px 10px", background: "#FFF7ED", border: "1px solid #FFEDD5", borderRadius: "8px" }}>
-                        <div style={{ fontSize: "11px", color: "#C2410C", fontWeight: "700" }}>Your Unique Pillar ID:</div>
+                        <div style={{ fontSize: "11px", color: "#C2410C", fontWeight: "700" }}>{t("Your Unique Pillar ID")}:</div>
                         <div style={{ fontSize: "1.2rem", fontWeight: "900", color: "#EA580C", fontFamily: "monospace" }}>
                           {lookupResult.pillarCode}
                         </div>
@@ -667,12 +667,12 @@ export default function Login() {
                             cursor: "pointer"
                           }}
                         >
-                          Use {lookupResult.pillarCode} to Log In
+                          {t("Use")} {lookupResult.pillarCode} {t("to Log In")}
                         </button>
                       </div>
                     ) : (
                       <div style={{ marginTop: "6px", fontSize: "12px", color: "#B45309" }}>
-                        Application ID: <strong>{lookupResult.applicationId}</strong> (Clearance pending by Admin)
+                        {t("Application ID")}: <strong>{lookupResult.applicationId}</strong> ({t("Clearance pending by Admin")})
                       </div>
                     )}
                   </div>
@@ -684,7 +684,7 @@ export default function Login() {
             {(step === "password" || step === "password_fallback") && (
               <form onSubmit={handlePasswordLogin} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div className="form-group">
-                  <label className="form-label">Pillar ID / Registered Email / Mobile <span className="required">*</span></label>
+                  <label className="form-label">{t("Pillar ID / Registered Email / Mobile")} <span className="required">*</span></label>
                   <div className="input-wrapper">
                     <input
                       type="text"
@@ -731,7 +731,7 @@ export default function Login() {
                 </div>
 
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: "100%", marginTop: "4px", background: "linear-gradient(135deg, #FF7900 0%, #E05300 100%)", fontWeight: "800" }} disabled={loading}>
-                  {loading ? <Loader2 size={18} className="spinner" /> : "Sign In to Pillar Dashboard"}
+                  {loading ? <Loader2 size={18} className="spinner" /> : t("Sign In to Pillar Dashboard")}
                 </button>
 
                 {/* 1-Click Quick Demo Login Button */}
@@ -758,10 +758,10 @@ export default function Login() {
                     }}
                   >
                     <Sparkles size={16} color="#FF7900" />
-                    <span>⚡ 1-Click Demo Login (Pillar Technician)</span>
+                    <span>⚡ {t("1-Click Demo Login (Pillar Technician)")}</span>
                   </button>
                   <div style={{ fontSize: "11px", color: "#64748B", marginTop: "6px" }}>
-                    Demo ID: <code style={{ color: "#FF7900", fontWeight: "bold" }}>PIL-CHE-042</code> | Password: <code style={{ color: "#FF7900", fontWeight: "bold" }}>password123</code>
+                    {t("Demo ID")}: <code style={{ color: "#FF7900", fontWeight: "bold" }}>PIL-CHE-042</code> | {t("Password")}: <code style={{ color: "#FF7900", fontWeight: "bold" }}>password123</code>
                   </div>
                 </div>
               </form>
@@ -771,7 +771,7 @@ export default function Login() {
             {step === "enter_id" && (
               <form onSubmit={handleSendOtp} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div className="form-group">
-                  <label className="form-label">Pillar ID or Application ID <span className="required">*</span></label>
+                  <label className="form-label">{t("Pillar ID or Application ID")} <span className="required">*</span></label>
                   <div className="input-wrapper">
                     <input
                       type="text"
@@ -788,7 +788,7 @@ export default function Login() {
                 </div>
 
                 <button type="submit" className="btn btn-primary btn-lg" style={{ width: "100%", marginTop: "4px", background: "#FF7900", fontWeight: "800" }} disabled={loading}>
-                  {loading ? <Loader2 size={18} className="spinner" /> : "Send OTP"}
+                  {loading ? <Loader2 size={18} className="spinner" /> : t("Send OTP")}
                 </button>
               </form>
             )}
@@ -798,7 +798,7 @@ export default function Login() {
               <form onSubmit={handleVerifyOtp} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div style={{ textAlign: "center", marginBottom: "4px" }}>
                   <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                    OTP sent to registered email for ID: <strong>{formData.pillarId}</strong>
+                    {t("OTP sent to registered email for ID")}: <strong>{formData.pillarId}</strong>
                   </p>
                   <button
                     type="button"
@@ -806,7 +806,7 @@ export default function Login() {
                     onClick={() => setStep("enter_id")}
                     style={{ color: "var(--color-secondary)", marginTop: "2px" }}
                   >
-                    Change Pillar ID
+                    {t("Change Pillar ID")}
                   </button>
                 </div>
 
@@ -838,7 +838,7 @@ export default function Login() {
                     disabled={loading}
                     style={{ background: "transparent", border: "none", color: "var(--color-secondary)", fontSize: "13px", fontWeight: "600", cursor: "pointer" }}
                   >
-                    Resend OTP
+                    {t("Resend OTP")}
                   </button>
                 </div>
               </form>
@@ -854,7 +854,7 @@ export default function Login() {
               </p>
               <div style={{ marginTop: "12px", display: "flex", justifyContent: "center" }}>
                 <Link to="/" style={{ color: "#64748B", fontSize: "12.5px", fontWeight: "600", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                  <ArrowLeft size={14} /> Back to Portal Selection
+                  <ArrowLeft size={14} /> {t("Back to Portal Selection")}
                 </Link>
               </div>
             </div>

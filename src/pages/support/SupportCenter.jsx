@@ -50,7 +50,7 @@ export default function SupportCenter() {
                     <button onClick={() => navigate('/home')} className="mr-3 text-navy-500 hover:text-navy-800 transition-colors">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     </button>
-                    <h1 className="heading-3">{t('navigation.support') || 'Help & Support'}</h1>
+                    <h1 className="heading-3">{t('Help & Support')}</h1>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
@@ -59,8 +59,8 @@ export default function SupportCenter() {
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                         </div>
                         <div>
-                            <h3 className="font-semibold text-navy-800">Contact Support</h3>
-                            <p className="text-sm text-navy-500 mt-1">Open a new support ticket.</p>
+                            <h3 className="font-semibold text-navy-800">{t('Contact Support')}</h3>
+                            <p className="text-sm text-navy-500 mt-1">{t('Open a new support ticket.')}</p>
                         </div>
                     </button>
 
@@ -69,17 +69,17 @@ export default function SupportCenter() {
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                         </div>
                         <div>
-                            <h3 className="font-semibold text-navy-800">My Tickets</h3>
-                            <p className="text-sm text-navy-500 mt-1">Check status of your active queries.</p>
+                            <h3 className="font-semibold text-navy-800">{t('My Tickets')}</h3>
+                            <p className="text-sm text-navy-500 mt-1">{t('Check status of your active queries.')}</p>
                         </div>
                     </button>
                 </div>
 
-                <h2 className="font-bold text-navy-800 mb-4 text-lg border-b border-navy-100 pb-2">Frequently Asked Questions</h2>
+                <h2 className="font-bold text-navy-800 mb-4 text-lg border-b border-navy-100 pb-2">{t('Frequently Asked Questions')}</h2>
 
                 {faqs.length === 0 ? (
                     <div className="text-center py-10 bg-white rounded-2xl border border-navy-100 shadow-sm mt-4">
-                        <p className="text-navy-500 text-sm">No FAQs available yet.</p>
+                        <p className="text-navy-500 text-sm">{t('No FAQs available yet.')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">

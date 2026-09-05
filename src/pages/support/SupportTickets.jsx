@@ -90,7 +90,7 @@ export default function SupportTickets() {
                     <button onClick={() => navigate('/support')} className="mr-3 text-navy-500 hover:text-navy-800 transition-colors">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     </button>
-                    <h1 className="heading-3">{t('navigation.tickets') || 'My Support Tickets'}</h1>
+                    <h1 className="heading-3">{t('My Support Tickets')}</h1>
                 </div>
 
                 {tickets.length === 0 ? (
@@ -98,9 +98,9 @@ export default function SupportTickets() {
                         <div className="w-20 h-20 bg-navy-50 rounded-full flex items-center justify-center mx-auto mb-4">
                             <svg className="w-10 h-10 text-navy-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                         </div>
-                        <h3 className="font-semibold text-lg text-navy-800">No Tickets Found</h3>
-                        <p className="text-navy-500 mt-2 text-sm mb-6">You don't have any help & support cases active.</p>
-                        <button onClick={() => navigate('/support/new')} className="btn-primary px-8">Open New Case</button>
+                        <h3 className="font-semibold text-lg text-navy-800">{t('No Tickets Found')}</h3>
+                        <p className="text-navy-500 mt-2 text-sm mb-6">{t("You don't have any help & support cases active.")}</p>
+                        <button onClick={() => navigate('/support/new')} className="btn-primary px-8">{t('Open New Case')}</button>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -109,7 +109,7 @@ export default function SupportTickets() {
                                 <div className="flex justify-between items-start mb-2">
                                     <h3 className="font-semibold text-navy-800 text-lg">{ticket.subject}</h3>
                                     <span className={`px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded-md border ${getStatusStyle(ticket.status)}`}>
-                                        {ticket.status.replace(/_/g, ' ')}
+                                        {t(ticket.status.replace(/_/g, ' '))}
                                     </span>
                                 </div>
                                 <p className="text-navy-500 text-sm mb-4 line-clamp-2">{ticket.description}</p>

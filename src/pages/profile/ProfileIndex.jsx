@@ -165,13 +165,13 @@ export default function ProfileIndex() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </button>
-                    <h1 className="font-bold text-navy-800 text-lg">{t('navigation.profile') || 'My Profile'}</h1>
+                    <h1 className="font-bold text-navy-800 text-lg">{t('Profile')}</h1>
                 </header>
 
                 <div className="bg-white border border-navy-100 rounded-3xl p-8 text-center shadow-sm relative mb-8">
                     {/* Visual Role Indicator */}
                     <div className="absolute top-4 right-4 bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border border-orange-200">
-                        {profile?.role || 'Customer'}
+                        {t(profile?.role || 'Customer')}
                     </div>
 
                     <div className="w-24 h-24 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-4 border-4 border-white shadow-md">
@@ -180,21 +180,21 @@ export default function ProfileIndex() {
 
                     {!isEditing ? (
                         <>
-                            <h2 className="text-2xl font-bold text-navy-900">{profile?.full_name || 'Valued Customer'}</h2>
-                            <p className="text-navy-500 mt-1">{profile?.phone || profile?.email || 'No Phone Recorded'}</p>
+                            <h2 className="text-2xl font-bold text-navy-900">{t(profile?.full_name || 'Valued Customer')}</h2>
+                            <p className="text-navy-500 mt-1">{profile?.phone || profile?.email || t('No Phone Recorded')}</p>
 
                             <button
                                 onClick={() => setIsEditing(true)}
                                 className="mt-6 px-8 py-2.5 bg-navy-50 text-navy-700 hover:bg-navy-100 font-medium rounded-xl transition-colors mx-auto flex items-center shadow-sm"
                             >
                                 <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                Edit Profile details
+                                {t('Edit Profile details')}
                             </button>
                         </>
                     ) : (
                         <form onSubmit={handleSave} className="space-y-4 max-w-sm mx-auto text-left animate-fade-in-up pt-4">
                             <div>
-                                <label className="block text-xs font-semibold text-navy-500 uppercase tracking-wider mb-1">Full Name</label>
+                                <label className="block text-xs font-semibold text-navy-500 uppercase tracking-wider mb-1">{t('Full Name')}</label>
                                 <input
                                     type="text"
                                     value={fullName}
@@ -204,7 +204,7 @@ export default function ProfileIndex() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-navy-500 uppercase tracking-wider mb-1">Mobile Number</label>
+                                <label className="block text-xs font-semibold text-navy-500 uppercase tracking-wider mb-1">{t('Mobile Number')}</label>
                                 <input
                                     type="tel"
                                     value={phone}
@@ -215,9 +215,9 @@ export default function ProfileIndex() {
                                 />
                             </div>
                             <div className="flex space-x-3 pt-2">
-                                <button type="button" onClick={() => setIsEditing(false)} className="flex-1 py-3 bg-navy-100 text-navy-700 hover:bg-navy-200 transition-colors rounded-xl font-medium">Cancel</button>
+                                <button type="button" onClick={() => setIsEditing(false)} className="flex-1 py-3 bg-navy-100 text-navy-700 hover:bg-navy-200 transition-colors rounded-xl font-medium">{t('Cancel')}</button>
                                 <button type="submit" disabled={saving} className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center justify-center">
-                                    {saving ? 'Saving...' : 'Save Profile'}
+                                    {saving ? t('Saving...') : t('Save Profile')}
                                 </button>
                             </div>
                         </form>
@@ -227,13 +227,13 @@ export default function ProfileIndex() {
                 {/* Additional Non-editable fields (Module Requirements) */}
                 <div className="bg-white border border-navy-100 rounded-2xl overflow-hidden shadow-sm">
                     <div className="px-6 py-4 border-b border-navy-50 flex justify-between items-center">
-                        <span className="text-navy-600 text-sm font-medium">Member ID</span>
+                        <span className="text-navy-600 text-sm font-medium">{t('Member ID')}</span>
                         <span className="text-orange-600 font-mono font-bold text-xs bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
                             {memberId}
                         </span>
                     </div>
                     <div className="px-6 py-4 flex justify-between items-center bg-navy-50/50">
-                        <span className="text-navy-600 text-sm font-medium">Member Since</span>
+                        <span className="text-navy-600 text-sm font-medium">{t('Member Since')}</span>
                         <span className="text-navy-900 font-semibold text-sm">
                             {memberSinceDate}
                         </span>

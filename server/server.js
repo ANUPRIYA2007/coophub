@@ -8,6 +8,9 @@ import { createClient } from '@supabase/supabase-js';
 import digilockerService from './kyc/digilockerService.js';
 import uidaiQrService from './kyc/uidaiQrService.js';
 import ocrBenchmarkHarness from './kyc/ocrBenchmarkHarness.js';
+import { resolveAdminRole, requireSuperAdmin } from './adminAuth.js';
+import { createGeographyRouter } from './geographyRoutes.js';
+import { createGovernanceRouter } from './governanceRoutes.js';
 
 // Load .env from root
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +61,46 @@ app.get('/api/ready', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
+
+// ----------------------------------------------------------------------
+// Super Admin Authorization & Role Resolution APIs (V2)
+// ----------------------------------------------------------------------
+app.post('/api/admin/verify-role', async (req, res) => {
+    const roleInfo = await resolveAdminRole(req);
+    if (!roleInfo.authenticated) {
+        return res.status(401).json({
+            authenticated: false,
+            error: 'Authentication failed. Invalid administrator credentials or token.',
+            role: null,
+            isSuperAdmin: false
+        });
+    }
+    return res.status(200).json(roleInfo);
+});
+
+app.get('/api/admin/super-admin/test', requireSuperAdmin, (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Authoritative SUPER_ADMIN clearance verified.',
+        session: req.adminSession,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// ----------------------------------------------------------------------
+// Super Admin Geography APIs (Phase 5A) & Admin Governance APIs (Phase 5B)
+// All routes protected by requireSuperAdmin server middleware
+// ----------------------------------------------------------------------
+{
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseAdminClient = createClient(supabaseUrl, supabaseServiceKey);
+    const geoRouter = createGeographyRouter(supabaseAdminClient, requireSuperAdmin);
+    app.use('/api/admin/geography', geoRouter);
+
+    const govRouter = createGovernanceRouter(supabaseAdminClient, requireSuperAdmin, generateAIResponse);
+    app.use('/api/admin/governance', govRouter);
+}
 
 // NVIDIA AI Configuration
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
@@ -691,17 +734,19 @@ function cleanOcrText(rawText = '') {
  */
 function detectDocumentType(text = '') {
     const upper = text.toUpperCase();
-    if (/INCOME TAX DEPARTMENT|PERMANENT ACCOUNT NUMBER|INCOME\s*TAX/i.test(upper)) return 'pan';
-    if (/ELECTION COMMISSION|ELECTOR PHOTO IDENTITY|EPIC|ELECTORAL/i.test(upper)) return 'voter_id';
-    if (/DRIVING LICENCE|TRANSPORT DEPARTMENT|MOTOR VEHICLE/i.test(upper)) return 'driving_licence';
-    if (/PASSPORT|REPUBLIC OF INDIA|MINISTRY OF EXTERNAL/i.test(upper)) return 'passport';
-    if (/UNIQUE IDENTIFICATION|UIDAI|AADHAAR|आधार/i.test(upper)) return 'aadhaar';
-    if (/NSDC|SKILL INDIA|NCVT|ITI|NATIONAL TRADE CERTIFICATE|DIRECTORATE OF TECHNICAL/i.test(upper)) return 'skill_certificate';
+    if (/INCOME TAX DEPARTMENT|PERMANENT ACCOUNT NUMBER|INCOME\s*TAX|\b[A-Z]{5}[0-9]{4}[A-Z]\b/i.test(upper)) return 'pan';
+    if (/ELECTION COMMISSION OF INDIA|ELECTOR PHOTO IDENTITY|EPIC|ELECTORAL|\b[A-Z]{3}[0-9]{7}\b/i.test(upper)) return 'voter_id';
+    if (/DRIVING LICENCE|TRANSPORT DEPARTMENT|MOTOR VEHICLE|UNION OF INDIA.*TRANSPORT|\b[A-Z]{2}[0-9]{2}\s?[0-9]{11}\b/i.test(upper)) return 'driving_licence';
+    if (/PASSPORT|REPUBLIC OF INDIA.*PASSPORT|MINISTRY OF EXTERNAL AFFAIRS|\b[A-Z][0-9]{7,8}\b/i.test(upper)) return 'passport';
+    if (/CIVIL SUPPLIES|TNEPDS|FOOD AND CONSUMER|SMART RATION CARD|FAMILY CARD/i.test(upper)) return 'ration_card';
+    if (/CONSTRUCTION WORKERS|WELFARE BOARD|TNCWWB|TNUWWB|LABOUR WELFARE/i.test(upper)) return 'labour_card';
+    if (/NSDC|SKILL INDIA|NCVT|ITI|NATIONAL TRADE CERTIFICATE|DIRECTORATE OF TECHNICAL|DOTE|POLYTECHNIC|TRADE LICENSE/i.test(upper)) return 'skill_certificate';
+    if (/UNIQUE IDENTIFICATION|UIDAI|AADHAAR|आधार|\b\d{4}\s?\d{4}\s?\d{4}\b/i.test(upper)) return 'aadhaar';
     return null;
 }
 
 /**
- * Extract structured fields from OCR text using regex patterns for Indian ID documents
+ * Extract structured fields from OCR text using regex patterns for all supported documents
  */
 function extractFieldsFromText(text = '', docType = 'aadhaar') {
     const fields = {
@@ -710,79 +755,170 @@ function extractFieldsFromText(text = '', docType = 'aadhaar') {
         documentNumber: null,
         address: null,
         gender: null,
-        fatherName: null
+        fatherName: null,
+        expiryDate: null,
+        vehicleClasses: null,
+        trade: null,
+        district: null,
+        issuingAuthority: null,
+        certificateNumber: null,
+        documentTitle: null
     };
 
     if (!text || text.length < 5) return fields;
 
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     const upper = text.toUpperCase();
+    const type = (docType || 'aadhaar').toLowerCase();
 
-    // --- Document Number Extraction ---
-    // Aadhaar: 12 digits (possibly with spaces: XXXX XXXX XXXX)
-    const aadhaarMatch = text.match(/\b(\d{4}\s?\d{4}\s?\d{4})\b/);
-    if (aadhaarMatch) fields.documentNumber = aadhaarMatch[1].replace(/\s+/g, ' ');
+    // Helper: Find person name line
+    const findNameLine = () => {
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (/GOVERNMENT|INDIA|INCOME TAX|DEPARTMENT|ELECTION|COMMISSION|MALE|FEMALE|DOB|YEAR|ADDRESS|SIGNATURE|HOLDER|MINISTRY|TRANSPORT|AADHAAR|UNIQUE|UIDAI|PAN|VOTER|DRIVING|PASSPORT|RATION|LABOUR|आधार|भारत|TAMIL|NADU/i.test(line)) {
+                continue;
+            }
+            if (/^[A-Za-z\s.]{3,40}$/.test(line) && line.split(' ').length >= 1 && line.length > 3) {
+                return line;
+            }
+        }
+        return null;
+    };
 
-    // PAN: 5 letters + 4 digits + 1 letter
-    const panMatch = upper.match(/\b([A-Z]{5}[0-9]{4}[A-Z])\b/);
-    if (panMatch) fields.documentNumber = panMatch[1];
-
-    // Voter ID: 3 letters + 7 digits
-    const voterMatch = upper.match(/\b([A-Z]{3}[0-9]{7})\b/);
-    if (voterMatch && !fields.documentNumber) fields.documentNumber = voterMatch[1];
-
-    // Driving License: state code + digits
-    const dlMatch = upper.match(/\b([A-Z]{2}[0-9]{2}\s?[0-9]{11})\b|([A-Z]{2}[- ]?[0-9]{2}[- ][0-9]{4}[- ]?[0-9]{7})\b/);
-    if (dlMatch && !fields.documentNumber) fields.documentNumber = (dlMatch[1] || dlMatch[2]);
-
-    // --- Date of Birth ---
-    const dobRegex = /(?:DOB|DATE\s*OF\s*BIRTH|YEAR\s*OF\s*BIRTH|D\.O\.B|जन्म\s*तिथि)[:\s]*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4})/i;
-    const dobMatch = text.match(dobRegex);
-    if (dobMatch) {
-        fields.dateOfBirth = dobMatch[1];
-    } else {
-        // Generic date (DD/MM/YYYY format common on Indian IDs)
+    // Helper: DOB Regex
+    const findDob = () => {
+        const dobRegex = /(?:DOB|DATE\s*OF\s*BIRTH|YEAR\s*OF\s*BIRTH|D\.O\.B|जन्म\s*तिथि)[:\s]*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4}|[0-9]{4})/i;
+        const dobMatch = text.match(dobRegex);
+        if (dobMatch) return dobMatch[1];
         const generalDate = text.match(/\b([0-2][0-9]|3[01])\/(0[1-9]|1[0-2])\/(19[5-9][0-9]|20[0-2][0-9])\b/);
-        if (generalDate) fields.dateOfBirth = generalDate[0];
-    }
+        return generalDate ? generalDate[0] : null;
+    };
 
-    // --- Gender ---
-    if (/\bMALE\b/i.test(upper) && !/FEMALE/i.test(upper)) fields.gender = 'MALE';
-    else if (/\bFEMALE\b/i.test(upper)) fields.gender = 'FEMALE';
-    else if (/पुरुष/i.test(text)) fields.gender = 'MALE';
-    else if (/महिला/i.test(text)) fields.gender = 'FEMALE';
+    // Helper: Gender
+    const findGender = () => {
+        if (/\bMALE\b/i.test(upper) && !/FEMALE/i.test(upper)) return 'MALE';
+        if (/\bFEMALE\b/i.test(upper)) return 'FEMALE';
+        if (/पुरुष/i.test(text)) return 'MALE';
+        if (/महिला/i.test(text)) return 'FEMALE';
+        return null;
+    };
 
-    // --- Name Extraction ---
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        // Skip header/title lines
-        if (/GOVERNMENT|INDIA|INCOME TAX|DEPARTMENT|ELECTION|COMMISSION|MALE|FEMALE|DOB|YEAR|ADDRESS|SIGNATURE|HOLDER|MINISTRY|TRANSPORT|AADHAAR|UNIQUE|UIDAI|PAN|VOTER|DRIVING|आधार|भारत/i.test(line)) {
-            continue;
-        }
-        // A name line: mostly alphabetic characters, 2+ words, 3-40 chars
-        if (/^[A-Za-z\s.]{3,40}$/.test(line) && line.split(' ').length >= 2 && line.length > 3) {
-            fields.name = line;
-            break;
-        }
-    }
+    // Helper: Father's Name
+    const findFather = () => {
+        const fatherMatch = text.match(/(?:S\/O|D\/O|W\/O|C\/O|SON OF|DAUGHTER OF|WIFE OF|FATHER|FATHER'S NAME|पिता)[:\s]*([A-Za-z\s.]{3,40})/i);
+        return fatherMatch ? fatherMatch[1].trim() : null;
+    };
 
-    // --- Father's Name ---
-    const fatherMatch = text.match(/(?:S\/O|D\/O|W\/O|C\/O|SON OF|DAUGHTER OF|WIFE OF|FATHER|पिता)[:\s]*([A-Za-z\s.]{3,40})/i);
-    if (fatherMatch) fields.fatherName = fatherMatch[1].trim();
+    // Helper: Address
+    const findAddress = () => {
+        const addressLines = lines.filter(l =>
+            /(?:STREET|NAGAR|ROAD|FLAT|DOOR|LANE|COLONY|APARTMENT|DISTRICT|TAMIL NADU|CHENNAI|PIN|PINCODE|\b\d{6}\b|FLOOR|WARD|VILLAGE|POST|BLOCK)/i.test(l)
+        );
+        return addressLines.length > 0 ? addressLines.slice(0, 3).join(', ') : null;
+    };
 
-    // --- Address ---
-    const addressLines = lines.filter(l =>
-        /(?:STREET|NAGAR|ROAD|FLAT|DOOR|LANE|COLONY|APARTMENT|DISTRICT|TAMIL NADU|CHENNAI|PIN|PINCODE|\b\d{6}\b|FLOOR|WARD|VILLAGE|POST|BLOCK)/i.test(l)
-    );
-    if (addressLines.length > 0) {
-        fields.address = addressLines.slice(0, 3).join(', ');
+    // Helper: Expiry Date
+    const findExpiry = () => {
+        const expMatch = text.match(/(?:VALID\s*TILL|VALID\s*UPTO|EXPIRY\s*DATE|EXP\s*DATE|DATE\s*OF\s*EXPIRY)[:\s]*([0-9]{2}[/-][0-9]{2}[/-][0-9]{4})/i);
+        return expMatch ? expMatch[1] : null;
+    };
+
+    // =========================================================
+    // DOCUMENT SPECIFIC EXTRACTION RULES
+    // =========================================================
+    if (type.includes('pan')) {
+        // PAN Card: 10 alphanumeric [A-Z]{5}[0-9]{4}[A-Z], Name, Father Name, DOB.
+        // Strictly NO address or gender on PAN card.
+        const panMatch = upper.match(/\b([A-Z]{5}[0-9]{4}[A-Z])\b/);
+        fields.documentNumber = panMatch ? panMatch[1] : null;
+        fields.name = findNameLine();
+        fields.fatherName = findFather();
+        fields.dateOfBirth = findDob();
+    } else if (type.includes('passport')) {
+        // Indian Passport: 1 letter + 7-8 digits, Name, DOB, Gender, Expiry Date, Place of Issue
+        const passportMatch = upper.match(/\b([A-Z][0-9]{7,8})\b/);
+        fields.documentNumber = passportMatch ? passportMatch[1] : null;
+        fields.name = findNameLine();
+        fields.dateOfBirth = findDob();
+        fields.gender = findGender();
+        fields.expiryDate = findExpiry();
+        const placeMatch = text.match(/(?:PLACE OF ISSUE|PLACE OF BIRTH)[:\s]*([A-Za-z\s]{3,30})/i);
+        fields.district = placeMatch ? placeMatch[1].trim() : null;
+    } else if (type.includes('ration') || type.includes('family_card') || type.includes('tnepds')) {
+        // Ration Card: 12-digit number or state sequence, Family Head Name, Address, FPS Code
+        const rationMatch = text.match(/\b([0-9]{12})\b|\b([0-9]{2}\/[A-Z0-9]+\/[0-9]+)\b/i);
+        fields.documentNumber = rationMatch ? (rationMatch[1] || rationMatch[2]) : null;
+        fields.name = findNameLine();
+        fields.address = findAddress();
+        const fpsMatch = text.match(/(?:FPS|FAIR PRICE SHOP|SHOP NO|CODE)[:\s]*([A-Z0-9/-]{3,15})/i);
+        fields.district = fpsMatch ? fpsMatch[1].trim() : null;
+    } else if (type.includes('labour') || type.includes('welfare') || type.includes('tncwwb')) {
+        // Labour Card: Registration Number, Worker Name, Trade, District, Issue Date
+        const regMatch = upper.match(/\b([A-Z0-9/-]{6,25})\b/);
+        fields.documentNumber = regMatch ? regMatch[1] : null;
+        fields.name = findNameLine();
+        const tradeMatch = text.match(/(?:TRADE|OCCUPATION|NATURE OF WORK|SKILL)[:\s]*([A-Za-z\s&]{3,30})/i);
+        fields.trade = tradeMatch ? tradeMatch[1].trim() : null;
+        const distMatch = text.match(/(?:DISTRICT|DIST)[:\s]*([A-Za-z\s]{3,25})/i);
+        fields.district = distMatch ? distMatch[1].trim() : null;
+    } else if (type.includes('driving') || type.includes('license') || type.includes('licence') || type.includes('dl')) {
+        // Driving Licence: DL Number, Name, DOB, Expiry Date, Vehicle Classes, Address, Father Name
+        const dlMatch = upper.match(/\b([A-Z]{2}[0-9]{2}\s?[0-9]{11})\b|\b([A-Z]{2}[- ]?[0-9]{2}[- ][0-9]{4}[- ]?[0-9]{7})\b/);
+        fields.documentNumber = dlMatch ? (dlMatch[1] || dlMatch[2]) : null;
+        fields.name = findNameLine();
+        fields.dateOfBirth = findDob();
+        fields.expiryDate = findExpiry();
+        fields.fatherName = findFather();
+        fields.address = findAddress();
+        const vcMatch = upper.match(/\b(LMV|MCWG|MCWOG|HGMV|TRANS|HMV)\b/g);
+        fields.vehicleClasses = vcMatch ? Array.from(new Set(vcMatch)) : ['LMV'];
+    } else if (type.includes('voter') || type.includes('epic')) {
+        // Voter ID: EPIC Number, Name, Father/Guardian Name, DOB/Age, Gender, Constituency, Address
+        const voterMatch = upper.match(/\b([A-Z]{3}[0-9]{7})\b|\b([A-Z]{2,3}\/[0-9]{2}\/[0-9]{3}\/[0-9]{5,7})\b/);
+        fields.documentNumber = voterMatch ? (voterMatch[1] || voterMatch[2]) : null;
+        fields.name = findNameLine();
+        fields.fatherName = findFather();
+        fields.dateOfBirth = findDob();
+        fields.gender = findGender();
+        fields.address = findAddress();
+        const constMatch = text.match(/(?:CONSTITUENCY|ASSEMBLY)[:\s]*([A-Za-z0-9\s-]{3,35})/i);
+        fields.district = constMatch ? constMatch[1].trim() : null;
+    } else if (type.includes('skill') || type.includes('cert') || type.includes('iti') || type.includes('nsdc') || type.includes('diploma')) {
+        // Skill Certificate: Certificate Number, Name, Trade, Issuing Organization, Issue Date
+        const certMatch = text.match(/(?:CERTIFICATE NO|REGISTRATION NO|ROLL NO|CERT NO)[:\s]*([A-Z0-9/-]{5,25})/i);
+        fields.documentNumber = certMatch ? certMatch[1] : null;
+        fields.certificateNumber = fields.documentNumber;
+        fields.name = findNameLine();
+        if (/ELECTRICIAN|ELECTRICAL/i.test(text)) fields.trade = 'Electrician';
+        else if (/PLUMBER|PLUMBING/i.test(text)) fields.trade = 'Plumber';
+        else if (/AC|REFRIGERATION|HVAC/i.test(text)) fields.trade = 'AC & Refrigeration';
+        else if (/CARPENTER/i.test(text)) fields.trade = 'Carpenter';
+        if (/NCVT|DGT/i.test(text)) fields.issuingAuthority = 'NCVT / DGT';
+        else if (/NSDC|SKILL INDIA/i.test(text)) fields.issuingAuthority = 'Skill India / NSDC';
+        else if (/DOTE|POLYTECHNIC/i.test(text)) fields.issuingAuthority = 'Directorate of Technical Education';
+    } else if (type.includes('other')) {
+        // Other official Government ID
+        const docNumMatch = upper.match(/\b([A-Z0-9/-]{5,25})\b/);
+        fields.documentNumber = docNumMatch ? docNumMatch[1] : null;
+        fields.name = findNameLine();
+        fields.dateOfBirth = findDob();
+        fields.documentTitle = 'Official Government Identification';
+    } else {
+        // Default: Aadhaar Card (12 digits, Name, DOB, Gender, Address, Father/Care of)
+        const aadhaarMatch = text.match(/\b(\d{4}\s?\d{4}\s?\d{4})\b/);
+        fields.documentNumber = aadhaarMatch ? aadhaarMatch[1].replace(/\s+/g, ' ') : null;
+        fields.name = findNameLine();
+        fields.dateOfBirth = findDob();
+        fields.gender = findGender();
+        fields.fatherName = findFather();
+        fields.address = findAddress();
     }
 
     return fields;
 }
 
 /**
- * Mask sensitive document numbers for response
+ * Mask sensitive document numbers for response based on document type
  */
 function maskDocNumber(docNumber = '', docType = 'aadhaar') {
     if (!docNumber) return null;
@@ -795,8 +931,20 @@ function maskDocNumber(docNumber = '', docType = 'aadhaar') {
     if (key.includes('pan') && clean.length >= 6) {
         return `${clean.slice(0, 3)}XX${clean.slice(-3)}`.toUpperCase();
     }
+    if (key.includes('passport') && clean.length >= 4) {
+        return `${clean[0]}XXX-XXXX-${clean.slice(-3)}`.toUpperCase();
+    }
+    if (key.includes('ration') && clean.length >= 6) {
+        return `XXXX-XXXX-${clean.slice(-4)}`;
+    }
+    if (key.includes('labour') && clean.length >= 6) {
+        return `${clean.slice(0, 3)}-XXXX-${clean.slice(-3)}`.toUpperCase();
+    }
     if ((key.includes('voter') || key.includes('epic')) && clean.length >= 5) {
         return `${clean.slice(0, 3)}XXXX${clean.slice(-3)}`.toUpperCase();
+    }
+    if ((key.includes('driving') || key.includes('licence')) && clean.length >= 6) {
+        return `${clean.slice(0, 4)}XXXX${clean.slice(-4)}`.toUpperCase();
     }
     return clean.length > 4 ? `XXXX-${clean.slice(-4)}` : clean;
 }
@@ -880,7 +1028,8 @@ app.post('/api/ai/process-document', async (req, res) => {
                     const easyData = await easyRes.json();
                     if (easyData?.text && easyData.text.trim().length >= 10) {
                         ocrRawText = easyData.text;
-                        ocrConfidence = easyData.confidence || 0.86;
+                        const rawConf = typeof easyData.confidence === 'number' ? easyData.confidence : 0.86;
+                        ocrConfidence = rawConf <= 1.0 ? rawConf * 100 : rawConf;
                         ocrProvider = 'EasyOCR (Secondary Engine)';
                         ocrEngineType = 'EASY_OCR';
                         console.log(`[OCR Pipeline] EasyOCR succeeded: ${ocrRawText.length} chars, confidence=${ocrConfidence}`);
@@ -994,20 +1143,11 @@ app.post('/api/ai/process-document', async (req, res) => {
         let structuredAiData = null;
         let aiProvider = 'none';
 
-        if (GEMINI_API_KEY && cleanText.length > 20) {
-            const aiSystemPrompt = `You are the COOP HUB Document Understanding Engine.
-Analyze the following REAL OCR text extracted from a technician's document and compare against registered profile:
-- Full Name: ${pillarProfile.full_name || pillarProfile.fullName || 'N/A'}
-- Mobile: ${pillarProfile.mobile || 'N/A'}
-- DOB: ${pillarProfile.dob || 'N/A'}
-- Trade: ${pillarProfile.main_services || 'N/A'}
-
-CRITICAL INSTRUCTIONS:
-1. Base your analysis ONLY on the provided OCR text. Do NOT invent or hallucinate any data.
-2. Return ONLY a pure JSON object. Do NOT wrap in markdown, do NOT add introductory or concluding text.
-
-JSON format:
-${isSkillCert ? `{
+        // Helper to generate schema dynamic to document type
+        const getDocumentPromptSchema = (type, isCert) => {
+            const key = (type || '').toLowerCase();
+            if (isCert || key.includes('skill') || key.includes('cert') || key.includes('iti') || key.includes('nsdc') || key.includes('diploma')) {
+                return `{
   "document_type": "skill_certificate",
   "certificate_name": "string or null",
   "worker_name": "string or null",
@@ -1019,21 +1159,140 @@ ${isSkillCert ? `{
   "confidence": 0.0-1.0,
   "mismatches": [],
   "warnings": []
-}` : `{
-  "document_type": "Aadhaar | PAN | Voter ID | Driving Licence | Other",
+}`;
+            }
+            if (key.includes('pan')) {
+                return `{
+  "document_type": "pan",
+  "document_category": "identity",
+  "full_name": "string or null",
+  "father_name": "string or null",
+  "date_of_birth": "string (YYYY-MM-DD or DD/MM/YYYY) or null",
+  "document_number": "string (10 characters: 5 letters, 4 digits, 1 letter) or null",
+  "confidence": 0.0-1.0,
+  "mismatches": [],
+  "missing_fields": [],
+  "warnings": []
+}
+CRITICAL FOR PAN: PAN Cards do NOT contain address or gender. address and gender MUST be null.`;
+            }
+            if (key.includes('passport')) {
+                return `{
+  "document_type": "passport",
+  "document_category": "identity",
+  "full_name": "string or null",
+  "given_name": "string or null",
+  "surname": "string or null",
+  "date_of_birth": "string or null",
+  "gender": "MALE | FEMALE | null",
+  "nationality": "string or null",
+  "place_of_issue": "string or null",
+  "issue_date": "string or null",
+  "expiry_date": "string or null",
+  "document_number": "string (1 letter + 7-8 digits) or null",
+  "confidence": 0.0-1.0,
+  "mismatches": [],
+  "missing_fields": [],
+  "warnings": []
+}`;
+            }
+            if (key.includes('ration') || key.includes('family_card') || key.includes('tnepds')) {
+                return `{
+  "document_type": "ration_card",
+  "document_category": "identity",
+  "full_name": "string or null (Family Head)",
+  "document_number": "string (12-digit number or state format) or null",
+  "address": "string or null",
+  "district": "string or null",
+  "fps_code": "string or null",
+  "confidence": 0.0-1.0,
+  "mismatches": [],
+  "missing_fields": [],
+  "warnings": []
+}`;
+            }
+            if (key.includes('labour') || key.includes('welfare') || key.includes('tncwwb')) {
+                return `{
+  "document_type": "labour_card",
+  "document_category": "identity",
+  "full_name": "string or null (Worker Name)",
+  "document_number": "string (Registration Number) or null",
+  "trade": "string or null",
+  "district": "string or null",
+  "welfare_board": "string or null",
+  "issue_date": "string or null",
+  "confidence": 0.0-1.0,
+  "mismatches": [],
+  "missing_fields": [],
+  "warnings": []
+}`;
+            }
+            if (key.includes('driving') || key.includes('license') || key.includes('licence') || key.includes('dl')) {
+                return `{
+  "document_type": "driving_licence",
   "document_category": "identity",
   "full_name": "string or null",
   "date_of_birth": "string or null",
   "document_number": "string or null",
+  "guardian_name": "string or null",
   "address": "string or null",
-  "gender": "string or null",
-  "father_name": "string or null",
+  "expiry_date": "string or null",
+  "vehicle_classes": ["LMV", "MCWG"] or null,
   "issuing_authority": "string or null",
   "confidence": 0.0-1.0,
   "mismatches": [],
   "missing_fields": [],
   "warnings": []
-}`}`;
+}`;
+            }
+            if (key.includes('voter') || key.includes('epic')) {
+                return `{
+  "document_type": "voter_id",
+  "document_category": "identity",
+  "full_name": "string or null",
+  "father_name": "string or null",
+  "date_of_birth": "string or null",
+  "gender": "MALE | FEMALE | null",
+  "document_number": "string (EPIC Number) or null",
+  "constituency": "string or null",
+  "address": "string or null",
+  "confidence": 0.0-1.0,
+  "mismatches": [],
+  "missing_fields": [],
+  "warnings": []
+}`;
+            }
+            return `{
+  "document_type": "aadhaar",
+  "document_category": "identity",
+  "full_name": "string or null",
+  "date_of_birth": "string or null",
+  "document_number": "string (12 digits) or null",
+  "address": "string or null",
+  "gender": "MALE | FEMALE | null",
+  "father_name": "string or null",
+  "confidence": 0.0-1.0,
+  "mismatches": [],
+  "missing_fields": [],
+  "warnings": []
+}`;
+        };
+
+        if (GEMINI_API_KEY && cleanText.length > 20) {
+            const aiSystemPrompt = `You are the COOP HUB Document Understanding Engine.
+Analyze the following REAL OCR text extracted from a technician's ${detectedType} document and compare against registered profile:
+- Full Name: ${pillarProfile.full_name || pillarProfile.fullName || 'N/A'}
+- Mobile: ${pillarProfile.mobile || 'N/A'}
+- DOB: ${pillarProfile.dob || 'N/A'}
+- Trade: ${pillarProfile.main_services || 'N/A'}
+
+CRITICAL INSTRUCTIONS:
+1. Base your analysis ONLY on the provided OCR text. Do NOT invent or hallucinate any data.
+2. If a field does not appear on the document, it MUST be null. Never invent missing identity data.
+3. Return ONLY a pure JSON object. Do NOT wrap in markdown, do NOT add introductory or concluding text.
+
+JSON format:
+${getDocumentPromptSchema(detectedType, isSkillCert)}`;
 
             for (const model of ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash']) {
                 try {
@@ -1057,7 +1316,6 @@ ${isSkillCert ? `{
                         const raw = gemData.candidates?.[0]?.content?.parts?.[0]?.text;
                         if (raw) {
                             try {
-                                // Extract first JSON block enclosed in { ... }
                                 const jsonMatch = raw.match(/\{[\s\S]*\}/);
                                 if (jsonMatch) {
                                     structuredAiData = JSON.parse(jsonMatch[0]);
@@ -1084,10 +1342,15 @@ ${isSkillCert ? `{
         const finalFields = {
             name: structuredAiData?.full_name || structuredAiData?.worker_name || extractedFields.name || null,
             dateOfBirth: structuredAiData?.date_of_birth || extractedFields.dateOfBirth || null,
-            documentNumber: structuredAiData?.document_number || extractedFields.documentNumber || null,
+            documentNumber: structuredAiData?.document_number || structuredAiData?.certificate_number || extractedFields.documentNumber || null,
             address: structuredAiData?.address || extractedFields.address || null,
             gender: structuredAiData?.gender || extractedFields.gender || null,
-            fatherName: structuredAiData?.father_name || extractedFields.fatherName || null
+            fatherName: structuredAiData?.father_name || structuredAiData?.guardian_name || extractedFields.fatherName || null,
+            expiryDate: structuredAiData?.expiry_date || extractedFields.expiryDate || null,
+            vehicleClasses: structuredAiData?.vehicle_classes || extractedFields.vehicleClasses || null,
+            trade: structuredAiData?.trade || structuredAiData?.skill || extractedFields.trade || null,
+            district: structuredAiData?.district || extractedFields.district || null,
+            issuingAuthority: structuredAiData?.issuing_authority || structuredAiData?.issuing_organization || extractedFields.issuingAuthority || null
         };
 
         // Name mismatch check
@@ -1133,7 +1396,12 @@ ${isSkillCert ? `{
                 documentNumberMasked: maskDocNumber(finalFields.documentNumber, detectedType),
                 address: finalFields.address,
                 gender: finalFields.gender,
-                fatherName: finalFields.fatherName
+                fatherName: finalFields.fatherName,
+                expiryDate: finalFields.expiryDate,
+                vehicleClasses: finalFields.vehicleClasses,
+                trade: finalFields.trade,
+                district: finalFields.district,
+                issuingAuthority: finalFields.issuingAuthority
             },
             ai: structuredAiData ? {
                 provider: aiProvider,
@@ -1211,6 +1479,14 @@ ${isSkillCert ? `{
         });
     }
 });
+
+// Backward-compatible alias for /api/ai/ocr/extract-document contract
+app.post('/api/ai/ocr/extract-document', async (req, res, next) => {
+    // Re-route internally to document processing handler
+    req.url = '/api/ai/process-document';
+    app.handle(req, res, next);
+});
+
 
 // ============================================================
 // 12. AMAZON CHRONOS-2 TIME-SERIES FORECASTING ENDPOINT
@@ -1351,7 +1627,38 @@ app.post('/api/kyc/digilocker/auth-url', (req, res) => {
 });
 
 /**
- * Handle DigiLocker OAuth Callback & Fetch Issued Documents
+ * Handle DigiLocker OAuth Redirect Callback (Browser GET Request)
+ */
+app.get('/api/kyc/digilocker/callback', async (req, res) => {
+    try {
+        const { code, state, error, error_description } = req.query || {};
+        const frontendBase = process.env.VITE_FRONTEND_URL || 'http://localhost:5173';
+        
+        if (error || error_description) {
+            console.log(`[DigiLocker Callback] Authorization cancelled/failed: ${error || error_description}`);
+            if (state) digilockerService.cancelSession(state, error_description || error);
+            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=cancelled&state=${encodeURIComponent(state || '')}`);
+        }
+
+        if (!code || !state) {
+            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=failed&error=Missing+authorization+code&state=${encodeURIComponent(state || '')}`);
+        }
+
+        const result = await digilockerService.handleCallback(code, state);
+        if (result.success) {
+            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=verified&state=${encodeURIComponent(state)}`);
+        } else {
+            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=failed&error=${encodeURIComponent(result.error || 'Verification failed')}&state=${encodeURIComponent(state)}`);
+        }
+    } catch (err) {
+        console.error('[DigiLocker Callback Error]', err);
+        const frontendBase = process.env.VITE_FRONTEND_URL || 'http://localhost:5173';
+        return res.redirect(`${frontendBase}/pillar/register?digilocker_status=failed&error=${encodeURIComponent(err.message)}`);
+    }
+});
+
+/**
+ * Handle DigiLocker OAuth Callback (Programmatic POST Request)
  */
 app.post('/api/kyc/digilocker/callback', async (req, res) => {
     try {
@@ -1361,6 +1668,19 @@ app.post('/api/kyc/digilocker/callback', async (req, res) => {
             return res.status(400).json(result);
         }
         res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * Query Session Status by State Token
+ */
+app.get('/api/kyc/digilocker/session-status', (req, res) => {
+    try {
+        const { state } = req.query || {};
+        const status = digilockerService.getSessionStatus(state);
+        res.json(status);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1466,6 +1786,301 @@ app.post('/api/ai/ocr/benchmark', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+/**
+ * ======================================================================
+ * Centralized Multilingual Translation API (IndicTrans2 + AI Fallback)
+ * ======================================================================
+ */
+const INDICTRANS2_SERVICE_URL = process.env.INDICTRANS2_SERVICE_URL || 'http://localhost:8003';
+
+app.get('/api/ai/translate/health', async (req, res) => {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const resp = await fetch(`${INDICTRANS2_SERVICE_URL}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (resp.ok) {
+            const data = await resp.json();
+            return res.json({
+                indictrans2_service: 'ONLINE',
+                indictrans2_details: data,
+                ai_fallback_available: Boolean(process.env.GEMINI_API_KEY || process.env.NVIDIA_API_KEY)
+            });
+        }
+        res.json({
+            indictrans2_service: 'DEGRADED',
+            status: resp.status,
+            ai_fallback_available: Boolean(process.env.GEMINI_API_KEY || process.env.NVIDIA_API_KEY)
+        });
+    } catch (err) {
+        res.json({
+            indictrans2_service: 'OFFLINE',
+            error: err.message,
+            ai_fallback_available: Boolean(process.env.GEMINI_API_KEY || process.env.NVIDIA_API_KEY)
+        });
+    }
+});
+
+app.post('/api/ai/translate', async (req, res) => {
+    const startTime = Date.now();
+    const {
+        text,
+        source_lang = 'eng_Latn',
+        target_lang = 'hin_Deva',
+        source_code = 'en',
+        target_code = 'hi',
+        num_beams = 4
+    } = req.body || {};
+
+    if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.json({
+            translated_text: text || '',
+            source_lang,
+            target_lang,
+            provider: 'noop',
+            latency_ms: 0
+        });
+    }
+
+    // 1. Attempt Primary Provider: IndicTrans2 Microservice
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+        const it2Resp = await fetch(`${INDICTRANS2_SERVICE_URL}/translate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text,
+                source_lang,
+                target_lang,
+                num_beams
+            }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (it2Resp.ok) {
+            const data = await it2Resp.json();
+            return res.json({
+                translated_text: data.translated_text,
+                source_lang: data.source_lang || source_lang,
+                target_lang: data.target_lang || target_lang,
+                latency_ms: Date.now() - startTime,
+                provider: data.provider || 'IndicTrans2-200M (AI4Bharat)',
+                device: data.device || 'cpu',
+                is_fallback: false
+            });
+        }
+    } catch (it2Err) {
+        console.warn(`[Translation API] IndicTrans2 microservice error: ${it2Err.message}. Routing to AI fallback.`);
+    }
+
+    // 2. Approved Fallback: Gemini or NVIDIA AI Translation
+    try {
+        const prompt = `You are a professional Indic language translator. Translate the following text from ${source_code} to ${target_code} accurately and naturally. Return ONLY the translation, with no explanation, quotes, or notes.\n\nText:\n${text}`;
+        
+        let translatedText = null;
+        let fallbackProvider = null;
+
+        if (process.env.GEMINI_API_KEY) {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+            const gResp = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.1, maxOutputTokens: 256 }
+                })
+            });
+
+            if (gResp.ok) {
+                const gData = await gResp.json();
+                translatedText = gData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                fallbackProvider = 'Google Gemini AI (Fallback)';
+            }
+        }
+
+        if (!translatedText && process.env.NVIDIA_API_KEY) {
+            const nvResp = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: 'meta/llama-3.2-11b-vision-instruct',
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.1,
+                    max_tokens: 256
+                })
+            });
+
+            if (nvResp.ok) {
+                const nvData = await nvResp.json();
+                translatedText = nvData?.choices?.[0]?.message?.content?.trim();
+                fallbackProvider = 'NVIDIA NIM (Fallback)';
+            }
+        }
+
+        if (translatedText) {
+            return res.json({
+                translated_text: translatedText,
+                source_lang,
+                target_lang,
+                latency_ms: Date.now() - startTime,
+                provider: fallbackProvider,
+                is_fallback: true
+            });
+        }
+
+        throw new Error('All translation providers failed');
+    } catch (fallbackErr) {
+        console.error('[Translation API] Translation failure:', fallbackErr.message);
+        return res.status(502).json({
+            error: 'Translation unavailable across all providers',
+            details: fallbackErr.message,
+            source_lang,
+            target_lang
+        });
+    }
+});
+
+app.post('/api/ai/translate/batch', async (req, res) => {
+    const startTime = Date.now();
+    const {
+        texts = [],
+        source_lang = 'eng_Latn',
+        target_lang = 'hin_Deva',
+        source_code = 'en',
+        target_code = 'hi',
+        num_beams = 4
+    } = req.body || {};
+
+    if (!Array.isArray(texts) || texts.length === 0) {
+        return res.json({
+            translations: [],
+            source_lang,
+            target_lang,
+            latency_ms: 0
+        });
+    }
+
+    // 1. Primary Provider: IndicTrans2 Batch Endpoint
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 35000);
+
+        const it2Resp = await fetch(`${INDICTRANS2_SERVICE_URL}/translate/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                texts,
+                source_lang,
+                target_lang,
+                num_beams
+            }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (it2Resp.ok) {
+            const data = await it2Resp.json();
+            return res.json({
+                translations: data.translations || [],
+                source_lang: data.source_lang || source_lang,
+                target_lang: data.target_lang || target_lang,
+                latency_ms: Date.now() - startTime,
+                provider: data.provider || 'IndicTrans2-200M (AI4Bharat)',
+                is_fallback: false
+            });
+        }
+    } catch (it2Err) {
+        console.warn(`[Translation API Batch] IndicTrans2 error: ${it2Err.message}. Routing fallback.`);
+    }
+
+    // 2. Intelligent AI fallback if IndicTrans2 batch microservice fails
+    try {
+        const prompt = `You are an expert Indian multilingual translator. Translate each of the following texts from English to ${target_code}. Return ONLY a valid JSON array of translated strings in the exact same order, with no extra text, markdown formatting, or explanations.\n\nTexts:\n${JSON.stringify(texts)}`;
+        
+        let translatedArray = null;
+        let fallbackProvider = null;
+
+        if (process.env.GEMINI_API_KEY) {
+            try {
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+                const gResp = await fetch(geminiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+                    })
+                });
+
+                if (gResp.ok) {
+                    const gData = await gResp.json();
+                    let raw = gData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+                    if (raw.startsWith('```json')) raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+                    else if (raw.startsWith('```')) raw = raw.replace(/```/g, '').trim();
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length === texts.length) {
+                        translatedArray = parsed;
+                        fallbackProvider = 'Google Gemini Batch (Fallback)';
+                    }
+                }
+            } catch (gErr) {
+                console.warn('[Translation API Batch] Gemini fallback warning:', gErr.message);
+            }
+        }
+
+        if (!translatedArray && process.env.NVIDIA_API_KEY) {
+            try {
+                const nvResp = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: 'meta/llama-3.2-11b-vision-instruct',
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.1,
+                        max_tokens: 2048
+                    })
+                });
+
+                if (nvResp.ok) {
+                    const nvData = await nvResp.json();
+                    let raw = nvData?.choices?.[0]?.message?.content?.trim() || '';
+                    if (raw.startsWith('```json')) raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+                    else if (raw.startsWith('```')) raw = raw.replace(/```/g, '').trim();
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length === texts.length) {
+                        translatedArray = parsed;
+                        fallbackProvider = 'NVIDIA NIM Batch (Fallback)';
+                    }
+                }
+            } catch (nvErr) {
+                console.warn('[Translation API Batch] NVIDIA fallback warning:', nvErr.message);
+            }
+        }
+
+        return res.json({
+            translations: translatedArray || texts,
+            source_lang,
+            target_lang,
+            latency_ms: Date.now() - startTime,
+            provider: fallbackProvider || 'Pass-through Fallback',
+            is_fallback: true
+        });
+    } catch (err) {
+        return res.status(502).json({ error: 'Batch translation fallback failed', details: err.message });
+    }
+
 });
 
 app.listen(PORT, () => {

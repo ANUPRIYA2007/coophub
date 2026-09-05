@@ -16,6 +16,7 @@ import {
 } from "./authenticatedAgents.js";
 
 import { adminAgent } from "./adminAgent.js";
+import { translateDynamic } from "../../../i18n/centralEngine.js";
 
 // ============================================================
 // INTENT ROUTER — 100% LIVE AI (Zero Hardcoded Responses)
@@ -23,23 +24,23 @@ import { adminAgent } from "./adminAgent.js";
 // ============================================================
 
 export const intentRouter = {
-  async route({ message, context = {} }) {
-    const { isAuthenticated, session, route = "/", language = "en", module } = context;
+  async route({ message, session, language = "en", route = "/dashboard" }) {
     const q = message.toLowerCase().trim();
+    const isAuthenticated = Boolean(session?.user);
+
+    // ============================================================
+    // 1. DEDICATED PORTAL AGENT ROUTING
+    // ============================================================
+    if (route.startsWith("/admin")) {
+      return await adminAgent.handle(message, { language, route });
+    }
 
     // ============================================================
     // 1. CUSTOMER PORTAL AI MODE (Live Service Guidance & Booking)
     // ============================================================
     const customerRoutes = ["/home", "/services", "/requests", "/messages", "/history", "/support", "/settings", "/profile"];
-    if (module === "customer" || customerRoutes.some(cr => route === cr || (cr !== "/" && route.startsWith(cr)))) {
-      return await customerAgent.handle(message, { language, route, context });
-    }
-
-    // ============================================================
-    // 2. ADMIN AI MODE (Cooperative Operations Intelligence)
-    // ============================================================
-    if (route.startsWith("/admin")) {
-      return await adminAgent.handle(message, { language, route });
+    if (route.startsWith("/customer") || customerRoutes.some(cr => route === cr || (cr !== "/" && route.startsWith(cr)))) {
+      return await customerAgent.handle(message, { language, route, context: { session } });
     }
 
     // ============================================================
@@ -54,17 +55,15 @@ export const intentRouter = {
         q.includes("my notification") ||
         q.includes("my profile") ||
         q.includes("my id") ||
-        q.includes("my money") ||
-        q.includes("பணம்") ||
-        q.includes("என் ஆர்டர்") ||
-        q.includes("मेरी कमाई") ||
-        q.includes("मेरे ऑर्डर");
+        q.includes("my money");
 
       if (isAskingPrivateData) {
+        let authMsg = "🔒 Authentication Required: Please log in to view your orders, earnings, and profile data.";
+        if (language !== "en") {
+          authMsg = await translateDynamic(authMsg, language, "en");
+        }
         return {
-          reply: language === "ta"
-            ? "தனியார் தகவல்களைப் பார்க்க நீங்கள் முதலில் உள்நுழைய வேண்டும்."
-            : "🔒 Authentication Required: Please log in to view your orders, earnings, and profile data.",
+          reply: authMsg,
           intent: "auth_required",
           route: "/login",
         };

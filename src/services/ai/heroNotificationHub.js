@@ -13,6 +13,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { getLanguageMetadata } from '../../i18n/languages.js';
 
 class HeroNotificationHub {
   constructor() {
@@ -79,7 +80,8 @@ class HeroNotificationHub {
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang === 'ta' ? 'ta-IN' : lang === 'hi' ? 'hi-IN' : 'en-US';
+      const meta = getLanguageMetadata(lang);
+      utterance.lang = meta?.bcp47 || 'en-IN';
       utterance.rate = 1.05;
       utterance.pitch = 1.1; // Friendly Hero AI pitch
       utterance.volume = 1.0;

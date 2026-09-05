@@ -137,10 +137,31 @@ export default function AdminMessages() {
                 Target Recipients
               </label>
               <select className="form-input" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)}>
-                <option value="all_pillars">All Registered Pillars (Cooperative Wide)</option>
-                <option value="electricians">Electricians Only</option>
-                <option value="plumbers">Plumbers Only</option>
-                <option value="appliance">Appliance Technicians Only</option>
+                <optgroup label="General Workforce">
+                  <option value="all_pillars">👥 All Registered Pillars (Cooperative Wide)</option>
+                </optgroup>
+                <optgroup label="Technical & Repair Services">
+                  <option value="electrician">⚡ Electricians & Electrical Repair</option>
+                  <option value="plumber">🚰 Plumbers & Sanitary Pipe Fitting</option>
+                  <option value="ac_technician">❄️ AC Repair & HVAC Maintenance</option>
+                  <option value="appliance_repair">🧺 Home Appliance Repair</option>
+                  <option value="carpenter">🪚 Carpenters & Woodwork</option>
+                  <option value="painter">🎨 Professional Painters</option>
+                  <option value="cctv_technician">📹 CCTV & Electronics Technicians</option>
+                </optgroup>
+                <optgroup label="Home Cleaning, Domestic & Care">
+                  <option value="home_cleaning">✨ Deep Home Cleaning & Sanitation</option>
+                  <option value="domestic_helpers">🍲 Domestic Helpers & Housekeeping</option>
+                  <option value="caregiver_services">🩺 Caregivers & Home Nursing</option>
+                  <option value="gardening_landscaping">🌿 Gardening & Landscaping</option>
+                  <option value="pest_control">🐜 Pest Control & Fumigation</option>
+                  <option value="masonry_civil">🧱 Masonry & Civil Works</option>
+                </optgroup>
+                <optgroup label="Transport & Rapid Response">
+                  <option value="driver_services">🚗 Professional Drivers</option>
+                  <option value="emergency_services">🚨 Emergency Response Squad</option>
+                  <option value="on_demand_services">⚡ On-Demand Priority Squad</option>
+                </optgroup>
               </select>
             </div>
 

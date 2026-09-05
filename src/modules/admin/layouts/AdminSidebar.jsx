@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
+import { getLanguageMetadata } from "../../../i18n/languages.js";
 import { useAuth } from "../../../context/AuthContext";
 import { aiService } from "../../../services/pillar/aiService";
 import gsap from "gsap";
 import GradientText from "../../../components/ui/GradientText";
 import Hero3D from "../../../components/hero3d/Hero3D";
+import coopHubLogo from "../../../assets/branding/coop-hub-logo.png";
 import {
   LayoutDashboard,
+  Globe,
+  ShieldCheck,
   ClipboardList,
   Wallet,
   Clock,
@@ -229,7 +233,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(alertMsg);
-        utterance.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+        const meta = getLanguageMetadata(language);
+        utterance.lang = meta?.bcp47 || "en-IN";
         utterance.rate = 1.0;
         utterance.pitch = 1.1;
         utterance.onstart = () => { setIsSpeaking(true); setHeroState("speaking"); };
@@ -370,7 +375,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     if (!text || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+    const meta = getLanguageMetadata(language);
+    utterance.lang = meta?.bcp47 || "en-IN";
     utterance.rate = 1.0;
     utterance.pitch = 1.1;
     utterance.onstart = () => { setIsSpeaking(true); setHeroState("speaking"); };
@@ -386,7 +392,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     if (isListening) { setIsListening(false); return; }
     try {
       const recognition = new SR();
-      recognition.lang = language === "ta" ? "ta-IN" : language === "hi" ? "hi-IN" : "en-US";
+      const meta = getLanguageMetadata(language);
+      recognition.lang = meta?.bcp47 || "en-IN";
       recognition.interimResults = false;
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
@@ -408,26 +415,25 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   };
 
   const navItems = [
-    { name: t("admin.overview") || "Overview", path: "/admin", icon: LayoutDashboard },
-    { name: t("admin.chatai") || "Chat AI Operations", path: "/admin/chatai", icon: Bot },
-    { name: t("admin.forecast") || "AI Demand Forecast", path: "/admin/forecast", icon: TrendingUp },
-    { name: t("admin.allocation") || "AI Workforce Allocation", path: "/admin/allocation", icon: Zap },
-    { name: t("admin.certifications") || "Skill Certifications", path: "/admin/certifications", icon: Award },
-    { name: t("admin.pillars") || "Pillars", path: "/admin/pillars", icon: Users },
-    { name: t("admin.customers") || "Customers", path: "/admin/customers", icon: UserCheck },
-    { name: t("admin.services") || "Services", path: "/admin/services", icon: Wrench },
-    { name: t("admin.requests") || "Service Requests", path: "/admin/requests", icon: ClipboardList },
+    { name: "Overview", path: "/admin", icon: LayoutDashboard },
+    { name: "AI Demand Forecast", path: "/admin/forecast", icon: TrendingUp },
+    { name: "AI Workforce Allocation", path: "/admin/allocation", icon: Zap },
+    { name: "Skill Certifications", path: "/admin/certifications", icon: Award },
+    { name: "Pillars", path: "/admin/pillars", icon: Users },
+    { name: "Customers", path: "/admin/customers", icon: UserCheck },
+    { name: "Services", path: "/admin/services", icon: Wrench },
+    { name: "Service Requests", path: "/admin/requests", icon: ClipboardList },
     { name: "Live Operations", path: "/admin/operations", icon: Radio },
-    { name: t("admin.tracking") || "Live Tracking", path: "/admin/tracking", icon: Clock },
-    { name: t("admin.finance") || "Financials & Payouts", path: "/admin/finance", icon: Wallet },
-    { name: t("admin.feedback") || "Customer Feedback", path: "/admin/feedback", icon: Star },
-    { name: t("admin.messages") || "Broadcast Messages", path: "/admin/messages", icon: MessageSquare },
+    { name: "Live Tracking", path: "/admin/tracking", icon: Clock },
+    { name: "Financials & Payouts", path: "/admin/finance", icon: Wallet },
+    { name: "Customer Feedback", path: "/admin/feedback", icon: Star },
+    { name: "Broadcast Messages", path: "/admin/messages", icon: MessageSquare },
   ];
 
   const bottomNavItems = [
-    { name: t("admin.support") || "Support", path: "/admin/support", icon: HelpCircle },
-    { name: t("admin.welfare") || "Welfare & PF", path: "/admin/welfare", icon: Shield },
-    { name: t("admin.settings") || "Settings", path: "/admin/settings", icon: Settings },
+    { name: "Support", path: "/admin/support", icon: HelpCircle },
+    { name: "Welfare & PF", path: "/admin/welfare", icon: Shield },
+    { name: "Settings", path: "/admin/settings", icon: Settings },
     { name: "Portal Hub (Home)", path: "/", icon: Layers },
   ];
 
@@ -479,8 +485,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           justifyContent: "space-between",
           borderBottom: "1px solid rgba(255,255,255,0.1)"
         }}>
-          <Link to="/admin" title="CoopHub Admin Overview Home" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", textDecoration: "none" }}>
-            <img src="/assets/images/coophub-logo.jpg" alt="Logo" style={{ height: "32px", borderRadius: "4px" }} />
+          <Link to="/admin" title="COOP HUB Portal Home" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", textDecoration: "none" }}>
+            <img src={coopHubLogo} alt="COOP HUB Logo" style={{ height: "32px", width: "auto" }} />
             <GradientText
               colors={["#FF7900","#FFFFFF","#FF7900"]}
               animationSpeed={8}
@@ -497,50 +503,50 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
         </div>
 
         {/* Portal Label */}
-        <div style={{ padding: "10px var(--space-4)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ fontWeight: "bold", color: "var(--color-secondary)", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "monospace" }}>
-            {t("admin.portal_label") || "ADMIN PORTAL"}
+        <div style={{ padding: "8px var(--space-4)", borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)" }}>
+          <div style={{ fontWeight: "bold", color: "#FF7900", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "monospace" }}>
+            {t("admin.portal_label") || "ADMIN MANAGEMENT PORTAL"}
           </div>
         </div>
 
-        {/* Profile Summary with Pillar ID */}
-        <div style={{ padding: "var(--space-5) var(--space-4)", display: "flex", alignItems: "center", gap: "var(--space-3)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+        {/* Profile Summary with Cooperative Admin ID */}
+        <div style={{ padding: "12px var(--space-4)", display: "flex", alignItems: "center", gap: "var(--space-3)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ 
-            width: "46px", height: "46px", borderRadius: "50%", 
+            width: "42px", height: "42px", borderRadius: "50%", 
             background: "var(--color-secondary)", display: "flex", 
             alignItems: "center", justifyContent: "center",
-            fontWeight: "bold", fontSize: "1.2rem", flexShrink: 0
+            fontWeight: "800", fontSize: "1.1rem", color: "#050A12", flexShrink: 0
           }}>
             {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "A"}
           </div>
           <div style={{ overflow: "hidden" }}>
-            <div style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "14.5px" }}>
-              {profile?.full_name || (user ? user.email?.split('@')[0] : (t("admin.cooperative_admin") || "Cooperative Admin"))}
+            <div style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "13.5px", color: "#FFFFFF" }}>
+              {profile?.full_name || (user ? user.email?.split('@')[0] : "Cooperative Admin")}
             </div>
-            <div style={{ fontSize: "11px", color: "var(--color-secondary)", fontWeight: "600", letterSpacing: "0.5px", marginTop: "1px" }}>
-              {profile?.admin_code ? `ID: ${profile.admin_code}` : user?.id ? `ID: ADM-${user.id.slice(0, 6).toUpperCase()}` : "ID: ADMIN-001"}
+            <div style={{ fontSize: "10.5px", color: "var(--color-secondary)", fontWeight: "700", letterSpacing: "0.5px", marginTop: "1px" }}>
+              {profile?.admin_code ? `ID: ${profile.admin_code}` : "ID: ADM-CHE-001"}
             </div>
-            <div style={{ marginTop: "4px" }}>
+            <div style={{ marginTop: "3px" }}>
               <button
                 onClick={handleToggleOnline}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
-                  padding: "3px 8px",
+                  padding: "2px 7px",
                   borderRadius: "12px",
                   border: isOnline ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)",
                   background: isOnline ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
                   color: isOnline ? "#34D399" : "#F87171",
-                  fontSize: "11px",
+                  fontSize: "10.5px",
                   fontWeight: "700",
                   cursor: "pointer",
                   transition: "all 0.2s ease"
                 }}
                 title="Click to toggle Admin Online / Offline status"
               >
-                <span className={`status-dot ${isOnline ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-                <span>{isOnline ? (t("admin.available_online") || "Available (Online)") : (t("admin.offline_paused") || "Offline (Paused)")}</span>
+                <span className={`status-dot ${isOnline ? 'available' : 'offline'}`} style={{ width: "5px", height: "5px" }}></span>
+                <span>{isOnline ? "Available (Online)" : "Offline (Paused)"}</span>
               </button>
             </div>
           </div>
@@ -559,7 +565,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                     className={`framer-side-menu-link ${isActive ? 'active' : ''}`}
                   >
                     <div className="framer-indicator" />
-                    <span>{item.name}</span>
+                    <span>{t(item.name)}</span>
                   </Link>
                 </li>
               );
@@ -567,7 +573,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           </ul>
 
           <div style={{ margin: "var(--space-4) var(--space-4) var(--space-2)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.5, fontWeight: "bold", fontFamily: "Geist Mono, monospace" }}>
-            {t("admin.settings_group") || "Settings & Help"}
+            {t("Settings & Help")}
           </div>
 
           <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-4)" }}>
@@ -581,7 +587,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                     className={`framer-side-menu-link ${isActive ? 'active' : ''}`}
                   >
                     <div className="framer-indicator" />
-                    <span>{item.name}</span>
+                    <span>{t(item.name)}</span>
                   </Link>
                 </li>
               );

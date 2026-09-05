@@ -103,17 +103,17 @@ export default function Home() {
                         <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
                         <div className="relative z-10">
                             <div className="flex items-center gap-2 mb-2">
-                                <span className="bg-orange-500 text-white font-bold text-xs px-2 py-0.5 rounded-md" style={{ fontWeight: "700" }}>Customer Portal</span>
+                                <span className="bg-orange-500 text-white font-bold text-xs px-2 py-0.5 rounded-md" style={{ fontWeight: "700" }}>{t('Customer Portal')}</span>
                                 <span className="text-navy-300 text-xs font-semibold tracking-wider">ID: {profile?.email || "customer@coophub.in"}</span>
                             </div>
                             <h1 className="text-2xl sm:text-3xl font-bold mb-1">
                                 {displayName
-                                    ? `Welcome back, ${displayName}!`
-                                    : 'Welcome to COOP HUB'}
+                                    ? `${t('Welcome back')}, ${displayName}!`
+                                    : t('Welcome to COOP HUB')}
                             </h1>
                             <div className="text-navy-200 text-sm sm:text-base min-h-[24px]">
                                 <TypewriterEffect
-                                    words={[{ word: t('home.subtitle') || "Find trusted services and get things done easily." }]}
+                                    words={[{ word: t('home.subtitle') || t("Find trusted services and get things done easily.") }]}
                                     typingSpeed={50}
                                     deletingSpeed={30}
                                     pauseDuration={999999}
@@ -142,7 +142,7 @@ export default function Home() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="block w-full pl-12 pr-4 py-3.5 bg-white border border-navy-200 rounded-xl leading-5 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm text-navy-800 placeholder:text-navy-300"
-                            placeholder={t('home.search_placeholder')}
+                            placeholder={t('home.search_placeholder') || t('Search services...')}
                         />
                     </div>
                 </section>
@@ -151,9 +151,9 @@ export default function Home() {
                 {/* ─── Active Requests ─── */}
                 <section className="mb-10">
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-bold text-navy-800 text-base">Active Requests</h2>
+                        <h2 className="font-bold text-navy-800 text-base">{t('Active Requests')}</h2>
                         <button onClick={() => navigate('/requests')} className="text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors">
-                            View All →
+                            {t('View All')} →
                         </button>
                     </div>
 
@@ -173,16 +173,16 @@ export default function Home() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                 </svg>
                             </div>
-                            <h3 className="font-semibold text-navy-800 mb-1">No active requests</h3>
-                            <p className="text-navy-400 text-sm mb-5">When you request a service, it will appear here for tracking.</p>
+                            <h3 className="font-semibold text-navy-800 mb-1">{t('No active requests')}</h3>
+                            <p className="text-navy-400 text-sm mb-5">{t('When you request a service, it will appear here for tracking.')}</p>
                             <button onClick={() => document.getElementById('services-section')?.scrollIntoView({ behavior: 'smooth' })} className="inline-flex items-center px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
-                                Browse Services
+                                {t('Browse Services')}
                             </button>
                         </div>
                     ) : (
                         <div className="space-y-3">
                             {activeRequests.map(req => {
-                                const svcName = req.services?.name_translations?.[language] || req.services?.name_translations?.['en'] || 'Service Request';
+                                const svcName = req.services?.name_translations?.[language] || req.services?.name_translations?.['en'] || req.services?.name || t('Service Request');
                                 return (
                                     <button key={req.id} onClick={() => navigate(`/requests/${req.id}`)} className="w-full bg-white rounded-xl border border-navy-100 p-4 text-left hover:border-orange-300 hover:shadow-md transition-all group flex items-center justify-between">
                                         <div>
@@ -191,7 +191,7 @@ export default function Home() {
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <span className={`px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide rounded-full border ${statusColor(req.status)}`}>
-                                                {req.status?.replace('_', ' ')}
+                                                {t(req.status?.replace('_', ' '))}
                                             </span>
                                             <svg className="w-4 h-4 text-navy-300 group-hover:text-orange-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                         </div>
@@ -205,9 +205,9 @@ export default function Home() {
                 {/* ─── Find Services Catalogue ─── */}
                 <section id="services-section" className="mb-10">
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-bold text-navy-800 text-base">{t('navigation.find_services') || 'Find Services'}</h2>
+                        <h2 className="font-bold text-navy-800 text-base">{t('Find Services')}</h2>
                         <button onClick={() => navigate('/services')} className="text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors">
-                            View All →
+                            {t('View All')} →
                         </button>
                     </div>
 
@@ -223,7 +223,7 @@ export default function Home() {
                         </div>
                     ) : servicesError ? (
                         <div className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 text-sm">
-                            Unable to load services. Please try again later.
+                            {t('Unable to load services. Please try again later.')}
                         </div>
                     ) : filteredServices.length === 0 ? (
                         <div className="bg-white rounded-2xl border border-navy-100 p-10 text-center">
@@ -232,9 +232,9 @@ export default function Home() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                 </svg>
                             </div>
-                            <h3 className="font-semibold text-navy-800 text-lg mb-2">No services available yet</h3>
+                            <h3 className="font-semibold text-navy-800 text-lg mb-2">{t('No services available yet')}</h3>
                             <p className="text-navy-400 text-sm max-w-sm mx-auto">
-                                We're onboarding service providers in your area. New services will appear here automatically when available.
+                                {t("We're onboarding service providers in your area. New services will appear here automatically when available.")}
                             </p>
                         </div>
                     ) : (
@@ -249,13 +249,13 @@ export default function Home() {
                                         <div className="w-14 h-14 bg-navy-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-orange-50 transition-colors">
                                             <ServiceCategoryIcon category={service.category} name={service.name} />
                                         </div>
-                                        <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">{service.name}</h3>
+                                        <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">{t(service.name)}</h3>
                                         {service.description && (
-                                            <p className="text-xs text-navy-400 mt-1 line-clamp-2">{service.description}</p>
+                                            <p className="text-xs text-navy-400 mt-1 line-clamp-2">{t(service.description)}</p>
                                         )}
                                     </div>
                                     <div className="text-xs font-semibold text-orange-500 mt-3.5 flex items-center justify-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                                        <span>Explore</span>
+                                        <span>{t('Explore')}</span>
                                         <span>→</span>
                                     </div>
                                 </button>

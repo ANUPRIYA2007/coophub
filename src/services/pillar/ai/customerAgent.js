@@ -43,9 +43,13 @@ const CUSTOMER_ROUTE_DATA = {
   },
 };
 
+import { getLanguageMetadata } from "../../../i18n/languages.js";
+
 export const customerAgent = {
   async handle(query, context = {}) {
     const { language = "en", route = "/home" } = context;
+    const langMeta = getLanguageMetadata(language);
+    const langName = langMeta?.name || "English";
     const matchedRoute = Object.keys(CUSTOMER_ROUTE_DATA).find(
       (r) => route === r || route.startsWith(r)
     ) || "/home";
@@ -56,8 +60,8 @@ export const customerAgent = {
     try {
       const isNavTip = query.toLowerCase().includes("just navigated to");
       const promptText = isNavTip
-        ? `The user is a customer on the COOP HUB Customer Portal on route '${route}'. ${routeInfo.tipPrompt} Give a concise 1-2 sentence friendly tip in ${language === "ta" ? "Tamil" : "English"}.`
-        : `You are CoopBot, the helpful 24/7 AI Service Assistant for COOP HUB customer home services in Chennai. The customer is currently on '${route}' and asks: "${query}". Provide a helpful, clear, and structured response in ${language === "ta" ? "Tamil" : "English"}. If relevant, mention standard rates, how to book or track requests, and cooperative technician guarantees.`;
+        ? `The user is a customer on the COOP HUB Customer Portal on route '${route}'. ${routeInfo.tipPrompt} Give a concise 1-2 sentence friendly tip in ${langName}.`
+        : `You are CoopBot, the helpful 24/7 AI Service Assistant for COOP HUB customer home services in Chennai. The customer is currently on '${route}' and asks: "${query}". Provide a helpful, clear, and structured response in ${langName}. If relevant, mention standard rates, how to book or track requests, and cooperative technician guarantees.`;
 
       const aiResponse = await callPillarAiApi({
         prompt: promptText,

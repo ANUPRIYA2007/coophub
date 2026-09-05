@@ -109,7 +109,7 @@ export default function Register() {
             {/* Top Navigation & Language Selector */}
             <div className="absolute top-4 left-4 z-10">
                 <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-orange-600 transition-colors bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-navy-100 shadow-xs">
-                    <ArrowLeft size={14} /> Back to Portals
+                    <ArrowLeft size={14} /> {t('Back to Portals')}
                 </Link>
             </div>
 
@@ -145,8 +145,8 @@ export default function Register() {
 
                         <div className="text-center mb-6">
                             <img src={coopHubLogo} alt="COOP HUB" className="w-20 h-auto mx-auto mb-4" />
-                            <h1 className="heading-2 mb-1">{t('auth.register_title')}</h1>
-                            <p className="text-muted text-sm">{t('auth.register_subtitle')}</p>
+                            <h1 className="heading-2 mb-1">{t('Create Account')}</h1>
+                            <p className="text-muted text-sm">{t('Join COOP HUB as a customer today')}</p>
                         </div>
 
                         {error && (
@@ -162,7 +162,7 @@ export default function Register() {
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('auth.full_name')}</label>
+                                <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('Full Name')}</label>
                                 <input
                                     type="text"
                                     name="fullName"
@@ -171,14 +171,14 @@ export default function Register() {
                                     onBlur={() => setActiveField(null)}
                                     onChange={handleChange}
                                     className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-                                    placeholder={t('auth.full_name_placeholder')}
+                                    placeholder={t('e.g. Anupriya Sharma')}
                                     required
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('auth.email')}</label>
+                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('Email Address')}</label>
                                     <input
                                         type="email"
                                         name="email"
@@ -187,12 +187,12 @@ export default function Register() {
                                         onBlur={() => setActiveField(null)}
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-                                        placeholder={t('auth.email_placeholder')}
+                                        placeholder={t('name@example.com')}
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('auth.mobile_number')}</label>
+                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('Mobile Number')}</label>
                                     <input
                                         type="tel"
                                         name="mobile"
@@ -201,7 +201,7 @@ export default function Register() {
                                         onBlur={() => setActiveField(null)}
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-                                        placeholder={t('auth.mobile_placeholder')}
+                                        placeholder={t('+91 98401 23456')}
                                         required
                                     />
                                 </div>
@@ -209,33 +209,33 @@ export default function Register() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('auth.password')}</label>
+                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('Password')}</label>
                                     <PasswordInput
                                         name="password"
                                         value={formData.password}
                                         onFocus={() => setActiveField('password')}
                                         onBlur={() => setActiveField(null)}
                                         onChange={handleChange}
-                                        placeholder={t('auth.password_placeholder')}
+                                        placeholder={t('Choose a strong password')}
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('auth.confirm_password')}</label>
+                                    <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('Confirm Password')}</label>
                                     <PasswordInput
                                         name="confirmPassword"
                                         value={formData.confirmPassword}
                                         onFocus={() => setActiveField('confirmPassword')}
                                         onBlur={() => setActiveField(null)}
                                         onChange={handleChange}
-                                        placeholder={t('auth.confirm_password_placeholder')}
+                                        placeholder={t('Re-enter your password')}
                                         required
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('auth.preferred_language')}</label>
+                                <label className="block text-sm font-semibold text-navy-800 mb-1.5">{t('Preferred Language')}</label>
                                 <div className="relative">
                                     <select
                                         value={language}
@@ -243,9 +243,13 @@ export default function Register() {
                                         className="appearance-none w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 pr-10 cursor-pointer"
                                         required
                                     >
-                                        {Object.entries(languages).map(([code, name]) => (
-                                            <option key={code} value={code}>{name}</option>
-                                        ))}
+                                        {languages && Array.isArray(languages)
+                                            ? languages.map((lang) => (
+                                                <option key={lang.code} value={lang.code}>{lang.nativeName} ({lang.name})</option>
+                                              ))
+                                            : Object.values(languages || {}).map((lang) => (
+                                                <option key={lang.code} value={lang.code}>{lang.nativeName || lang.name || lang.code} ({lang.name})</option>
+                                              ))}
                                     </select>
                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-navy-400">
                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -266,18 +270,18 @@ export default function Register() {
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
-                                        {t('auth.creating_account')}
+                                        {t('Creating account...')}
                                     </span>
                                 ) : (
-                                    t('auth.register_btn')
+                                    t('Create Account')
                                 )}
                             </button>
                         </form>
 
                         <div className="mt-6 text-center text-sm text-navy-600 border-t border-navy-100 pt-6">
-                            {t('auth.have_account_link')}{' '}
+                            {t('Already have an account?')}{' '}
                             <Link to="/login" className="font-bold text-navy-800 hover:text-orange-500 transition-colors">
-                                {t('auth.have_account_action')}
+                                {t('Sign in here')}
                             </Link>
                         </div>
                     </div>

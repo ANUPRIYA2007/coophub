@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase.js";
+import { getLanguageMetadata } from '../../../i18n/languages.js';
 import { emailService } from "../../../services/email/emailService.js";
 import { idGenerator } from "../../../utils/idGenerator.js";
 import { welfareService } from "./welfareService.js";
@@ -1800,7 +1801,7 @@ export const adminService = {
           full_name: profile.full_name || 'Customer User',
           email: profile.email || 'customer@coophub.in',
           mobile: profile.mobile_number || profile.phone || profile.mobile || 'N/A',
-          language: profile.preferred_language === 'ta' ? 'Tamil' : profile.preferred_language === 'hi' ? 'Hindi' : 'English',
+          language: getLanguageMetadata(profile.preferred_language)?.name || 'English',
           preferred_language: profile.preferred_language || 'en',
           status: profile.status || 'active',
           total_bookings: profile.total_bookings || 0,

@@ -16,6 +16,10 @@ import { panPipeline } from './panPipeline.js';
 import { drivingLicensePipeline } from './drivingLicensePipeline.js';
 import { voterIdPipeline } from './voterIdPipeline.js';
 import { skillCertificatePipeline } from './skillCertificatePipeline.js';
+import { passportPipeline } from './passportPipeline.js';
+import { rationCardPipeline } from './rationCardPipeline.js';
+import { labourCardPipeline } from './labourCardPipeline.js';
+import { generalGovtIdPipeline } from './generalGovtIdPipeline.js';
 import { documentExtractionService } from '../ai/documentExtractionService.js';
 import { documentQualityService } from '../ai/documentQualityService.js';
 import { documentFingerprintService } from '../ai/documentFingerprintService.js';
@@ -152,7 +156,7 @@ export const kycRouter = {
         pillarProfile,
         sourceMethod: 'ocr_ai'
       });
-    } else if (docKey.includes('driving') || docKey.includes('license') || docKey.includes('dl')) {
+    } else if (docKey.includes('driving') || docKey.includes('license') || docKey.includes('licence') || docKey.includes('dl')) {
       pipelineResult = drivingLicensePipeline.processDrivingLicense({
         extractedData: extractedFields,
         pillarProfile,
@@ -164,13 +168,31 @@ export const kycRouter = {
         pillarProfile,
         sourceMethod: 'ocr_ai'
       });
-    } else if (docKey.includes('skill') || docKey.includes('cert') || docKey.includes('iti') || docKey.includes('nsdc')) {
+    } else if (docKey.includes('passport')) {
+      pipelineResult = passportPipeline.processPassport({
+        extractedData: extractedFields,
+        pillarProfile,
+        sourceMethod: 'ocr_ai'
+      });
+    } else if (docKey.includes('ration') || docKey.includes('family_card') || docKey.includes('tnepds')) {
+      pipelineResult = rationCardPipeline.processRationCard({
+        extractedData: extractedFields,
+        pillarProfile,
+        sourceMethod: 'ocr_ai'
+      });
+    } else if (docKey.includes('labour') || docKey.includes('welfare') || docKey.includes('tncwwb')) {
+      pipelineResult = labourCardPipeline.processLabourCard({
+        extractedData: extractedFields,
+        pillarProfile,
+        sourceMethod: 'ocr_ai'
+      });
+    } else if (docKey.includes('skill') || docKey.includes('cert') || docKey.includes('iti') || docKey.includes('nsdc') || docKey.includes('diploma') || docKey.includes('trade_license') || docKey.includes('experience')) {
       pipelineResult = skillCertificatePipeline.processCertificate({
         extractedData: extractedFields,
         pillarProfile
       });
     } else {
-      pipelineResult = aadhaarPipeline.processAadhaar({
+      pipelineResult = generalGovtIdPipeline.processGeneralDocument({
         extractedData: extractedFields,
         pillarProfile,
         sourceMethod: 'ocr_ai'

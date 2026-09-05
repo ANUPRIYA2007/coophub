@@ -222,6 +222,37 @@ export const documentStorageService = {
         return { success: true, table: 'kyc_documents', data };
       }
 
+      // 6. PASSPORT, RATION CARD, LABOUR CARD, AND OTHER OFFICIAL GOVERNMENT IDS
+      if (type.includes('passport') || type.includes('ration') || type.includes('labour') || type.includes('welfare') || type.includes('other')) {
+        const docNum = extractedData.document_number || extractedData.passport_number || extractedData.ration_card_number || extractedData.registration_number || null;
+        const normalizedType = type.includes('passport') ? 'passport' :
+                               type.includes('ration') ? 'ration_card' :
+                               (type.includes('labour') || type.includes('welfare')) ? 'labour_card' : 'other';
+
+        const payload = {
+          pillar_id: pillarId,
+          document_type: normalizedType,
+          document_number: docNum,
+          document_url: documentUrl,
+          verification_status: verificationStatus,
+          ocr_data: {
+            extracted_data: extractedData,
+            raw_ocr_text: rawOcrText,
+            validation_result: validationResult
+          },
+          updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+          .from('kyc_documents')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (error) throw error;
+        return { success: true, table: 'kyc_documents', data };
+      }
+
       return { success: false, error: `Unsupported document type: ${documentType}` };
     } catch (err) {
       console.error(`Error saving document to dedicated table for ${documentType}:`, err);
@@ -234,7 +265,7 @@ export const documentStorageService = {
    * @param {string} pillarId - Pillar ID
    */
   async getPillarDocuments(pillarId) {
-    if (!pillarId) return { aadhaar: null, pan: null, voterId: null, drivingLicense: null, certificates: [] };
+    if (!pillarId) return { aadhaar: null, pan: null, voterId: null, drivingLicense: null, certificates: [], allDocuments: [] };
 
     try {
       const [
@@ -251,16 +282,29 @@ export const documentStorageService = {
         supabase.from('kyc_documents').select('*').eq('pillar_id', pillarId)
       ]);
 
+      const kycList = certs || [];
+
       return {
         aadhaar: aadhaar || null,
         pan: pan || null,
         voterId: voterId || null,
         drivingLicense: dl || null,
-        certificates: certs || []
+        certificates: kycList.filter(c => c.document_type?.includes('cert') || c.document_type?.includes('iti') || c.document_type?.includes('nsdc')),
+        passport: kycList.find(c => c.document_type === 'passport') || null,
+        rationCard: kycList.find(c => c.document_type === 'ration_card') || null,
+        labourCard: kycList.find(c => c.document_type === 'labour_card') || null,
+        other: kycList.find(c => c.document_type === 'other') || null,
+        allDocuments: [
+          aadhaar && { ...aadhaar, document_type: 'aadhaar' },
+          pan && { ...pan, document_type: 'pan' },
+          voterId && { ...voterId, document_type: 'voter_id' },
+          dl && { ...dl, document_type: 'driving_licence' },
+          ...kycList
+        ].filter(Boolean)
       };
     } catch (err) {
       console.error("Error retrieving dedicated documents for pillar:", err);
-      return { aadhaar: null, pan: null, voterId: null, drivingLicense: null, certificates: [] };
+      return { aadhaar: null, pan: null, voterId: null, drivingLicense: null, certificates: [], allDocuments: [] };
     }
   }
 };

@@ -87,6 +87,51 @@ export default function Register() {
         setFormData((prev) => ({ ...prev, email }));
       }
     }
+
+    const dlStatus = params.get("digilocker_status");
+    const dlState = params.get("state");
+    const dlError = params.get("error");
+
+    if (dlStatus) {
+      setStep(3); // Navigate directly to Step 3 (KYC / Identity)
+      if (dlStatus === "verified") {
+        setConsentGiven(true);
+        setDigilockerNotice("DigiLocker Authoritative Verification Complete! Identity verified against government repository.");
+        
+        // Query backend session details if available
+        if (dlState) {
+          fetch(`/api/kyc/digilocker/session-status?state=${encodeURIComponent(dlState)}`)
+            .then(r => r.json())
+            .then(sess => {
+              if (sess.success && sess.authoritative_verified) {
+                setOcrPreview({
+                  engine: `DigiLocker TSP (${sess.tsp_provider?.toUpperCase() || 'MERIPEHCHAAN'})`,
+                  document_type: 'Government Issued Record (DigiLocker)',
+                  document_type_code: 'digilocker',
+                  extracted_name: sess.name || 'Verified Government Identity',
+                  extracted_dob: sess.dob || '',
+                  extracted_document_number: sess.digilocker_id || 'DL-VERIFIED',
+                  raw_document_number_masked: sess.digilocker_id || 'DL-VERIFIED',
+                  raw_text_snippet: `DigiLocker Authoritative Verification: ${sess.name || 'Pillar'} (${sess.digilocker_id || 'VERIFIED'})`,
+                  confidence_score: 1.0,
+                  authoritative_verified: true,
+                  verification_method: 'digilocker_tsp',
+                  verification_status: 'VERIFIED',
+                  processed_at: sess.verified_at || new Date().toISOString()
+                });
+                if (sess.name) {
+                  setFormData(prev => ({ ...prev, fullName: sess.name, dob: sess.dob || prev.dob }));
+                }
+              }
+            })
+            .catch(err => console.warn('DigiLocker session query note:', err.message));
+        }
+      } else if (dlStatus === "cancelled") {
+        setDigilockerNotice("DigiLocker Verification Cancelled. You may retry or proceed with UIDAI Secure QR scan / document upload below.");
+      } else if (dlStatus === "failed") {
+        setDigilockerNotice(`DigiLocker Verification Failed: ${dlError || 'Authorization code invalid or timeout'}. You may retry or upload documents below.`);
+      }
+    }
   }, [location.search]);
 
   const handleInputChange = (e) => {
@@ -208,6 +253,9 @@ export default function Register() {
             extracted_document_number: pipe.fields?.document_number_masked,
             raw_document_number_masked: pipe.fields?.document_number_masked,
             extracted_address: pipe.fields?.address,
+            extracted_father_name: pipe.fields?.father_name || pipe.fields?.guardian_name,
+            extracted_trade: pipe.fields?.trade,
+            extracted_expiry: pipe.fields?.expiry_date,
             raw_text_snippet: routerRes.extraction?.ocr?.rawText?.slice(0, 180) || 'Document scanned successfully.',
             confidence_score: pipe.format_valid ? 0.90 : 0.60,
             verification_status: pipe.verification_status,
@@ -1152,6 +1200,7 @@ export default function Register() {
                        formData.documentType === 'passport' ? '🛂 Indian Passport' :
                        formData.documentType === 'ration_card' ? '🌾 Smart Ration Card' :
                        formData.documentType === 'labour_card' ? '🏗️ Labour Welfare Card' :
+                       formData.documentType === 'other' ? '📑 Official Government ID' :
                        ocrPreview.document_type || '🪪 UIDAI Aadhaar Card'}
                     </div>
                     <div style={{ fontSize: "0.8rem", color: "#374151", marginTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
@@ -1160,13 +1209,27 @@ export default function Register() {
                       )}
                       {ocrPreview.extracted_document_number && (
                         <div>
-                          {formData.documentType === 'pan' ? 'PAN' : formData.documentType === 'voter_id' ? 'EPIC' : 'Doc'} Number: <strong style={{ fontFamily: "monospace" }}>{ocrPreview.extracted_document_number}</strong>
+                          {formData.documentType === 'pan' ? 'PAN' :
+                           formData.documentType === 'voter_id' ? 'EPIC' :
+                           formData.documentType === 'passport' ? 'Passport' :
+                           formData.documentType === 'driving_licence' ? 'DL' :
+                           formData.documentType === 'ration_card' ? 'Ration Card' :
+                           formData.documentType === 'labour_card' ? 'Reg' : 'Doc'} Number: <strong style={{ fontFamily: "monospace" }}>{ocrPreview.extracted_document_number}</strong>
                         </div>
                       )}
                       {ocrPreview.extracted_dob && (
                         <div>DOB: <strong>{ocrPreview.extracted_dob}</strong></div>
                       )}
-                      {ocrPreview.extracted_address && (
+                      {ocrPreview.extracted_father_name && formData.documentType === 'pan' && (
+                        <div>Father's Name: <strong>{ocrPreview.extracted_father_name}</strong></div>
+                      )}
+                      {ocrPreview.extracted_trade && (
+                        <div>Trade / Occupation: <strong>{ocrPreview.extracted_trade}</strong></div>
+                      )}
+                      {ocrPreview.extracted_expiry && (
+                        <div>Valid Till: <strong>{ocrPreview.extracted_expiry}</strong></div>
+                      )}
+                      {ocrPreview.extracted_address && formData.documentType !== 'pan' && (
                         <div>Address: <strong>{ocrPreview.extracted_address}</strong></div>
                       )}
                       {!ocrPreview.extracted_name && !ocrPreview.extracted_document_number && !ocrPreview.extracted_dob && (

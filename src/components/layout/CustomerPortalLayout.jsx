@@ -56,14 +56,14 @@ export default function CustomerPortalLayout() {
 
     // Sidebar navigation items — Notifications is NOT here (header-only)
     const navItems = [
-        { to: '/home', label: t('navigation.dashboard') || 'Dashboard', icon: <HomeIcon /> },
-        { to: '/services', label: t('navigation.find_services') || 'Find Services', icon: <ServicesIcon /> },
-        { to: '/requests', label: t('navigation.my_requests') || 'My Requests', icon: <RequestsIcon /> },
-        { to: '/messages', label: t('navigation.messages') || 'Messages', icon: <MessagesIcon /> },
-        { to: '/history', label: t('navigation.history') || 'History', icon: <HistoryIcon /> },
-        { to: '/support', label: t('navigation.support') || 'Support', icon: <SupportIcon /> },
-        { to: '/settings', label: t('navigation.settings') || 'Settings', icon: <SettingsIcon /> },
-        { to: '/profile', label: t('navigation.profile') || 'Profile', icon: <ProfileIcon /> },
+        { to: '/home', label: t('Dashboard'), icon: <HomeIcon /> },
+        { to: '/services', label: t('Find Services'), icon: <ServicesIcon /> },
+        { to: '/requests', label: t('My Requests'), icon: <RequestsIcon /> },
+        { to: '/messages', label: t('Messages'), icon: <MessagesIcon /> },
+        { to: '/history', label: t('History'), icon: <HistoryIcon /> },
+        { to: '/support', label: t('Help & Support'), icon: <SupportIcon /> },
+        { to: '/settings', label: t('Settings'), icon: <SettingsIcon /> },
+        { to: '/profile', label: t('Profile'), icon: <ProfileIcon /> },
     ];
 
     return (
@@ -101,12 +101,12 @@ export default function CustomerPortalLayout() {
                 {/* Portal Label */}
                 <div className="px-5 py-4 border-b border-navy-800">
                     <div className="font-bold text-orange-500 text-xs uppercase tracking-widest font-mono">
-                        Customer Dashboard
+                        {t('Customer Dashboard')}
                     </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto py-4 px-5 space-y-1.5">
+                <div className="flex-1 overflow-y-auto py-3 px-4 space-y-1.5 hide-scrollbar">
                     {navItems.map(item => (
                         <NavLink
                             key={item.to}
@@ -120,18 +120,21 @@ export default function CustomerPortalLayout() {
                             <span>{item.label}</span>
                         </NavLink>
                     ))}
-                </nav>
+                </div>
 
-                <GlobalHeroAgent inline={true} />
+                {/* Hero AI Interactive Assistant */}
+                <div className="border-t border-navy-800 bg-navy-950/60 shrink-0">
+                    <GlobalHeroAgent inline={true} />
+                </div>
 
                 {/* Logout */}
-                <div className="px-3 py-4 border-t border-navy-800">
+                <div className="px-3 py-3 border-t border-navy-800">
                     <button
                         onClick={async () => { await signOut(); navigate('/'); }}
-                        className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors w-full border border-transparent"
+                        className="flex items-center space-x-3 px-3 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors w-full border border-transparent"
                     >
                         <LogoutIcon />
-                        <span>{t('auth.logout') || 'Log Out'}</span>
+                        <span>{t('Log Out')}</span>
                     </button>
                 </div>
             </aside >
@@ -152,7 +155,7 @@ export default function CustomerPortalLayout() {
                                 </svg>
                             </button>
                             <h2 className="font-semibold text-navy-800 text-base hidden sm:block">
-                                {customerName ? `Welcome, ${customerName}` : (t('navigation.dashboard') || 'Customer Portal')}
+                                {customerName ? `Welcome, ${customerName}` : (t('Dashboard') || 'Customer Portal')}
                             </h2>
                         </div>
 

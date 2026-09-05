@@ -123,15 +123,15 @@ export default function Dashboard() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-4)" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
-              <span className="badge badge-secondary" style={{ color: "white", fontWeight: "700" }}>Pillar Portal</span>
+              <span className="badge badge-secondary" style={{ color: "white", fontWeight: "700" }}>{t("Pillar Portal")}</span>
               <span style={{ fontSize: "var(--font-size-xs)", opacity: 0.95, fontWeight: "700", letterSpacing: "0.5px" }}>ID: {profile?.pillar_code || "PIL-CHE-042"}</span>
             </div>
             <h1 style={{ fontSize: "var(--font-size-3xl)", fontWeight: "800", margin: 0, color: "white" }}>
-              {t("common.welcome")}, {profile?.full_name || "Pillar"}!
+              {t("common.welcome")}, {profile?.full_name || t("Pillar")}!
             </h1>
             <div style={{ minHeight: "20px", marginTop: "4px", fontSize: "14.5px", color: "#CCD6E6" }}>
               <TypewriterEffect
-                words={[{ word: "Grow your services and connect with customers." }]}
+                words={[{ word: t("Grow your services and connect with customers.") }]}
                 typingSpeed={50}
                 deletingSpeed={30}
                 pauseDuration={999999}
@@ -145,8 +145,8 @@ export default function Dashboard() {
             </div>
             <p style={{ opacity: 0.9, fontSize: "var(--font-size-sm)", marginTop: "6px" }}>
               {isAvailable
-                ? "You are currently ONLINE and ready to receive customer bookings."
-                : "You are currently OFFLINE. Switch on to start accepting incoming service requests."}
+                ? t("You are currently ONLINE and ready to receive customer bookings.")
+                : t("You are currently OFFLINE. Switch on to start accepting incoming service requests.")}
             </p>
           </div>
 
@@ -176,7 +176,7 @@ export default function Dashboard() {
               onClick={handleToggleAvailability}
               disabled={loadingToggle}
             >
-              {isAvailable ? "Go Offline" : "Go Online"}
+              {isAvailable ? t("Go Offline") : t("Go Online")}
             </button>
           </div>
         </div>
@@ -195,10 +195,10 @@ export default function Dashboard() {
               </span>
             </div>
             <div style={{ fontSize: "var(--font-size-3xl)", fontWeight: "800", color: "var(--color-primary)", marginTop: "var(--space-2)" }}>
-              {orderMetrics.pending + orderMetrics.active} Active
+              {orderMetrics.pending + orderMetrics.active} {t("Active")}
             </div>
             <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-secondary)", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
-              <TrendingUp size={12} /> {orderMetrics.pending} new pending request(s)
+              <TrendingUp size={12} /> {orderMetrics.pending} {t("new pending request(s)")}
             </span>
           </div>
         </div>
@@ -217,7 +217,7 @@ export default function Dashboard() {
               ₹{earningsSummary.today.toLocaleString()}
             </div>
             <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", marginTop: "4px", display: "block" }}>
-              Total: ₹{earningsSummary.total.toLocaleString()} recorded
+              {t("Total:")} ₹{earningsSummary.total.toLocaleString()} {t("recorded")}
             </span>
           </div>
         </div>
@@ -233,10 +233,10 @@ export default function Dashboard() {
               </span>
             </div>
             <div style={{ fontSize: "var(--font-size-3xl)", fontWeight: "800", color: "var(--color-success)", marginTop: "var(--space-2)" }}>
-              {orderMetrics.completed} Jobs
+              {orderMetrics.completed} {t("Jobs")}
             </div>
             <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", marginTop: "4px", display: "block" }}>
-              ⭐ 5.0 Rating
+              ⭐ 5.0 {t("Rating")}
             </span>
           </div>
         </div>
@@ -255,7 +255,7 @@ export default function Dashboard() {
               ₹{earningsSummary.pending.toLocaleString()}
             </div>
             <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", marginTop: "4px", display: "block" }}>
-              Paid out: ₹{earningsSummary.paid.toLocaleString()}
+              {t("Paid out:")} ₹{earningsSummary.paid.toLocaleString()}
             </span>
           </div>
         </div>
@@ -266,9 +266,9 @@ export default function Dashboard() {
         {/* Next Active Booking Card */}
         <div className="card" style={{ gridColumn: "span 2" }}>
           <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "700" }}>{t("dashboard.nextBooking")}</h3>
+            <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "700" }}>{t("Next Upcoming Booking")}</h3>
             <Link to="/dashboard/orders" className="btn btn-ghost btn-sm" style={{ color: "var(--color-secondary)" }}>
-              {t("dashboard.viewAll")} <ChevronRight size={16} />
+              {t("View All")} <ChevronRight size={16} />
             </Link>
           </div>
 
@@ -285,13 +285,13 @@ export default function Dashboard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-4)" }}>
                   <div>
                     <span className="badge badge-warning" style={{ marginBottom: "6px" }}>
-                      {orderMetrics.nextBooking.status.toUpperCase()}
+                      {t(orderMetrics.nextBooking.status.toUpperCase())}
                     </span>
                     <h2 style={{ fontSize: "var(--font-size-xl)", fontWeight: "700" }}>
-                      {orderMetrics.nextBooking.service_name}
+                      {t(orderMetrics.nextBooking.service_name)}
                     </h2>
                     <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
-                      Order Code: #{orderMetrics.nextBooking.booking_code || orderMetrics.nextBooking.id.slice(0, 8)}
+                      {t("Order Code:")} #{orderMetrics.nextBooking.booking_code || orderMetrics.nextBooking.id.slice(0, 8)}
                     </span>
                   </div>
                   <div style={{ fontSize: "var(--font-size-2xl)", fontWeight: "800", color: "var(--color-secondary)" }}>
@@ -302,28 +302,28 @@ export default function Dashboard() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)", marginBottom: "var(--space-6)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                     <Calendar size={16} color="var(--color-text-muted)" />
-                    <span>{orderMetrics.nextBooking.scheduled_date || "Today"}</span>
+                    <span>{orderMetrics.nextBooking.scheduled_date || t("Today")}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                     <MapPin size={16} color="var(--color-text-muted)" />
-                    <span>{orderMetrics.nextBooking.service_address} (Customer: <strong>{orderMetrics.nextBooking.customer_name}</strong>)</span>
+                    <span>{orderMetrics.nextBooking.service_address} ({t("Customer")}: <strong>{orderMetrics.nextBooking.customer_name}</strong>)</span>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", gap: "var(--space-3)" }}>
                   <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => navigate("/dashboard/orders")}>
-                    View Details
+                    {t("View Details")}
                   </button>
                   <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => navigate("/dashboard/orders")}>
-                    Manage Order
+                    {t("Manage Order")}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="empty-state" style={{ padding: "var(--space-8)" }}>
                 <ClipboardList size={36} color="var(--color-text-muted)" />
-                <h4 className="empty-state-title">No upcoming bookings</h4>
-                <p className="empty-state-text">When a customer in your coverage area books your service, it will be highlighted right here.</p>
+                <h4 className="empty-state-title">{t("No upcoming bookings")}</h4>
+                <p className="empty-state-text">{t("When a customer in your coverage area books your service, it will be highlighted right here.")}</p>
               </div>
             )}
           </div>
@@ -357,9 +357,9 @@ export default function Dashboard() {
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               </div>
-              <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "700" }}>CoopBot AI Assistant</h3>
+              <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "700" }}>{t("CoopBot AI Assistant")}</h3>
               <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-xs)", marginTop: "4px", marginBottom: "var(--space-4)" }}>
-                Continuous 24/7 AI companion ready with text & voice in Tamil, Hindi, Telugu, Kannada, and English.
+                {t("Continuous 24/7 AI companion ready with text & voice in Tamil, Hindi, Telugu, Kannada, and English.")}
               </p>
               <button
                 className="btn btn-primary btn-sm"
@@ -369,21 +369,21 @@ export default function Dashboard() {
                   if (trigger) trigger.click();
                 }}
               >
-                <Sparkles size={16} /> Open AI Assistant
+                <Sparkles size={16} /> {t("Open AI Assistant")}
               </button>
             </div>
           </div>
 
           <div className="card">
             <div className="card-header">
-              <h4 style={{ fontSize: "var(--font-size-base)", fontWeight: "600" }}>Quick Access</h4>
+              <h4 style={{ fontSize: "var(--font-size-base)", fontWeight: "600" }}>{t("Quick Access")}</h4>
             </div>
             <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               <Link to="/dashboard/chat" className="btn btn-outline btn-sm" style={{ justifyContent: "flex-start" }}>
-                <MessageSquare size={16} /> Customer Messages
+                <MessageSquare size={16} /> {t("Customer Messages")}
               </Link>
               <Link to="/dashboard/support" className="btn btn-outline btn-sm" style={{ justifyContent: "flex-start" }}>
-                <Phone size={16} /> Support Tickets
+                <Phone size={16} /> {t("Support Tickets")}
               </Link>
             </div>
           </div>

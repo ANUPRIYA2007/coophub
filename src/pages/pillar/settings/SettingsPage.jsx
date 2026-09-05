@@ -18,11 +18,11 @@ export default function SettingsPage() {
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
               title="Back to Pillar Dashboard Home"
             >
-              <ArrowLeft size={14} /> Back to Dashboard
+              <ArrowLeft size={14} /> {t("Back to Dashboard")}
             </button>
           </div>
           <h1 className="page-title">{t("settings.title")}</h1>
-          <p className="page-subtitle">Configure app preferences, notifications, and security</p>
+          <p className="page-subtitle">{t("Configure app preferences, notifications, and security")}</p>
         </div>
       </div>
 
@@ -35,7 +35,7 @@ export default function SettingsPage() {
           </div>
           <div className="card-body">
             <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", marginBottom: "var(--space-4)" }}>
-              Choose your preferred language for the Pillar Portal interface:
+              {t("Choose your preferred language for the Pillar Portal interface:")}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
               {supportedLanguages.map((lang) => (

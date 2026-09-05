@@ -86,11 +86,11 @@ export default function EarningsPage() {
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
               title="Back to Pillar Dashboard Home"
             >
-              <ArrowLeft size={14} /> Back to Dashboard
+              <ArrowLeft size={14} /> {t("Back to Dashboard")}
             </button>
           </div>
           <h1 className="page-title">{t("earnings.title")}</h1>
-          <p className="page-subtitle">Track your net earnings, payout history, and withdrawable balance</p>
+          <p className="page-subtitle">{t("Track your net earnings, payout history, and withdrawable balance")}</p>
         </div>
         <button
           className="btn btn-primary"
@@ -98,7 +98,7 @@ export default function EarningsPage() {
           disabled={data.summary.withdrawable <= 0}
           style={{ display: "flex", alignItems: "center", gap: "8px" }}
         >
-          <Wallet size={16} /> Request Payout (₹{data.summary.withdrawable.toLocaleString()})
+          <Wallet size={16} /> {t("Request Payout")} (₹{data.summary.withdrawable.toLocaleString()})
         </button>
       </div>
 
@@ -117,7 +117,7 @@ export default function EarningsPage() {
         <div className="card">
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)" }}>Total Net Earnings</span>
+              <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)" }}>{t("Total Net Earnings")}</span>
               <span style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--color-success)", padding: "6px", borderRadius: "var(--radius-md)" }}><Wallet size={18} /></span>
             </div>
             <h2 style={{ fontSize: "var(--font-size-3xl)", marginTop: "var(--space-2)", color: "var(--color-success)" }}>₹{data.summary.total.toLocaleString()}</h2>
@@ -127,7 +127,7 @@ export default function EarningsPage() {
         <div className="card" style={{ border: "1.5px solid #10B981" }}>
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "#059669", fontSize: "var(--font-size-sm)", fontWeight: "700" }}>Withdrawable Balance</span>
+              <span style={{ color: "#059669", fontSize: "var(--font-size-sm)", fontWeight: "700" }}>{t("Withdrawable Balance")}</span>
               <span style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10B981", padding: "6px", borderRadius: "var(--radius-md)" }}><DollarSign size={18} /></span>
             </div>
             <h2 style={{ fontSize: "var(--font-size-3xl)", marginTop: "var(--space-2)", color: "#10B981", fontWeight: "800" }}>₹{data.summary.withdrawable.toLocaleString()}</h2>
@@ -137,7 +137,7 @@ export default function EarningsPage() {
         <div className="card">
           <div className="card-body">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)" }}>Pending / Settled Payouts</span>
+              <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)" }}>{t("Pending / Settled Payouts")}</span>
               <span style={{ background: "rgba(245, 158, 11, 0.1)", color: "var(--color-warning)", padding: "6px", borderRadius: "var(--radius-md)" }}><Clock size={18} /></span>
             </div>
             <h2 style={{ fontSize: "var(--font-size-3xl)", marginTop: "var(--space-2)", color: "var(--color-warning)" }}>₹{(data.summary.pending + data.summary.paid).toLocaleString()}</h2>
@@ -149,20 +149,20 @@ export default function EarningsPage() {
       {data.payouts && data.payouts.length > 0 && (
         <div className="card" style={{ marginBottom: "var(--space-8)" }}>
           <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Payout Requests History</h3>
+            <h3 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>{t("Payout Requests History")}</h3>
             <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-              Settlements processed per weekly cooperative cycle
+              {t("Settlements processed per weekly cooperative cycle")}
             </span>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
                 <tr style={{ background: "var(--color-surface-hover)", borderBottom: "1px solid var(--color-border)" }}>
-                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>Request ID</th>
-                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>Date</th>
-                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>Mode</th>
-                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>Status</th>
-                  <th style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right" }}>Amount</th>
+                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>{t("Request ID")}</th>
+                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>{t("Date")}</th>
+                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>{t("Mode")}</th>
+                  <th style={{ padding: "var(--space-3) var(--space-4)" }}>{t("Status")}</th>
+                  <th style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right" }}>{t("Amount")}</th>
                 </tr>
               </thead>
               <tbody>
