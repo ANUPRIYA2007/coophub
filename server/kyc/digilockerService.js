@@ -289,6 +289,7 @@ export class DigiLockerService {
    * Unified Session Creation Entry Point (Sandbox API Session or Fallback OAuth)
    */
   async createDigilockerSession({ state, pillarId, redirectUrl } = {}) {
+    this.refreshEnv();
     const csrfState = state || crypto.randomBytes(16).toString('hex');
     const isSandboxActive = (this.tspProvider === 'sandbox.co.in' || this.tspProvider === 'sandbox' || Boolean(this.sandboxApiKey));
 
@@ -324,20 +325,19 @@ export class DigiLockerService {
   }
 
   /**
-   * Direct Authorization URL Generator
+   * Direct Authorization URL Generator (Guarded against using Sandbox API Key as MeriPehchaan Client ID)
    */
   getAuthorizationUrl({ state, pillarId, consentPurpose = 'COOP_HUB_PILLAR_KYC_VERIFICATION', allowBoundaryTest = false } = {}) {
-    const isPlaceholder = this.isPlaceholderCredential(this.clientId) || this.isPlaceholderCredential(this.clientSecret);
-    if ((!this.clientId || !this.clientSecret || isPlaceholder) && !allowBoundaryTest) {
+    this.refreshEnv();
+    const isSandboxActive = (this.tspProvider === 'sandbox.co.in' || this.tspProvider === 'sandbox' || Boolean(this.sandboxApiKey));
+
+    if (isSandboxActive) {
       return {
         success: false,
-        status: 'NOT_CONFIGURED',
-        is_placeholder: isPlaceholder,
-        error: 'DigiLocker integration is NOT CONFIGURED. Legitimate external TSP credentials must be set in environment variables.'
+        status: 'USE_SANDBOX_SESSION_INIT',
+        error: 'Sandbox mode detected: Must use POST /kyc/digilocker/sessions/init (createDigilockerSession). Do NOT construct MeriPehchaan URL manually with Sandbox API Key.'
       };
     }
-
-    const csrfState = state || crypto.randomBytes(16).toString('hex');
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: this.clientId,
