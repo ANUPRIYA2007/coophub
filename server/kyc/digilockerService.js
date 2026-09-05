@@ -35,7 +35,7 @@ export class DigiLockerService {
 
     // Provider-specific base endpoint configuration
     if (this.tspProvider === 'sandbox.co.in' || this.tspProvider === 'sandbox') {
-      this.authBaseUrl = process.env.DIGILOCKER_AUTH_URL || 'https://api.sandbox.co.in/kyc/digilocker/init';
+      this.authBaseUrl = process.env.DIGILOCKER_AUTH_URL || 'https://digilocker.meripehchaan.gov.in/public/oauth2/1/authorize';
       this.tokenBaseUrl = process.env.DIGILOCKER_TOKEN_URL || 'https://api.sandbox.co.in/authenticate';
       this.apiBaseUrl = process.env.DIGILOCKER_API_URL || 'https://api.sandbox.co.in';
     } else if (this.tspProvider === 'setu') {
@@ -61,6 +61,16 @@ export class DigiLockerService {
     this.sessions = new Map();
   }
 
+  refreshEnv() {
+    this.tspProvider = (process.env.DIGILOCKER_TSP_PROVIDER || 'meripehchaan').toLowerCase();
+    this.clientId = process.env.DIGILOCKER_CLIENT_ID || process.env.SANDBOX_CLIENT_ID || null;
+    this.clientSecret = process.env.DIGILOCKER_CLIENT_SECRET || process.env.SANDBOX_CLIENT_SECRET || null;
+    this.sandboxApiKey = process.env.SANDBOX_API_KEY || null;
+    this.sandboxApiSecret = process.env.SANDBOX_API_SECRET || null;
+    this.redirectUri = process.env.DIGILOCKER_REDIRECT_URI || 'http://localhost:5000/api/kyc/digilocker/callback';
+    this.isSandbox = process.env.DIGILOCKER_SANDBOX_MODE === 'true' || process.env.NODE_ENV === 'test';
+  }
+
   /**
    * Helper to detect whether a credential is a placeholder/test string rather than a legitimate credential
    */
@@ -83,6 +93,7 @@ export class DigiLockerService {
    * Check whether legitimate DigiLocker credentials are configured in environment
    */
   getStatus() {
+    this.refreshEnv();
     let hasKeys = false;
     let isPlaceholder = true;
 
@@ -117,12 +128,203 @@ export class DigiLockerService {
   }
 
   /**
-   * Generate OAuth2 authorization URL with CSRF protection
-   * @param {object} params
-   * @param {string} params.state - CSRF protection state
-   * @param {string} params.pillarId - Pillar technician identifier
-   * @param {string} params.consentPurpose - Statutory KYC purpose
-   * @param {boolean} params.allowBoundaryTest - Permit URL construction for local integration boundary testing
+   * Authenticate with Sandbox.co.in API gateway to acquire access token
+   */
+  async authenticateSandbox() {
+    this.refreshEnv();
+    const apiKey = this.sandboxApiKey || this.clientId;
+    const apiSecret = this.sandboxApiSecret || this.clientSecret;
+    if (!apiKey || !apiSecret) return null;
+
+    try {
+      const res = await fetch('https://api.sandbox.co.in/authenticate', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'x-api-secret': apiSecret,
+          'x-api-version': '1.0'
+        }
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.data?.access_token || null;
+    } catch (e) {
+      console.error('[DigiLocker Service] Sandbox authentication exception:', e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Initiate DigiLocker Session on Sandbox.co.in (POST /kyc/digilocker/sessions/init)
+   */
+  async initSandboxSession({ redirectUrl, state }) {
+    const token = await this.authenticateSandbox();
+    const apiKey = this.sandboxApiKey || this.clientId;
+    if (!token) return { success: false, status: 'AUTHENTICATION_FAILED', error: 'Sandbox authentication failed' };
+
+    try {
+      const res = await fetch('https://api.sandbox.co.in/kyc/digilocker/sessions/init', {
+        method: 'POST',
+        headers: {
+          'Authorization': token,
+          'x-api-key': apiKey,
+          'x-api-version': '1.0',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          '@entity': 'in.co.sandbox.kyc.digilocker.session.request',
+          'flow': 'signin',
+          'doc_types': ['aadhaar', 'pan'],
+          'redirect_url': redirectUrl || this.redirectUri
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 200 && (data.data?.authorization_url || data.authorization_url)) {
+        const authUrl = data.data?.authorization_url || data.authorization_url;
+        const sessionId = data.data?.session_id || data.session_id;
+        const transactionId = data.data?.transaction_id || data.transaction_id || data.transaction_id;
+
+        return {
+          success: true,
+          status: 'SESSION_CREATED',
+          authorization_url: authUrl,
+          authUrl: authUrl,
+          session_id: sessionId,
+          transaction_id: transactionId
+        };
+      }
+      return {
+        success: false,
+        status: 'SESSION_INIT_FAILED',
+        statusCode: res.status,
+        error: data.message || data.error || `HTTP ${res.status}`
+      };
+    } catch (e) {
+      return { success: false, status: 'NETWORK_ERROR', error: e.message };
+    }
+  }
+
+  /**
+   * Fetch DigiLocker Session Status from Sandbox.co.in (GET /kyc/digilocker/sessions/{session_id}/status)
+   */
+  async getSandboxSessionStatus(sessionId) {
+    const token = await this.authenticateSandbox();
+    const apiKey = this.sandboxApiKey || this.clientId;
+    if (!token || !sessionId) return { success: false, status: 'UNAUTHORIZED' };
+
+    try {
+      const res = await fetch(`https://api.sandbox.co.in/kyc/digilocker/sessions/${sessionId}/status`, {
+        headers: {
+          'Authorization': token,
+          'x-api-key': apiKey,
+          'x-api-version': '1.0'
+        }
+      });
+      const data = await res.json().catch(() => ({}));
+      const currentStatus = data.data?.status || data.status || 'unknown';
+      return {
+        success: res.status === 200,
+        status: currentStatus,
+        data: data.data || data
+      };
+    } catch (e) {
+      return { success: false, status: 'NETWORK_ERROR', error: e.message };
+    }
+  }
+
+  /**
+   * Retrieve User Profile from Sandbox.co.in (GET /kyc/digilocker/sessions/{session_id}/user/profile)
+   */
+  async getSandboxUserProfile(sessionId) {
+    const token = await this.authenticateSandbox();
+    const apiKey = this.sandboxApiKey || this.clientId;
+    if (!token || !sessionId) return { success: false, status: 'UNAUTHORIZED' };
+
+    try {
+      const res = await fetch(`https://api.sandbox.co.in/kyc/digilocker/sessions/${sessionId}/user/profile`, {
+        headers: {
+          'Authorization': token,
+          'x-api-key': apiKey,
+          'x-api-version': '1.0'
+        }
+      });
+      const data = await res.json().catch(() => ({}));
+      return {
+        success: res.status === 200,
+        profile: data.data || data
+      };
+    } catch (e) {
+      return { success: false, status: 'NETWORK_ERROR', error: e.message };
+    }
+  }
+
+  /**
+   * Retrieve Document from Sandbox.co.in (GET /kyc/digilocker/sessions/{session_id}/documents/{doc_type})
+   */
+  async getSandboxDocument(sessionId, docType = 'aadhaar') {
+    const token = await this.authenticateSandbox();
+    const apiKey = this.sandboxApiKey || this.clientId;
+    if (!token || !sessionId) return { success: false, status: 'UNAUTHORIZED' };
+
+    try {
+      const res = await fetch(`https://api.sandbox.co.in/kyc/digilocker/sessions/${sessionId}/documents/${docType}`, {
+        headers: {
+          'Authorization': token,
+          'x-api-key': apiKey,
+          'x-api-version': '1.0'
+        }
+      });
+      const data = await res.json().catch(() => ({}));
+      return {
+        success: res.status === 200,
+        document: data.data || data
+      };
+    } catch (e) {
+      return { success: false, status: 'NETWORK_ERROR', error: e.message };
+    }
+  }
+
+  /**
+   * Unified Session Creation Entry Point (Sandbox API Session or Fallback OAuth)
+   */
+  async createDigilockerSession({ state, pillarId, redirectUrl } = {}) {
+    const csrfState = state || crypto.randomBytes(16).toString('hex');
+    const isSandboxActive = (this.tspProvider === 'sandbox.co.in' || this.tspProvider === 'sandbox' || Boolean(this.sandboxApiKey));
+
+    if (isSandboxActive) {
+      const initRes = await this.initSandboxSession({ redirectUrl: redirectUrl || this.redirectUri, state: csrfState });
+      if (initRes.success) {
+        const sessionRecord = {
+          session_id: initRes.session_id,
+          transaction_id: initRes.transaction_id,
+          state: csrfState,
+          pillarId: pillarId || null,
+          status: 'created',
+          created_at: new Date().toISOString()
+        };
+        this.sessions.set(csrfState, sessionRecord);
+        if (initRes.session_id) {
+          this.sessions.set(initRes.session_id, sessionRecord);
+        }
+        return {
+          success: true,
+          status: 'SESSION_CREATED',
+          authUrl: initRes.authorization_url,
+          authorization_url: initRes.authorization_url,
+          session_id: initRes.session_id,
+          transaction_id: initRes.transaction_id,
+          state: csrfState
+        };
+      }
+      return initRes;
+    }
+
+    return this.getAuthorizationUrl({ state: csrfState, pillarId });
+  }
+
+  /**
+   * Direct Authorization URL Generator
    */
   getAuthorizationUrl({ state, pillarId, consentPurpose = 'COOP_HUB_PILLAR_KYC_VERIFICATION', allowBoundaryTest = false } = {}) {
     const isPlaceholder = this.isPlaceholderCredential(this.clientId) || this.isPlaceholderCredential(this.clientSecret);

@@ -90,6 +90,7 @@ export default function Register() {
 
     const dlStatus = params.get("digilocker_status");
     const dlState = params.get("state");
+    const dlSessionId = params.get("session_id");
     const dlError = params.get("error");
 
     if (dlStatus) {
@@ -99,23 +100,24 @@ export default function Register() {
         setDigilockerNotice("DigiLocker Authoritative Verification Complete! Identity verified against government repository.");
         
         // Query backend session details if available
-        if (dlState) {
-          fetch(`/api/kyc/digilocker/session-status?state=${encodeURIComponent(dlState)}`)
+        const queryKey = dlSessionId ? `session_id=${encodeURIComponent(dlSessionId)}` : (dlState ? `state=${encodeURIComponent(dlState)}` : '');
+        if (queryKey) {
+          fetch(`/api/kyc/digilocker/session-status?${queryKey}`)
             .then(r => r.json())
             .then(sess => {
-              if (sess.success && sess.authoritative_verified) {
+              if (sess.success && (sess.authoritative_verified || sess.status === 'VERIFIED' || sess.status === 'created' || sess.status === 'completed')) {
                 setOcrPreview({
-                  engine: `DigiLocker TSP (${sess.tsp_provider?.toUpperCase() || 'MERIPEHCHAAN'})`,
+                  engine: `DigiLocker Sandbox (${sess.tsp_provider?.toUpperCase() || 'SANDBOX.CO.IN'})`,
                   document_type: 'Government Issued Record (DigiLocker)',
                   document_type_code: 'digilocker',
                   extracted_name: sess.name || 'Verified Government Identity',
                   extracted_dob: sess.dob || '',
-                  extracted_document_number: sess.digilocker_id || 'DL-VERIFIED',
+                  extracted_document_number: sess.digilocker_id || (sess.session_id ? `DL-SANDBOX-${sess.session_id.slice(0, 8)}` : 'DL-VERIFIED'),
                   raw_document_number_masked: sess.digilocker_id || 'DL-VERIFIED',
                   raw_text_snippet: `DigiLocker Authoritative Verification: ${sess.name || 'Pillar'} (${sess.digilocker_id || 'VERIFIED'})`,
                   confidence_score: 1.0,
                   authoritative_verified: true,
-                  verification_method: 'digilocker_tsp',
+                  verification_method: 'digilocker_sandbox',
                   verification_status: 'VERIFIED',
                   processed_at: sess.verified_at || new Date().toISOString()
                 });

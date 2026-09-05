@@ -1613,10 +1613,10 @@ app.get('/api/kyc/digilocker/status', (req, res) => {
 /**
  * Generate DigiLocker Authorization URL
  */
-app.post('/api/kyc/digilocker/auth-url', (req, res) => {
+app.post('/api/kyc/digilocker/auth-url', async (req, res) => {
     try {
         const { state, pillarId } = req.body || {};
-        const result = digilockerService.getAuthorizationUrl({ state, pillarId });
+        const result = await digilockerService.createDigilockerSession({ state, pillarId });
         if (!result.success) {
             return res.status(501).json(result);
         }
@@ -1631,24 +1631,62 @@ app.post('/api/kyc/digilocker/auth-url', (req, res) => {
  */
 app.get('/api/kyc/digilocker/callback', async (req, res) => {
     try {
-        const { code, state, error, error_description } = req.query || {};
+        const { code, state, session_id, error, error_description } = req.query || {};
         const frontendBase = process.env.VITE_FRONTEND_URL || 'http://localhost:5173';
         
         if (error || error_description) {
             console.log(`[DigiLocker Callback] Authorization cancelled/failed: ${error || error_description}`);
             if (state) digilockerService.cancelSession(state, error_description || error);
+            if (session_id) digilockerService.cancelSession(session_id, error_description || error);
             return res.redirect(`${frontendBase}/pillar/register?digilocker_status=cancelled&state=${encodeURIComponent(state || '')}`);
         }
 
-        if (!code || !state) {
-            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=failed&error=Missing+authorization+code&state=${encodeURIComponent(state || '')}`);
+        // Sandbox Session Callback flow
+        const targetSessionId = session_id || (state ? (digilockerService.sessions.get(state)?.session_id) : null);
+        if (targetSessionId) {
+            const statusRes = await digilockerService.getSandboxSessionStatus(targetSessionId);
+            const currentStatus = statusRes.status?.toLowerCase() || 'unknown';
+
+            if (['completed', 'successful', 'verified', 'created'].includes(currentStatus)) {
+                const profileRes = await digilockerService.getSandboxUserProfile(targetSessionId);
+                const docRes = await digilockerService.getSandboxDocument(targetSessionId, 'aadhaar');
+
+                const profile = profileRes.profile || {};
+                const doc = docRes.document || {};
+
+                const verifiedData = {
+                    success: true,
+                    status: 'VERIFIED',
+                    authoritative_verified: true,
+                    verification_method: 'digilocker_sandbox',
+                    tsp_provider: 'SANDBOX.CO.IN',
+                    session_id: targetSessionId,
+                    name: profile.name || profile.full_name || 'Verified Government Identity',
+                    dob: profile.dob || profile.date_of_birth || '',
+                    gender: profile.gender || '',
+                    digilocker_id: profile.digilocker_id || `DL-SANDBOX-${targetSessionId.slice(0, 8)}`,
+                    documents: doc ? [doc] : [],
+                    verified_at: new Date().toISOString()
+                };
+
+                if (state) digilockerService.sessions.set(state, verifiedData);
+                digilockerService.sessions.set(targetSessionId, verifiedData);
+
+                return res.redirect(`${frontendBase}/pillar/register?digilocker_status=verified&session_id=${encodeURIComponent(targetSessionId)}&state=${encodeURIComponent(state || '')}`);
+            } else if (['cancelled', 'failed', 'expired'].includes(currentStatus)) {
+                return res.redirect(`${frontendBase}/pillar/register?digilocker_status=${currentStatus}&session_id=${encodeURIComponent(targetSessionId)}&state=${encodeURIComponent(state || '')}`);
+            }
+        }
+
+        if (!code && !state && !session_id) {
+            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=failed&error=Missing+authorization+code+or+session_id&state=${encodeURIComponent(state || '')}`);
         }
 
         const result = await digilockerService.handleCallback(code, state);
         if (result.success) {
-            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=verified&state=${encodeURIComponent(state)}`);
+            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=verified&state=${encodeURIComponent(state || '')}`);
         } else {
-            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=failed&error=${encodeURIComponent(result.error || 'Verification failed')}&state=${encodeURIComponent(state)}`);
+            return res.redirect(`${frontendBase}/pillar/register?digilocker_status=failed&error=${encodeURIComponent(result.error || 'Verification failed')}&state=${encodeURIComponent(state || '')}`);
         }
     } catch (err) {
         console.error('[DigiLocker Callback Error]', err);
@@ -1662,7 +1700,18 @@ app.get('/api/kyc/digilocker/callback', async (req, res) => {
  */
 app.post('/api/kyc/digilocker/callback', async (req, res) => {
     try {
-        const { code, state } = req.body || {};
+        const { code, state, session_id } = req.body || {};
+        if (session_id) {
+            const statusRes = await digilockerService.getSandboxSessionStatus(session_id);
+            const profileRes = await digilockerService.getSandboxUserProfile(session_id);
+            const docRes = await digilockerService.getSandboxDocument(session_id, 'aadhaar');
+            return res.json({
+                success: true,
+                status: statusRes.status,
+                profile: profileRes.profile,
+                document: docRes.document
+            });
+        }
         const result = await digilockerService.handleCallback(code, state);
         if (!result.success) {
             return res.status(400).json(result);
@@ -1674,12 +1723,32 @@ app.post('/api/kyc/digilocker/callback', async (req, res) => {
 });
 
 /**
- * Query Session Status by State Token
+ * Query Session Status by State Token or Session ID
  */
-app.get('/api/kyc/digilocker/session-status', (req, res) => {
+app.get('/api/kyc/digilocker/session-status', async (req, res) => {
     try {
-        const { state } = req.query || {};
-        const status = digilockerService.getSessionStatus(state);
+        const { state, session_id } = req.query || {};
+        const key = session_id || state;
+        if (!key) return res.status(400).json({ success: false, error: 'Missing state or session_id parameter' });
+
+        const cached = digilockerService.sessions.get(key);
+        if (cached && cached.authoritative_verified) {
+            return res.json(cached);
+        }
+
+        if (session_id) {
+            const liveStatus = await digilockerService.getSandboxSessionStatus(session_id);
+            if (liveStatus.success) {
+                return res.json({
+                    success: true,
+                    session_id,
+                    status: liveStatus.status,
+                    ...(cached || {})
+                });
+            }
+        }
+
+        const status = digilockerService.getSessionStatus(key);
         res.json(status);
     } catch (err) {
         res.status(500).json({ error: err.message });
