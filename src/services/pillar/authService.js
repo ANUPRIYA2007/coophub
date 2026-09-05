@@ -141,17 +141,20 @@ export const pillarAuthService = {
       const userId = authData.user.id;
 
       // 2. Process Government ID and Skill Certificate with OCR Pipeline
-      let ocrResult = null;
-      let certOcrResult = null;
+      let ocrResult = pillarData.ocrPreview || null;
+      let certOcrResult = pillarData.certOcrPreview || null;
       try {
-        const { ocrService } = await import("./ocrService");
-        ocrResult = await ocrService.extractDocumentInformation(
-          pillarData.documentFile || null,
-          pillarData.documentType || "aadhaar",
-          pillarData
-        );
+        if (!ocrResult && (pillarData.documentFile || pillarData.documentPreviewUrl)) {
+          const { ocrService } = await import("./ocrService");
+          ocrResult = await ocrService.extractDocumentInformation(
+            pillarData.documentFile || null,
+            pillarData.documentType || "aadhaar",
+            pillarData
+          );
+        }
 
-        if (pillarData.certificateFile || pillarData.certificatePreviewUrl) {
+        if (!certOcrResult && (pillarData.certificateFile || pillarData.certificatePreviewUrl)) {
+          const { ocrService } = await import("./ocrService");
           certOcrResult = await ocrService.extractCertificateInformation(
             pillarData.certificateFile || null,
             pillarData.certificateType || "iti",

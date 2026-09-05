@@ -418,6 +418,9 @@ export default function Register() {
       pincode: formData.pincode.trim(),
       location_sharing_enabled: formData.locationSharingEnabled !== false,
       subServices: formData.subServices ? formData.subServices.split(",").map((s) => s.trim()).filter(Boolean) : [],
+      // Include OCR / DigiLocker verification metadata
+      ocrPreview: ocrPreview,
+      certOcrPreview: certOcrPreview,
       // If user clicked skip, clear certificate
       certificateFile: skipCertificate ? null : formData.certificateFile,
       certificatePreviewUrl: skipCertificate ? null : formData.certificatePreviewUrl,
