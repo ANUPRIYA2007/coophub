@@ -1647,7 +1647,7 @@ app.get('/api/kyc/digilocker/callback', async (req, res) => {
             const statusRes = await digilockerService.getSandboxSessionStatus(targetSessionId);
             const currentStatus = statusRes.status?.toLowerCase() || 'unknown';
 
-            if (['completed', 'successful', 'verified', 'created'].includes(currentStatus)) {
+            if (['completed', 'successful', 'verified'].includes(currentStatus)) {
                 const profileRes = await digilockerService.getSandboxUserProfile(targetSessionId);
                 const docRes = await digilockerService.getSandboxDocument(targetSessionId, 'aadhaar');
 
@@ -1661,11 +1661,11 @@ app.get('/api/kyc/digilocker/callback', async (req, res) => {
                     verification_method: 'digilocker_sandbox',
                     tsp_provider: 'SANDBOX.CO.IN',
                     session_id: targetSessionId,
-                    name: profile.name || profile.full_name || 'Verified Government Identity',
-                    dob: profile.dob || profile.date_of_birth || '',
-                    gender: profile.gender || '',
-                    digilocker_id: profile.digilocker_id || `DL-SANDBOX-${targetSessionId.slice(0, 8)}`,
-                    documents: doc ? [doc] : [],
+                    name: profile.name || profile.full_name || null,
+                    dob: profile.dob || profile.date_of_birth || null,
+                    gender: profile.gender || null,
+                    digilocker_id: profile.digilocker_id || doc.document_number || doc.uid || null,
+                    documents: doc && Object.keys(doc).length > 0 ? [doc] : [],
                     verified_at: new Date().toISOString()
                 };
 
@@ -1673,6 +1673,19 @@ app.get('/api/kyc/digilocker/callback', async (req, res) => {
                 digilockerService.sessions.set(targetSessionId, verifiedData);
 
                 return res.redirect(`${frontendBase}/pillar/register?digilocker_status=verified&session_id=${encodeURIComponent(targetSessionId)}&state=${encodeURIComponent(state || '')}`);
+            } else if (currentStatus === 'created' || currentStatus === 'pending') {
+                const pendingData = {
+                    success: true,
+                    status: currentStatus,
+                    authoritative_verified: false,
+                    session_id: targetSessionId,
+                    name: null,
+                    dob: null,
+                    digilocker_id: null
+                };
+                if (state) digilockerService.sessions.set(state, pendingData);
+                digilockerService.sessions.set(targetSessionId, pendingData);
+                return res.redirect(`${frontendBase}/pillar/register?digilocker_status=created&session_id=${encodeURIComponent(targetSessionId)}&state=${encodeURIComponent(state || '')}`);
             } else if (['cancelled', 'failed', 'expired'].includes(currentStatus)) {
                 return res.redirect(`${frontendBase}/pillar/register?digilocker_status=${currentStatus}&session_id=${encodeURIComponent(targetSessionId)}&state=${encodeURIComponent(state || '')}`);
             }

@@ -96,25 +96,26 @@ export default function Register() {
     if (dlStatus) {
       setStep(3); // Navigate directly to Step 3 (KYC / Identity)
       if (dlStatus === "verified") {
-        setConsentGiven(true);
-        setDigilockerNotice("DigiLocker Authoritative Verification Complete! Identity verified against government repository.");
-        
-        // Query backend session details if available
         const queryKey = dlSessionId ? `session_id=${encodeURIComponent(dlSessionId)}` : (dlState ? `state=${encodeURIComponent(dlState)}` : '');
         if (queryKey) {
           fetch(`/api/kyc/digilocker/session-status?${queryKey}`)
             .then(r => r.json())
             .then(sess => {
-              if (sess.success && (sess.authoritative_verified || sess.status === 'VERIFIED' || sess.status === 'created' || sess.status === 'completed')) {
+              const currentStatus = (sess.status || '').toLowerCase();
+              const isTrulyVerified = sess.success && sess.authoritative_verified && ['completed', 'successful', 'verified'].includes(currentStatus);
+
+              if (isTrulyVerified) {
+                setConsentGiven(true);
+                setDigilockerNotice("DigiLocker Authoritative Verification Complete! Identity verified against government repository.");
                 setOcrPreview({
                   engine: `DigiLocker Sandbox (${sess.tsp_provider?.toUpperCase() || 'SANDBOX.CO.IN'})`,
                   document_type: 'Government Issued Record (DigiLocker)',
                   document_type_code: 'digilocker',
-                  extracted_name: sess.name || 'Verified Government Identity',
-                  extracted_dob: sess.dob || '',
-                  extracted_document_number: sess.digilocker_id || (sess.session_id ? `DL-SANDBOX-${sess.session_id.slice(0, 8)}` : 'DL-VERIFIED'),
-                  raw_document_number_masked: sess.digilocker_id || 'DL-VERIFIED',
-                  raw_text_snippet: `DigiLocker Authoritative Verification: ${sess.name || 'Pillar'} (${sess.digilocker_id || 'VERIFIED'})`,
+                  extracted_name: sess.name || null,
+                  extracted_dob: sess.dob || null,
+                  extracted_document_number: sess.digilocker_id || sess.document_number || null,
+                  raw_document_number_masked: sess.digilocker_id || sess.document_number || null,
+                  raw_text_snippet: sess.name ? `DigiLocker Verified Record: ${sess.name}` : 'DigiLocker Verified Record',
                   confidence_score: 1.0,
                   authoritative_verified: true,
                   verification_method: 'digilocker_sandbox',
@@ -124,10 +125,14 @@ export default function Register() {
                 if (sess.name) {
                   setFormData(prev => ({ ...prev, fullName: sess.name, dob: sess.dob || prev.dob }));
                 }
+              } else {
+                setDigilockerNotice("DigiLocker session active but identity authorization has not been granted by user.");
               }
             })
             .catch(err => console.warn('DigiLocker session query note:', err.message));
         }
+      } else if (dlStatus === "created") {
+        setDigilockerNotice("DigiLocker session created. Please complete authentication and grant statutory consent in the DigiLocker window.");
       } else if (dlStatus === "cancelled") {
         setDigilockerNotice("DigiLocker Verification Cancelled. You may retry or proceed with UIDAI Secure QR scan / document upload below.");
       } else if (dlStatus === "failed") {

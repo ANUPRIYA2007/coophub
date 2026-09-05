@@ -233,9 +233,9 @@ export const pillarAuthService = {
             {
               pillar_id: userId,
               document_type: pillarData.documentType || "aadhaar",
-              document_number: pillarData.documentNumber || ocrResult?.extracted_document_number || "DOC-SUBMITTED",
-              verification_status: "pending_inspection",
-              document_url: pillarData.documentPreviewUrl || "#",
+              document_number: pillarData.documentNumber || ocrResult?.extracted_document_number || null,
+              verification_status: ocrResult?.authoritative_verified ? "verified" : "pending_inspection",
+              document_url: pillarData.documentPreviewUrl || null,
               ocr_data: ocrResult || null,
               created_at: new Date().toISOString(),
             }
@@ -245,9 +245,9 @@ export const pillarAuthService = {
             kycDocsToInsert.push({
               pillar_id: userId,
               document_type: `certificate_${pillarData.certificateType || 'trade'}`,
-              document_number: pillarData.certificateNumber || certOcrResult?.extracted_certificate_number || "CERT-SUBMITTED",
-              verification_status: "pending_inspection",
-              document_url: pillarData.certificatePreviewUrl || "#",
+              document_number: pillarData.certificateNumber || certOcrResult?.extracted_certificate_number || null,
+              verification_status: certOcrResult?.authoritative_verified ? "verified" : "pending_inspection",
+              document_url: pillarData.certificatePreviewUrl || null,
               ocr_data: certOcrResult || null,
               created_at: new Date().toISOString(),
             });
