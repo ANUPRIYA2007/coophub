@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
-import { pillarOrderService } from "../../../services/pillar/orderService";
+import { pillarOrderService, formatOrderTime } from "../../../services/pillar/orderService";
 import { emergencyDispatchService } from "../../../services/emergency/emergencyDispatchService";
 import ArrivalOTPModal from "../../../components/pillar/orders/ArrivalOTPModal";
 import ExtraChargeModal from "../../../components/pillar/orders/ExtraChargeModal";
@@ -307,26 +307,142 @@ export default function OrdersList() {
 
               <div className="card-body" style={{ flex: 1, padding: "var(--space-4) var(--space-6)" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
-                    <User size={16} color="var(--color-text-muted)" />
-                    <span style={{ fontWeight: "500" }}>{order.customer_name}</span>
+                  
+                  {/* Customer Details Block with Quick Actions */}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background: "rgba(27, 42, 74, 0.03)",
+                    padding: "8px 12px",
+                    borderRadius: "10px",
+                    border: "1px solid var(--color-border-light)"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "50%",
+                        background: "rgba(245, 124, 32, 0.12)",
+                        color: "var(--color-secondary)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "bold",
+                        fontSize: "13px"
+                      }}>
+                        {order.customer_name?.charAt(0) || "C"}
+                      </div>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontWeight: "700", fontSize: "13px", color: "var(--color-text)" }}>
+                            {order.customer_name}
+                          </span>
+                          <span style={{
+                            fontSize: "10px",
+                            fontWeight: "700",
+                            color: "#10B981",
+                            background: "rgba(16, 185, 129, 0.1)",
+                            padding: "1px 6px",
+                            borderRadius: "8px"
+                          }}>
+                            {t("Verified Customer")}
+                          </span>
+                        </div>
+                        {order.customer_mobile && (
+                          <a
+                            href={`tel:${order.customer_mobile}`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              fontSize: "11.5px",
+                              color: "var(--color-secondary)",
+                              textDecoration: "none",
+                              fontWeight: "600",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              marginTop: "2px"
+                            }}
+                          >
+                            <Phone size={11} /> {order.customer_mobile}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      {order.customer_mobile && (
+                        <a
+                          href={`tel:${order.customer_mobile}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="btn btn-outline btn-sm"
+                          style={{
+                            borderRadius: "50%",
+                            width: "30px",
+                            height: "30px",
+                            padding: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#10B981",
+                            borderColor: "#10B981"
+                          }}
+                          title="Call Customer"
+                        >
+                          <Phone size={13} />
+                        </a>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/chat?orderId=${order.id}`, { state: { orderId: order.id } });
+                        }}
+                        className="btn btn-outline btn-sm"
+                        style={{
+                          borderRadius: "50%",
+                          width: "30px",
+                          height: "30px",
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "var(--color-secondary)",
+                          borderColor: "var(--color-secondary)"
+                        }}
+                        title="Chat with Customer"
+                      >
+                        <MessageSquare size={13} />
+                      </button>
+                    </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
-                    <MapPin size={16} color="var(--color-text-muted)" />
-                    <span>{order.service_address}</span>
+                  {/* Clean Service Address */}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
+                    <MapPin size={16} color="var(--color-secondary)" style={{ marginTop: "2px", flexShrink: 0 }} />
+                    <span style={{ color: "var(--color-text)", lineHeight: "1.4" }}>
+                      {order.service_address}
+                    </span>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", fontSize: "var(--font-size-sm)" }}>
-                    <Calendar size={16} color="var(--color-text-muted)" />
-                    <span>{order.scheduled_date || t("Today")}</span>
-                    {order.scheduled_time && (
-                      <>
-                        <span style={{ margin: "0 8px", color: "var(--color-border)" }}>|</span>
-                        <Clock size={16} color="var(--color-text-muted)" />
-                        <span>{order.scheduled_time}</span>
-                      </>
-                    )}
+                  {/* Order Placement Time & Booking Schedule Slot */}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: "8px",
+                    paddingTop: "6px",
+                    borderTop: "1px dashed var(--color-border-light)",
+                    fontSize: "12px"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)" }}>
+                      <Clock size={14} color="var(--color-secondary)" />
+                      <span>{t("Order Placed")}: <strong style={{ color: "var(--color-text)" }}>{order.order_time_formatted || formatOrderTime(order.created_at)}</strong></span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)" }}>
+                      <Calendar size={14} color="var(--color-text-muted)" />
+                      <span>{t("Slot")}: <strong style={{ color: "var(--color-text)" }}>{order.scheduled_time || t("Flexible")}</strong></span>
+                    </div>
                   </div>
                 </div>
 

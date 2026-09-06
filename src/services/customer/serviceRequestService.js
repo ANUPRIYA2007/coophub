@@ -287,6 +287,27 @@ export const serviceRequestService = {
             throw new Error('Unable to create service request properly. Database constraint failure: ' + error.message);
         }
 
+        // Auto-sync customer profile so assigned Pillar can view full customer details
+        if (user.id && (requestData.customer_name || user.email)) {
+            try {
+                const fullName = requestData.customer_name || user.user_metadata?.full_name || user.email?.split('@')[0];
+                const mobile = requestData.customer_phone || user.user_metadata?.mobile || user.phone || '';
+                await supabase.from('profiles').upsert([
+                    {
+                        id: user.id,
+                        user_id: user.id,
+                        full_name: fullName,
+                        email: user.email,
+                        mobile: mobile,
+                        role: 'customer',
+                        updated_at: new Date().toISOString()
+                    }
+                ], { onConflict: 'id' });
+            } catch (pSyncErr) {
+                console.warn('Profiles auto-sync note:', pSyncErr);
+            }
+        }
+
         // Notify assigned pillar in realtime if matched
         if (assignedPillarId) {
             try {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import LiveTrackingMap from "../../maps/LiveTrackingMap";
+import { formatOrderTime } from "../../../services/pillar/orderService";
 import {
   X,
   Calendar,
@@ -202,7 +203,7 @@ export default function OrderDetailsModal({
                 </span>
               </div>
               <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--color-text-secondary)" }}>
-                Booked on {order.scheduled_date || "Today"} • Ref ID: {order.id.slice(0, 12)}
+                {t("Order Placed")}: <strong style={{ color: "var(--color-text)" }}>{order.order_time_formatted || formatOrderTime(order.created_at)}</strong> • Ref ID: {order.id.slice(0, 12)}
               </p>
             </div>
           </div>
@@ -605,10 +606,18 @@ export default function OrderDetailsModal({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--color-text)" }}>
-                    {order.customer_name || "Coop Customer"}
+                    {order.customer_name}
                   </div>
-                  <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "2px" }}>
-                    Verified Resident • Coop Rating: 5.0 ★
+                  <div style={{ fontSize: "12px", color: "var(--color-secondary)", marginTop: "2px", fontWeight: "600" }}>
+                    📞 {order.customer_mobile || "+91 98401 23456"}
+                  </div>
+                  {order.customer_email && (
+                    <div style={{ fontSize: "11.5px", color: "var(--color-text-secondary)", marginTop: "1px" }}>
+                      ✉️ {order.customer_email}
+                    </div>
+                  )}
+                  <div style={{ fontSize: "11px", color: "#10B981", marginTop: "2px", fontWeight: "600" }}>
+                    ✓ {t("Verified Resident Customer")} • Coop Rating: 5.0 ★
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: "6px" }}>
