@@ -43,6 +43,8 @@ export default function OrdersList() {
   const [activeTab, setActiveTab] = useState("pending");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newOrderAlert, setNewOrderAlert] = useState(null);
+  const knownOrderIdsRef = React.useRef(new Set());
   const [selectedBookingForOtp, setSelectedBookingForOtp] = useState(null);
   const [selectedBookingForExtra, setSelectedBookingForExtra] = useState(null);
   const [selectedOrderForCompletion, setSelectedOrderForCompletion] = useState(null);
@@ -53,32 +55,71 @@ export default function OrdersList() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [markingCashId, setMarkingCashId] = useState(null);
 
+  // Play pleasant double-chime when an incoming order arrives
+  const playChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.36);
+    } catch (e) {}
+  };
+
   // Check if pillar already has an active order
   const isEngaged = orders.some(o => ["accepted", "onTheWay", "arrived", "inProgress"].includes(o.status));
 
-  const fetchOrders = async () => {
-    setLoading(true);
+  const fetchOrders = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const { data } = await pillarOrderService.getOrders(user?.id);
-      setOrders(data || []);
+      const list = data || [];
+
+      // Detect if a brand new customer booking has arrived
+      if (knownOrderIdsRef.current.size > 0) {
+        const newlyArrived = list.find(o => !knownOrderIdsRef.current.has(o.id) && (o.status === "pending" || o.status === "assigned"));
+        if (newlyArrived) {
+          playChime();
+          setNewOrderAlert(newlyArrived);
+          setActiveTab("pending");
+        }
+      }
+
+      knownOrderIdsRef.current = new Set(list.map(o => o.id));
+      setOrders(list);
     } catch (e) {
       console.error("fetchOrders error:", e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(false);
 
     // Live Realtime Channel for new incoming customer requests & status updates
     const channel = pillarOrderService.subscribeToPillarOrders(user?.id, (payload) => {
       console.log("⚡ Incoming realtime order event for Pillar:", payload);
-      fetchOrders();
+      fetchOrders(true);
     });
+
+    // 8-second polling heartbeat ensures guaranteed live synchronization
+    const pollInterval = setInterval(() => {
+      fetchOrders(true);
+    }, 8000);
 
     return () => {
       channel?.unsubscribe();
+      clearInterval(pollInterval);
     };
   }, [user]);
 
@@ -163,7 +204,37 @@ export default function OrdersList() {
             </button>
           </div>
           <h1 className="page-title">{t("orders.title")}</h1>
-          <p className="page-subtitle">{t("Manage customer bookings, dispatch transit, and record completion")}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <p className="page-subtitle" style={{ margin: 0 }}>
+              {t("Manage customer bookings, dispatch transit, and record completion")}
+            </p>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "11px",
+                fontWeight: "700",
+                color: "#059669",
+                background: "rgba(16, 185, 129, 0.12)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                padding: "3px 9px",
+                borderRadius: "12px",
+              }}
+            >
+              <span
+                style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "50%",
+                  background: "#10b981",
+                  display: "inline-block",
+                  boxShadow: "0 0 8px #10b981",
+                }}
+              />
+              {t("Live Feed Active")}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -175,6 +246,85 @@ export default function OrdersList() {
         onConfirm={handleCancelConfirm}
         isSubmitting={isCancelling}
       />
+
+      {/* Realtime Live Incoming Order Alert Banner */}
+      {newOrderAlert && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
+            border: "2px solid #10b981",
+            borderRadius: "16px",
+            padding: "14px 20px",
+            marginBottom: "18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 8px 20px -4px rgba(16, 185, 129, 0.25)",
+            animation: "fadeIn 0.3s ease-out"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "12px",
+                background: "#10b981",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 12px rgba(16, 185, 129, 0.5)"
+              }}
+            >
+              <Zap size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: "800", color: "#065f46", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span>⚡ {t("New Customer Booking Received!")}</span>
+                <span style={{ fontSize: "11px", background: "#059669", color: "white", padding: "1px 8px", borderRadius: "10px", fontWeight: "700" }}>
+                  {newOrderAlert.booking_code || "LIVE"}
+                </span>
+              </div>
+              <div style={{ fontSize: "12px", color: "#047857", marginTop: "2px" }}>
+                <strong>{newOrderAlert.customer_name}</strong> • {newOrderAlert.service_name} • ₹{newOrderAlert.total_amount}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              onClick={() => {
+                setActiveTab("pending");
+                setNewOrderAlert(null);
+              }}
+              style={{
+                background: "#059669",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                padding: "8px 14px",
+                fontSize: "12px",
+                fontWeight: "700",
+                cursor: "pointer"
+              }}
+            >
+              {t("View Request")}
+            </button>
+            <button
+              onClick={() => setNewOrderAlert(null)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#065f46",
+                cursor: "pointer",
+                padding: "4px"
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="filter-bar">

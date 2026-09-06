@@ -160,16 +160,7 @@ export const pillarOrderService = {
   async getOrders(pillarId, status = null) {
     const isDemo = localStorage.getItem("coophub_demo_user") === "true" || pillarId === "00000000-0000-0000-0000-000000000000";
 
-    // 🧪 DEMO MODE ONLY: If user logged in via Demo Credentials, provide rich demo data
-    if (isDemo) {
-      let result = DEMO_ORDERS;
-      if (status) {
-        result = result.filter(o => o.status === status);
-      }
-      return { data: result, error: null };
-    }
-
-    // 🔒 REAL USER: Query live Supabase database across service_requests and bookings
+    // 🔒 REAL USER & DEMO: Query live Supabase database across service_requests and bookings
     try {
       // 1. Fetch from service_requests (Customer Portal Bookings)
       let sReqQuery = supabase
@@ -181,29 +172,13 @@ export const pillarOrderService = {
         `)
         .order("created_at", { ascending: false });
 
-      // Match orders explicitly assigned to this pillar, or open pending orders in this trade
-      if (pillarId) {
-        sReqQuery = sReqQuery.or(`pillar_id.eq.${pillarId},and(pillar_id.is.null,status.eq.pending)`);
+      // Match orders explicitly assigned to this pillar, OR open/unaccepted pending/assigned orders available for acceptance
+      if (pillarId && pillarId !== "00000000-0000-0000-0000-000000000000") {
+        sReqQuery = sReqQuery.or(`pillar_id.eq.${pillarId},status.eq.pending,status.eq.assigned,pillar_id.is.null`);
       }
 
       const { data: sReqs, error: sErr } = await sReqQuery;
       if (sErr) console.warn("service_requests fetch note:", sErr.message);
-
-      // 2. Fetch from bookings
-      let bookings = [];
-      try {
-        let bQuery = supabase
-          .from("bookings")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (pillarId) {
-          bQuery = bQuery.eq("pillar_id", pillarId);
-        }
-
-        const { data: bData } = await bQuery;
-        bookings = bData || [];
-      } catch (be) {}
 
       const combinedOrders = [];
 
@@ -246,9 +221,21 @@ export const pillarOrderService = {
           // Deterministic authentic customer fallback when user profile is not public
           const charSum = (r.id || "").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
           const defaultCust = KNOWN_CUSTOMERS[charSum % KNOWN_CUSTOMERS.length];
-          const custName = cust.full_name || r.customer_name || defaultCust.full_name;
-          const custMobile = cust.mobile || r.customer_mobile || r.customer_phone || defaultCust.mobile;
-          const custEmail = cust.email || r.customer_email || defaultCust.email;
+          let custName = cust.full_name || r.customer_name;
+          let custMobile = cust.mobile || r.customer_mobile || r.customer_phone;
+          let custEmail = cust.email || r.customer_email;
+
+          // Parse name and phone from customer description if embedded
+          if ((!custName || custName === 'Valued Customer') && r.customer_description) {
+            const matchName = r.customer_description.match(/\[Customer:\s*([^|\]]+)/i);
+            if (matchName && matchName[1]) custName = matchName[1].trim();
+            const matchPhone = r.customer_description.match(/Phone:\s*([^|\]]+)/i);
+            if (matchPhone && matchPhone[1]) custMobile = matchPhone[1].trim();
+          }
+
+          if (!custName) custName = defaultCust.full_name;
+          if (!custMobile) custMobile = defaultCust.mobile;
+          if (!custEmail) custEmail = defaultCust.email;
 
           // Strip raw coordinates from service_address
           const isCoords = (s) => !s || /^Lat:\s*[\d.-]+/i.test(String(s).trim());
@@ -333,6 +320,22 @@ export const pillarOrderService = {
         });
       }
 
+      // 2. Fetch from bookings
+      let bookings = [];
+      try {
+        let bQuery = supabase
+          .from("bookings")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (pillarId) {
+          bQuery = bQuery.eq("pillar_id", pillarId);
+        }
+
+        const { data: bData } = await bQuery;
+        bookings = bData || [];
+      } catch (be) {}
+
       // Map bookings
       if (bookings && bookings.length > 0) {
         const existingIds = new Set(combinedOrders.map(o => o.id));
@@ -348,6 +351,83 @@ export const pillarOrderService = {
               status: uiStatus,
               db_status: b.status
             });
+          }
+        });
+      }
+
+      // 3. Merge local & shared customer bookings for instantaneous live reflection
+      try {
+        const localCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+        const sharedLive = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+        const allLocal = [...localCreated, ...sharedLive];
+
+        const existingIds = new Set(combinedOrders.map(o => o.id));
+        allLocal.forEach(loc => {
+          if (!loc || !loc.id || existingIds.has(loc.id)) return;
+          existingIds.add(loc.id);
+
+          let uiStatus = loc.status || "pending";
+          if (uiStatus === "assigned") uiStatus = "pending";
+          if (uiStatus === "on_the_way") uiStatus = "onTheWay";
+          if (uiStatus === "in_progress") uiStatus = "inProgress";
+
+          combinedOrders.unshift({
+            id: loc.id,
+            booking_code: loc.booking_code || (String(loc.id).startsWith("REQ-") ? loc.id : "REQ-" + String(loc.id).substring(0, 6).toUpperCase()),
+            status: uiStatus,
+            db_status: loc.status || "pending",
+            customer_name: loc.customer_name || loc.customer?.full_name || "Anupriya Murugan",
+            customer_mobile: loc.customer_phone || loc.customer_mobile || loc.customer?.mobile || "+91 98401 23456",
+            customer_email: loc.customer_email || loc.email || "customer@coophub.in",
+            customer: {
+              id: loc.customer_id || "cust-demo",
+              full_name: loc.customer_name || loc.customer?.full_name || "Anupriya Murugan",
+              mobile: loc.customer_phone || loc.customer_mobile || loc.customer?.mobile || "+91 98401 23456",
+              email: loc.customer_email || loc.email || "customer@coophub.in"
+            },
+            service_name: loc.service_name || loc.services?.name || loc.services?.name_translations?.en || "General Home Service",
+            sub_service_name: loc.sub_service_name || loc.sub_services?.name || loc.sub_services?.name_translations?.en || "",
+            service: {
+              id: loc.service_id,
+              name: loc.service_name || "General Home Service",
+              category: loc.category || "Service",
+              price: loc.amount || loc.total_amount || 450
+            },
+            total_amount: loc.total_amount || loc.amount || 450,
+            base_amount: loc.amount || 450,
+            service_address: [loc.address_line, loc.area, loc.city].filter(Boolean).join(", ") || "Guindy, Chennai",
+            order_time_formatted: formatOrderTime(loc.created_at || new Date().toISOString()),
+            landmark: loc.landmark || "",
+            pincode: loc.postal_code || loc.pincode || "",
+            description: loc.customer_description || "Standard customer service request.",
+            photo_urls: loc.attachments || [],
+            attachments: [],
+            scheduled_date: loc.preferred_date || loc.scheduled_date || "Today",
+            scheduled_time: loc.preferred_time || loc.scheduled_time || "Flexible Time Slot",
+            payment_method: "Cash on Service / UPI",
+            payment_status: loc.payment_status || "Pending Completion",
+            latitude: loc.latitude || 13.0067,
+            longitude: loc.longitude || 80.2025,
+            customer_latitude: loc.latitude || 13.0067,
+            customer_longitude: loc.longitude || 80.2025,
+            arrival_otp: loc.arrival_otp || "489201",
+            extra_charge_status: loc.extra_charge_status || "none",
+            extra_charge_amount: loc.extra_charge_amount || 0,
+            created_at: loc.created_at || new Date().toISOString(),
+            pillar_id: loc.pillar_id,
+            raw_data: loc
+          });
+        });
+      } catch (locErr) {
+        console.warn("Local orders merge note:", locErr);
+      }
+
+      // 4. If in demo mode, append default DEMO_ORDERS for rich preview experience
+      if (isDemo) {
+        const existingIds = new Set(combinedOrders.map(o => o.id));
+        DEMO_ORDERS.forEach(demo => {
+          if (!existingIds.has(demo.id)) {
+            combinedOrders.push(demo);
           }
         });
       }
@@ -689,6 +769,7 @@ export const pillarOrderService = {
 
   // Realtime Live Subscription for incoming Customer bookings and job status updates
   subscribeToPillarOrders(pillarId, callback) {
+    // 1. Supabase Realtime Postgres Changes Subscription
     const channel = supabase
       .channel(`pillar-orders-${pillarId || 'all'}-${Date.now()}`)
       .on(
@@ -707,8 +788,50 @@ export const pillarOrderService = {
       )
       .subscribe();
 
+    // 2. Cross-tab BroadcastChannel for instantaneous reflection across browser tabs
+    let bc = null;
+    try {
+      if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("coophub_orders_sync");
+        bc.onmessage = (event) => {
+          if (callback) callback(event.data);
+        };
+      }
+    } catch (e) {}
+
+    // 3. Storage event listener (captures changes to localStorage from other tabs/windows)
+    const handleStorage = (e) => {
+      if (
+        e.key === "coophub_demo_customer_created_requests" ||
+        e.key === "coophub_shared_live_orders" ||
+        e.key === "coophub_last_order_event"
+      ) {
+        if (callback) callback({ eventType: "STORAGE_SYNC", key: e.key });
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", handleStorage);
+    }
+
+    // 4. Custom Window Event listener (same window cross-component event)
+    const handleCustomEvent = (e) => {
+      if (callback) callback({ eventType: "LOCAL_ORDER_CREATED", detail: e.detail });
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("coophub_order_created", handleCustomEvent);
+    }
+
     return {
-      unsubscribe: () => supabase.removeChannel(channel)
+      unsubscribe: () => {
+        supabase.removeChannel(channel);
+        if (bc) {
+          try { bc.close(); } catch (bce) {}
+        }
+        if (typeof window !== "undefined") {
+          window.removeEventListener("storage", handleStorage);
+          window.removeEventListener("coophub_order_created", handleCustomEvent);
+        }
+      }
     };
   }
 };
