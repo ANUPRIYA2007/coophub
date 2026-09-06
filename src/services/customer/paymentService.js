@@ -1,6 +1,10 @@
 import { supabase } from '../../lib/supabase';
 import { paymentGatewayAdapter } from '../payment/paymentGatewayAdapter';
 
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+    ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+    : '';
+
 export const paymentService = {
     /**
      * Fetch payment and invoice details for a specific request.
@@ -197,7 +201,7 @@ export const paymentService = {
      */
     chooseHandCash: async (requestId, customerId) => {
         try {
-            const response = await fetch('/api/payment/choose-hand-cash', {
+            const response = await fetch(`${SERVER_BASE}/api/payment/choose-hand-cash`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ requestId, customerId })
@@ -220,7 +224,7 @@ export const paymentService = {
      */
     confirmHandCashPayment: async (requestId, pillarId) => {
         try {
-            const response = await fetch('/api/payment/confirm-hand-cash', {
+            const response = await fetch(`${SERVER_BASE}/api/payment/confirm-hand-cash`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ requestId, pillarId })

@@ -6,7 +6,10 @@
 
 import { supabase } from '../../lib/supabase';
 
-const BASE_URL = '/api/admin/governance';
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+    ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+    : '';
+const BASE_URL = `${SERVER_BASE}/api/admin/governance`;
 
 async function getHeaders() {
     const { data: { session } } = await supabase.auth.getSession();

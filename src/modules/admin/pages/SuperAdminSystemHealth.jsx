@@ -62,9 +62,12 @@ export default function SuperAdminSystemHealth() {
     setActiveCorrelationId(traceId);
 
     // 1. Probe Express Backend /api/health
+    const serverBase = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+      ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+      : '';
     const apiStart = performance.now();
     try {
-      const res = await fetch("/api/health", {
+      const res = await fetch(`${serverBase}/api/health`, {
         headers: { "X-Request-Id": traceId }
       });
       const apiLat = Math.round(performance.now() - apiStart);
@@ -82,7 +85,7 @@ export default function SuperAdminSystemHealth() {
     // 2. Probe /api/ready
     const readyStart = performance.now();
     try {
-      const res = await fetch("/api/ready");
+      const res = await fetch(`${serverBase}/api/ready`);
       const readyLat = Math.round(performance.now() - readyStart);
       setReadyHealth({ status: res.ok ? "READY" : "NOT_READY", latency: readyLat });
     } catch (e) {

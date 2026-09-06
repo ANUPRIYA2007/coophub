@@ -4,6 +4,10 @@ import {
   Loader2, X, RefreshCw, Eye, Lock, FileText 
 } from 'lucide-react';
 
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+  ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+  : '';
+
 export default function UidaiQrScannerModal({ 
   isOpen, 
   onClose, 
@@ -102,7 +106,7 @@ export default function UidaiQrScannerModal({
     setStatusMessage('Decompressing UIDAI Secure QR & verifying cryptographic signature...');
 
     try {
-      const res = await fetch('/api/kyc/aadhaar/decode-qr', {
+      const res = await fetch(`${SERVER_BASE}/api/kyc/aadhaar/decode-qr`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

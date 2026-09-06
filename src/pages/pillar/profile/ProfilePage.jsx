@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
-import { pillarProfileService } from "../../../services/pillar/profileService";
 import { User, ShieldCheck, Mail, Phone, MapPin, Briefcase, Award, Save, Building2, CreditCard, CheckCircle2, Lock, FileText, UploadCloud, Loader2, ArrowLeft } from "lucide-react";
+
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+  ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+  : '';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -120,7 +123,7 @@ export default function ProfilePage() {
 
       // 3. Send to server-side OCR pipeline
       setPipelineStage('OCR_PROCESSING');
-      const ocrRes = await fetch('/api/ai/process-document', {
+      const ocrRes = await fetch(`${SERVER_BASE}/api/ai/process-document`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

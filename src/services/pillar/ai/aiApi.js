@@ -28,7 +28,10 @@ Respond directly, professionally, and helpfully in ${langName}. If asking about 
 
   // 1. Primary: Backend Proxy (keeps API keys server-side, avoids CORS)
   try {
-    const backendUrl = (typeof window !== 'undefined') ? "/api/ai/chat" : "http://localhost:5000/api/ai/chat";
+    const serverBase = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+      ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+      : '';
+    const backendUrl = `${serverBase}/api/ai/chat`;
     const response = await fetch(backendUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

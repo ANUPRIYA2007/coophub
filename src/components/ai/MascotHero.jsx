@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+    ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+    : '';
+
 export default function MascotHero({ customerName = 'Guest', currentRoute = '/home', activeBookingsCount = 0 }) {
     const { language } = useTranslation();
     const [greeting, setGreeting] = useState('');
@@ -10,7 +14,7 @@ export default function MascotHero({ customerName = 'Guest', currentRoute = '/ho
         const fetchMascotGreeting = async () => {
             setLoading(true);
             try {
-                const res = await fetch('/api/ai/mascot-context', {
+                const res = await fetch(`${SERVER_BASE}/api/ai/mascot-context`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ customerName, currentRoute, activeBookingsCount, language })

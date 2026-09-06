@@ -16,6 +16,10 @@ import { aiService } from './aiService.js';
 import { convertPdfPageToImage } from './pdfHelper.js';
 import { documentStorageService } from '../pillar/documentStorageService.js';
 
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+  ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+  : '';
+
 export const documentExtractionService = {
   /**
    * Run full document extraction and validation pipeline
@@ -73,7 +77,7 @@ export const documentExtractionService = {
 
     let serverResult = null;
     try {
-      const proxyRes = await fetch('/api/ai/process-document', {
+      const proxyRes = await fetch(`${SERVER_BASE}/api/ai/process-document`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -10,6 +10,9 @@ import { supabase } from '../../lib/supabase';
 
 const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
 const IS_SANDBOX_MODE = !RAZORPAY_KEY_ID || RAZORPAY_KEY_ID === "rzp_test_placeholder";
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+  ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+  : '';
 
 /**
  * Load Razorpay Checkout SDK dynamically (already loaded via index.html <script>)
@@ -42,7 +45,7 @@ export const paymentGatewayAdapter = {
     const orderRef = `ORD_${invoiceId ? invoiceId.slice(0, 8) : Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     try {
-      const response = await fetch('/api/payment/create-order', {
+      const response = await fetch(`${SERVER_BASE}/api/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,7 +164,7 @@ export const paymentGatewayAdapter = {
     // 2. Cryptographic / Gateway Confirmation via backend
     let isValid = false;
     try {
-      const response = await fetch('/api/payment/verify-signature', {
+      const response = await fetch(`${SERVER_BASE}/api/payment/verify-signature`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, paymentId, signature })

@@ -27,6 +27,10 @@ import { kycConsistencyEngine } from '../ai/kycConsistencyEngine.js';
 import { kycRiskEngine } from '../ai/kycRiskEngine.js';
 import { documentStorageService } from '../pillar/documentStorageService.js';
 
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+  ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+  : '';
+
 export const kycRouter = {
   /**
    * Process any document through the authoritative-first KYC pipeline
@@ -57,7 +61,7 @@ export const kycRouter = {
     if (sourceMethod === 'uidai_qr' && qrPayload) {
       onStatusUpdate('DECODING_SECURE_QR');
       try {
-        const qrRes = await fetch('/api/kyc/aadhaar/decode-qr', {
+        const qrRes = await fetch(`${SERVER_BASE}/api/kyc/aadhaar/decode-qr`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ qrPayload, pillarProfile })
@@ -110,7 +114,7 @@ export const kycRouter = {
     if (sourceMethod === 'digilocker') {
       onStatusUpdate('CONNECTING_DIGILOCKER');
       try {
-        const statusRes = await fetch('/api/kyc/digilocker/status');
+        const statusRes = await fetch(`${SERVER_BASE}/api/kyc/digilocker/status`);
         const statusData = await statusRes.json();
 
         if (!statusData.configured) {

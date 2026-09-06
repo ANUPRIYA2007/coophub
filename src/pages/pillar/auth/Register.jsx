@@ -13,6 +13,10 @@ import {
   Globe, ShieldCheck, FileText, UploadCloud, Lock, Sparkles, CheckCircle2, QrCode, Cpu 
 } from "lucide-react";
 
+const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
+  ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
+  : '';
+
 export default function Register() {
   const { t, language, changeLanguage, supportedLanguages } = useTranslation();
   const navigate = useNavigate();
@@ -72,7 +76,7 @@ export default function Register() {
   const [digilockerNotice, setDigilockerNotice] = useState(null);
 
   useEffect(() => {
-    fetch('/api/kyc/digilocker/status')
+    fetch(`${SERVER_BASE}/api/kyc/digilocker/status`)
       .then(res => res.json())
       .then(data => setDigilockerStatus(data))
       .catch(() => setDigilockerStatus({ configured: false }));
@@ -98,7 +102,7 @@ export default function Register() {
       if (dlStatus === "verified") {
         const queryKey = dlSessionId ? `session_id=${encodeURIComponent(dlSessionId)}` : (dlState ? `state=${encodeURIComponent(dlState)}` : '');
         if (queryKey) {
-          fetch(`/api/kyc/digilocker/session-status?${queryKey}`)
+          fetch(`${SERVER_BASE}/api/kyc/digilocker/session-status?${queryKey}`)
             .then(r => r.json())
             .then(sess => {
               const currentStatus = (sess.status || '').toLowerCase();
@@ -187,7 +191,7 @@ export default function Register() {
       setDigilockerNotice("DigiLocker Integration: NOT CONFIGURED (Production credentials required). Please proceed with UIDAI Secure QR scan or Document Upload below.");
       return;
     }
-    fetch('/api/kyc/digilocker/auth-url', {
+    fetch(`${SERVER_BASE}/api/kyc/digilocker/auth-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pillarId: null })

@@ -613,7 +613,7 @@ export async function translateBatchDynamic(texts = [], targetLang = "en", sourc
   const targetMeta = getLanguageMetadata(targetLang);
   const sourceMeta = getLanguageMetadata(sourceLang);
   const isNode = typeof window === "undefined";
-  const apiBase = isNode ? "http://localhost:5000" : "";
+  const apiBase = isNode ? "http://localhost:5000" : ((typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL) ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '') : "");
 
   try {
     const response = await fetch(`${apiBase}/api/ai/translate/batch`, {
@@ -688,7 +688,7 @@ export async function translateDynamic(text, targetLang = "en", sourceLang = "en
   const requestPromise = (async () => {
     try {
       const isNode = typeof window === "undefined";
-      const apiBase = options.apiBase || (isNode ? "http://localhost:5000" : "");
+      const apiBase = options.apiBase || (isNode ? "http://localhost:5000" : ((typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL) ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '') : ""));
       
       const response = await fetch(`${apiBase}/api/ai/translate`, {
         method: "POST",
