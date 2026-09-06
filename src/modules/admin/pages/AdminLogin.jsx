@@ -113,7 +113,8 @@ export default function AdminLogin() {
 
       // Resolve role via API
       try {
-        const res = await fetch('http://localhost:5000/api/admin/verify-role', {
+        const serverBase = import.meta.env.VITE_SERVER_URL || '';
+        const res = await fetch(`${serverBase}/api/admin/verify-role`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-admin-email': adminId }
         });
