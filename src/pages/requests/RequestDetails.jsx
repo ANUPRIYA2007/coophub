@@ -629,7 +629,11 @@ export default function RequestDetails() {
                             <div className="text-xs">
                                 <p className="font-bold text-navy-900">Your Service Location</p>
                                 <p className="text-navy-600 mt-0.5">
-                                    {[requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Current Geolocation Bounds'}
+                                    {[
+                                        requestData.address_line && !/^Lat:\s*[\d.-]+/i.test(requestData.address_line) ? requestData.address_line : null,
+                                        requestData.area,
+                                        requestData.city
+                                    ].filter(Boolean).join(', ') || 'Current Geolocation Bounds'}
                                 </p>
                                 {requestData.latitude && requestData.longitude && (
                                     <p className="font-mono text-[11px] text-navy-400 mt-1">

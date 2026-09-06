@@ -204,56 +204,158 @@ class GoogleMapsService {
 
   /**
    * Reverse geocodes coordinates to canonical address components
+   * Uses Google Geocoder if available, with automatic fallback to OpenStreetMap / Photon / BigDataCloud.
+   * NEVER returns raw coordinates in address fields.
    * @param {number} lat 
    * @param {number} lng 
-   * @returns {Promise<{success: boolean, formattedAddress: string, area: string, city: string, state: string, pincode: string, placeId: string}>}
+   * @returns {Promise<{success: boolean, formattedAddress: string, street: string, area: string, city: string, state: string, pincode: string, placeId: string}>}
    */
   async reverseGeocode(lat, lng) {
-    const defaultRes = {
+    if (lat == null || lng == null) {
+      return {
+        success: false,
+        formattedAddress: "",
+        street: "",
+        area: "Chennai Area",
+        city: "Chennai",
+        state: "Tamil Nadu",
+        pincode: "600032",
+        placeId: null
+      };
+    }
+
+    // 1. Attempt Google Maps Geocoder if SDK is available
+    try {
+      await this.loadGoogleMapsSdk();
+      this._initializeInternalServices();
+
+      if (this.geocoder) {
+        const googleRes = await new Promise((resolve) => {
+          const latlng = { lat: Number(lat), lng: Number(lng) };
+          this.geocoder.geocode({ location: latlng }, (results, status) => {
+            if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
+              const result = results[0];
+              const parsed = this._extractAddressComponents(result.address_components || []);
+              const street = parsed.street || (result.formatted_address ? result.formatted_address.split(",")[0] : "");
+
+              resolve({
+                success: true,
+                formattedAddress: result.formatted_address,
+                street,
+                area: parsed.area || parsed.sublocality || "Chennai Locality",
+                city: parsed.city || "Chennai",
+                state: parsed.state || "Tamil Nadu",
+                pincode: parsed.pincode || "600032",
+                placeId: result.place_id,
+                rawComponents: result.address_components
+              });
+            } else {
+              resolve(null);
+            }
+          });
+        });
+
+        if (googleRes) {
+          return googleRes;
+        }
+      }
+    } catch (err) {
+      console.warn("Google reverse geocoding note, using fallback geocoders:", err?.message);
+    }
+
+    // 2. High-accuracy fallback to open services (Photon/OSM & BigDataCloud)
+    return await this._reverseGeocodeFallback(lat, lng);
+  }
+
+  /**
+   * Fallback reverse geocoding using Photon (OSM) and BigDataCloud
+   * @private
+   */
+  async _reverseGeocodeFallback(lat, lng) {
+    // 1. Try Photon (OpenStreetMap, CORS enabled, fast)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const p = data?.features?.[0]?.properties;
+        if (p) {
+          const streetParts = [p.name, p.street].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+          const street = streetParts.join(", ");
+          const area = p.district || p.suburb || p.county || "Chennai Locality";
+          let city = p.city || p.county || "Chennai";
+          if (city.includes("Cantonment") || city.includes("taluk") || city.includes("district")) {
+            city = "Chennai";
+          }
+          const state = p.state || "Tamil Nadu";
+          const pincode = p.postcode || "600032";
+          const formattedAddress = [street, area, city, pincode].filter(Boolean).join(", ");
+
+          return {
+            success: true,
+            formattedAddress,
+            street,
+            area,
+            city,
+            state,
+            pincode,
+            placeId: p.osm_id ? `osm_${p.osm_id}` : null
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("Photon fallback reverse geocode note:", e?.message);
+    }
+
+    // 2. Try BigDataCloud (CORS enabled, client-friendly)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const locality = data.locality || "Chennai Locality";
+        const city = data.city || "Chennai";
+        const state = data.principalSubdivision || "Tamil Nadu";
+        const pincode = data.postcode || "600032";
+        const formattedAddress = [locality, city, pincode].filter(Boolean).join(", ");
+
+        return {
+          success: true,
+          formattedAddress,
+          street: "",
+          area: locality,
+          city,
+          state,
+          pincode,
+          placeId: data.plusCode || null
+        };
+      }
+    } catch (e) {
+      console.warn("BigDataCloud fallback reverse geocode note:", e?.message);
+    }
+
+    // 3. Last resort fallback (Clean without raw coordinates in address fields)
+    return {
       success: false,
-      formattedAddress: `Lat: ${lat}, Lng: ${lng}`,
+      formattedAddress: "",
+      street: "",
       area: "Chennai Area",
       city: "Chennai",
       state: "Tamil Nadu",
       pincode: "600032",
       placeId: null
     };
-
-    if (lat == null || lng == null) return defaultRes;
-
-    try {
-      await this.loadGoogleMapsSdk();
-      this._initializeInternalServices();
-
-      return new Promise((resolve) => {
-        const latlng = { lat: Number(lat), lng: Number(lng) };
-        this.geocoder.geocode({ location: latlng }, (results, status) => {
-          if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
-            const result = results[0];
-            const parsed = this._extractAddressComponents(result.address_components);
-
-            resolve({
-              success: true,
-              formattedAddress: result.formatted_address,
-              area: parsed.area || parsed.sublocality || "Chennai Locality",
-              city: parsed.city || "Chennai",
-              state: parsed.state || "Tamil Nadu",
-              pincode: parsed.pincode || "600032",
-              placeId: result.place_id,
-              rawComponents: result.address_components
-            });
-          } else {
-            resolve({
-              ...defaultRes,
-              error: `Reverse Geocoding status: ${status}`
-            });
-          }
-        });
-      });
-    } catch (err) {
-      console.warn("Reverse Geocoding error:", err);
-      return defaultRes;
-    }
   }
 
   /**
@@ -516,6 +618,10 @@ class GoogleMapsService {
    */
   _extractAddressComponents(components = []) {
     const result = {
+      premise: "",
+      streetNumber: "",
+      route: "",
+      street: "",
       pincode: "",
       area: "",
       sublocality: "",
@@ -525,13 +631,20 @@ class GoogleMapsService {
 
     components.forEach((c) => {
       const types = c.types || [];
+      if (types.includes("premise") || types.includes("subpremise")) result.premise = c.long_name;
+      if (types.includes("street_number")) result.streetNumber = c.long_name;
+      if (types.includes("route")) result.route = c.long_name;
       if (types.includes("postal_code")) result.pincode = c.long_name;
-      if (types.includes("sublocality_level_1") || types.includes("sublocality")) result.sublocality = c.long_name;
+      if (types.includes("sublocality_level_2")) result.sublocality = c.long_name;
+      if (types.includes("sublocality_level_1") || types.includes("sublocality")) {
+        result.sublocality = result.sublocality ? `${result.sublocality}, ${c.long_name}` : c.long_name;
+      }
       if (types.includes("neighborhood") || types.includes("locality")) result.area = c.long_name;
       if (types.includes("administrative_area_level_2") || types.includes("locality")) result.city = c.long_name;
       if (types.includes("administrative_area_level_1")) result.state = c.long_name;
     });
 
+    result.street = [result.premise, result.streetNumber, result.route].filter(Boolean).join(" ");
     return result;
   }
 

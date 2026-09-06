@@ -119,12 +119,15 @@ export default function ServiceRequest() {
     };
 
     const handleMapLocationConfirmed = (loc) => {
+        const isCoords = (s) => !s || /^Lat:\s*[\d.-]+/i.test(String(s).trim());
+        const cleanAddress = !isCoords(loc.address_line) ? loc.address_line : '';
+
         setFormData(prev => ({
             ...prev,
             location_type: 'google_map',
             latitude: loc.latitude,
             longitude: loc.longitude,
-            address_line: loc.address_line,
+            address_line: cleanAddress || (!isCoords(prev.address_line) ? prev.address_line : ''),
             area: loc.area || prev.area,
             city: loc.city || prev.city,
             state: loc.state || prev.state,
@@ -179,7 +182,8 @@ export default function ServiceRequest() {
     const nextStep = () => {
         setError(null);
         if (step === 1) { // Validate Location
-            if (!formData.address_line && !formData.latitude) {
+            const hasValidAddress = formData.address_line && !/^Lat:\s*[\d.-]+/i.test(formData.address_line);
+            if (!hasValidAddress && !formData.latitude) {
                 setError('Please choose your service location on Google Map or enter your address.');
                 return;
             }
@@ -205,6 +209,10 @@ export default function ServiceRequest() {
             }
 
             const chosenPillar = availablePillars.find(p => p.id === selectedPillarId);
+            const isCoords = (s) => !s || /^Lat:\s*[\d.-]+/i.test(String(s).trim());
+            const cleanAddress = !isCoords(formData.address_line)
+                ? formData.address_line
+                : [formData.area, formData.city].filter(Boolean).join(', ');
 
             const payload = {
                 service_id: serviceInfo?.id || targetServiceId,
@@ -215,6 +223,7 @@ export default function ServiceRequest() {
                 pillar_name: chosenPillar?.full_name || null,
                 amount: chosenPillar?.starting_price || subServiceInfo?.base_price || 450,
                 ...formData,
+                address_line: cleanAddress,
                 attachments: uploadedAttachments
             };
 
@@ -296,7 +305,9 @@ export default function ServiceRequest() {
                                         </button>
                                     </div>
                                     <p className="font-bold text-navy-900 text-sm">
-                                        {formData.address_line || t("Selected Map Location")}
+                                        {(formData.address_line && !/^Lat:\s*[\d.-]+/i.test(formData.address_line))
+                                            ? formData.address_line
+                                            : [formData.area, formData.city].filter(Boolean).join(', ') || t("Selected Map Location")}
                                     </p>
                                     <div className="flex flex-wrap gap-3 text-xs text-navy-600 pt-1 border-t border-navy-100">
                                         <span>{t("Area")}: <strong>{formData.area || "-"}</strong></span>
@@ -312,7 +323,15 @@ export default function ServiceRequest() {
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-navy-700">{t("Detailed Address / Building / Flat:")}</span>
                                 </div>
-                                <input type="text" name="address_line" value={formData.address_line} onChange={handleFormChange} placeholder={t("Door No, Building Name, Street...")} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all outline-none text-xs" required />
+                                <input 
+                                    type="text" 
+                                    name="address_line" 
+                                    value={(formData.address_line && !/^Lat:\s*[\d.-]+/i.test(formData.address_line)) ? formData.address_line : ''} 
+                                    onChange={handleFormChange} 
+                                    placeholder={t("Door No, Building Name, Street...")} 
+                                    className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all outline-none text-xs" 
+                                    required 
+                                />
                                 <div className="grid grid-cols-2 gap-4">
                                     <input type="text" name="area" value={formData.area} onChange={handleFormChange} placeholder={t('Area')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" />
                                     <input type="text" name="city" value={formData.city} onChange={handleFormChange} placeholder={t('City')} className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:ring-2 focus:ring-orange-400 outline-none text-xs" required />
@@ -595,7 +614,13 @@ export default function ServiceRequest() {
                                     {formData.location_type === 'geolocation' ? (
                                         <p className="font-medium text-navy-800">{t('Coordinates')}: {formData.latitude}, {formData.longitude}</p>
                                     ) : (
-                                        <p className="font-medium text-navy-800">{[formData.address_line, formData.area, formData.city].filter(Boolean).join(', ')}</p>
+                                        <p className="font-medium text-navy-800">
+                                            {[
+                                                formData.address_line && !/^Lat:\s*[\d.-]+/i.test(formData.address_line) ? formData.address_line : null,
+                                                formData.area,
+                                                formData.city
+                                            ].filter(Boolean).join(', ') || `${formData.latitude}, ${formData.longitude}`}
+                                        </p>
                                     )}
                                 </div>
                                 <div className="bg-navy-50 p-4 rounded-xl">

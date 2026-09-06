@@ -181,10 +181,23 @@ export default function LocationPickerModal({
 
   // Submit and confirm location
   const handleConfirm = () => {
+    const isCoords = (s) => !s || /^Lat:\s*[\d.-]+/i.test(s.trim());
+    
+    // Choose clean street address line: resolved street > non-coord formatted address > non-coord search query > ""
+    let streetLine = "";
+    if (resolvedAddress?.street && !isCoords(resolvedAddress.street)) {
+      streetLine = resolvedAddress.street;
+    } else if (resolvedAddress?.formattedAddress && !isCoords(resolvedAddress.formattedAddress)) {
+      const parts = resolvedAddress.formattedAddress.split(",");
+      streetLine = parts.length > 1 ? parts.slice(0, 2).join(", ").trim() : resolvedAddress.formattedAddress;
+    } else if (searchQuery && !isCoords(searchQuery)) {
+      streetLine = searchQuery;
+    }
+
     const finalLocation = {
       latitude: coords.lat,
       longitude: coords.lng,
-      address_line: resolvedAddress?.formattedAddress || searchQuery || "Selected Location",
+      address_line: streetLine,
       area: resolvedAddress?.area || "Chennai",
       city: resolvedAddress?.city || "Chennai",
       state: resolvedAddress?.state || "Tamil Nadu",
@@ -290,7 +303,11 @@ export default function LocationPickerModal({
             </div>
 
             <p className="font-bold text-navy-900 line-clamp-2">
-              {resolvedAddress?.formattedAddress || searchQuery || "Pin Location on Map"}
+              {resolvedAddress?.formattedAddress && !/^Lat:\s*[\d.-]+/i.test(resolvedAddress.formattedAddress)
+                ? resolvedAddress.formattedAddress
+                : (searchQuery && !/^Lat:\s*[\d.-]+/i.test(searchQuery))
+                  ? searchQuery
+                  : [resolvedAddress?.area, resolvedAddress?.city].filter(Boolean).join(", ") || "Pin Location on Map"}
             </p>
 
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-navy-600 pt-1 border-t border-navy-200/50">
