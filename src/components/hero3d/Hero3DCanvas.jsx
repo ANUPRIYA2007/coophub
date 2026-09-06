@@ -42,20 +42,28 @@ export default function Hero3DCanvas({
     const camera = new THREE.PerspectiveCamera(38, initialSize.width / initialSize.height, 0.1, 50);
 
     // WebGL Renderer
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(initialSize.width, initialSize.height);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
-    renderer.domElement.style.width = '100%';
-    renderer.domElement.style.height = '100%';
-    renderer.domElement.style.display = 'block';
-    container.appendChild(renderer.domElement);
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        powerPreference: 'high-performance',
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(initialSize.width, initialSize.height);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.35;
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      renderer.domElement.style.display = 'block';
+      container.appendChild(renderer.domElement);
+    } catch (webglErr) {
+      console.warn('[Hero3DCanvas] WebGL context creation failed. Activating 2D fallback:', webglErr.message);
+      setLoadError(true);
+      setIsLoading(false);
+      return;
+    }
 
     // Comprehensive Studio Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
