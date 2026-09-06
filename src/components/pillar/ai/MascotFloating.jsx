@@ -45,14 +45,20 @@ export default function MascotFloating() {
     };
   }, []);
 
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isSuperAdminRoute = location.pathname.startsWith("/superadmin") || location.pathname.includes("/super/");
+  const isAdminRoute = location.pathname.startsWith("/admin") || isSuperAdminRoute;
+  const isSuperAdminUser = profile?.role === 'SUPER_ADMIN' || user?.email === 'superadmin@coophub.gov.in';
+  const effectiveRole = (isSuperAdminRoute || isSuperAdminUser) ? "super_admin" : isAdminRoute ? "admin" : "pillar";
 
   // Initial greeting (dynamically translated for any supported language)
   useEffect(() => {
     let isMounted = true;
-    const baseGreeting = isAdminRoute
-      ? "Welcome Administrator! I am CoopBot, your 24/7 AI Operations Assistant. Ask about workforce telemetry, service requests, pillar verification, or revenue analytics."
-      : "Welcome! I am CoopBot, your 24/7 AI Assistant. Ask about your bookings, earnings, arrival OTPs, or customer chats.";
+    let baseGreeting = "Welcome! I am CoopBot, your 24/7 AI Assistant. Ask about your bookings, earnings, arrival OTPs, or customer chats.";
+    if (effectiveRole === "super_admin") {
+      baseGreeting = "Welcome Sovereign Super Administrator! I am CoopBot Apex, your national workforce intelligence assistant. Ask about multi-district telemetry, state-wide verification queues, platform tariffs, or sovereign governance policies.";
+    } else if (effectiveRole === "admin") {
+      baseGreeting = "Welcome Administrator! I am CoopBot, your regional AI Operations Assistant. Ask about district technician verification, live dispatch tracking, or local settlement audits.";
+    }
 
     const loadGreeting = async () => {
       let greeting = baseGreeting;
@@ -206,7 +212,7 @@ export default function MascotFloating() {
       // Direct live AI pipeline with Chronos-2 & Intent Router
       const res = await aiService.chatWithMascot(combinedText, {
         language,
-        role: isAdminRoute ? "admin" : "pillar",
+        role: effectiveRole,
         currentPath: location.pathname
       });
 
@@ -215,6 +221,8 @@ export default function MascotFloating() {
         sender: "mascot",
         text: res.text || res.message || "I am processing your request with COOP HUB intelligence.",
         route: res.route,
+        action: res.action,
+        yesNoAction: res.yesNoAction,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
@@ -527,7 +535,38 @@ export default function MascotFloating() {
               whiteSpace: "nowrap",
             }}
           >
-            {isAdminRoute ? (
+            {effectiveRole === 'super_admin' ? (
+              <>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Show multi-district governance hierarchy")}
+                >
+                  🏛️ Governance
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Audit all pending technician verifications state-wide")}
+                >
+                  🛡️ Apex KYC
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Display live system telemetry and server load")}
+                >
+                  📡 Telemetry
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Review platform revenue and commission rates")}
+                >
+                  💎 Tariffs
+                </button>
+              </>
+            ) : effectiveRole === 'admin' ? (
               <>
                 <button
                   className="btn btn-outline btn-sm"
@@ -548,7 +587,14 @@ export default function MascotFloating() {
                   style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
                   onClick={() => setInput("What is our total revenue and commission?")}
                 >
-                  💰 Total GMV
+                  💰 District GMV
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "12px", background: "var(--color-surface)", color: "var(--color-text)", borderColor: "var(--color-border)" }}
+                  onClick={() => setInput("Review customer dispute escalations")}
+                >
+                  🆘 Disputes
                 </button>
               </>
             ) : (
@@ -703,7 +749,77 @@ export default function MascotFloating() {
                     </div>
                   )}
 
-                  {m.route && (
+                  {/* Actionable YES / NO Buttons */}
+                  {m.sender === "mascot" && m.yesNoAction && (
+                    <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--color-border)", display: "flex", gap: "6px" }}>
+                      <button
+                        onClick={() => {
+                          if (m.yesNoAction.yes?.path) {
+                            navigate(m.yesNoAction.yes.path);
+                            setIsOpen(false);
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "6px 10px",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          color: "white",
+                          background: "linear-gradient(135deg, #FF7900 0%, #E66A00 100%)",
+                          borderRadius: "8px",
+                          border: "none",
+                          cursor: "pointer",
+                          textAlign: "center",
+                          boxShadow: "0 2px 6px rgba(255, 121, 0, 0.25)"
+                        }}
+                      >
+                        {m.yesNoAction.yes.label}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, yesNoAction: null } : msg));
+                        }}
+                        style={{
+                          padding: "6px 10px",
+                          fontSize: "11px",
+                          color: "var(--color-text-secondary)",
+                          background: "var(--color-surface-hover)",
+                          borderRadius: "8px",
+                          border: "1px solid var(--color-border)",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {m.yesNoAction.no?.label || 'Dismiss'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Single Action Button */}
+                  {m.sender === "mascot" && m.action && !m.yesNoAction && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{
+                        marginTop: "8px",
+                        fontSize: "11px",
+                        padding: "6px 10px",
+                        width: "100%",
+                        background: "var(--color-secondary)",
+                        color: "white",
+                        borderRadius: "8px",
+                        fontWeight: "700"
+                      }}
+                      onClick={() => {
+                        if (m.action.path) {
+                          navigate(m.action.path);
+                          setIsOpen(false);
+                        }
+                      }}
+                    >
+                      {m.action.label}
+                    </button>
+                  )}
+
+                  {m.route && !m.action && !m.yesNoAction && (
                     <button
                       className="btn btn-outline btn-sm"
                       style={{

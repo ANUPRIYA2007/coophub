@@ -278,6 +278,8 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
         text: clean,
         emoji: "💡",
         route: response?.route,
+        action: response?.action,
+        yesNoAction: response?.yesNoAction,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }]);
       setCurrentMood("happy");
@@ -328,13 +330,15 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
         message: text,
         context: { isAuthenticated: true, user, profile, session, route: location.pathname, language },
       });
-      const clean = (response?.reply || "").split("\n")[0].replace(/[*#_]/g, "").slice(0, 200);
+      const clean = (response?.reply || "").split("\n")[0].replace(/[*#_]/g, "").slice(200);
       setHeroMessages(prev => [...prev, {
         id: `hero-${Date.now()}`,
         sender: "hero",
-        text: clean || "I'm ready to help!",
+        text: (response?.reply || "").split("\n")[0].replace(/[*#_]/g, "").slice(0, 200) || "I'm ready to help!",
         emoji: "💡",
         route: response?.route,
+        action: response?.action,
+        yesNoAction: response?.yesNoAction,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }]);
       setHeroState("idle");
@@ -616,7 +620,75 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
                       {m.isThinking && isLoadingAi && (
                         <span style={{ display: "inline-block", marginLeft: "4px", animation: "heroDots 1.4s infinite" }}>...</span>
                       )}
-                      {m.route && m.route !== location.pathname && (
+                      {/* Actionable YES / NO Buttons for Pillar Actions */}
+                      {m.sender === "hero" && m.yesNoAction && (
+                        <div style={{ marginTop: "6px", paddingTop: "6px", borderTop: "1px solid rgba(255,255,255,0.12)", display: "flex", gap: "6px" }}>
+                          <button
+                            onClick={() => {
+                              if (m.yesNoAction.yes?.path) {
+                                navigate(m.yesNoAction.yes.path);
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "5px 8px",
+                              fontSize: "10px",
+                              fontWeight: "700",
+                              color: "white",
+                              background: "linear-gradient(135deg, #FF7900 0%, #E66A00 100%)",
+                              borderRadius: "6px",
+                              border: "none",
+                              cursor: "pointer",
+                              textAlign: "center"
+                            }}
+                          >
+                            {m.yesNoAction.yes.label}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setHeroMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, yesNoAction: null } : msg));
+                            }}
+                            style={{
+                              padding: "5px 8px",
+                              fontSize: "10px",
+                              color: "rgba(255,255,255,0.7)",
+                              background: "rgba(255,255,255,0.1)",
+                              borderRadius: "6px",
+                              border: "none",
+                              cursor: "pointer"
+                            }}
+                          >
+                            {m.yesNoAction.no?.label || 'Dismiss'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Single Action Pill */}
+                      {m.sender === "hero" && m.action && !m.yesNoAction && (
+                        <button
+                          onClick={() => {
+                            if (m.action.path) navigate(m.action.path);
+                          }}
+                          style={{
+                            display: "block",
+                            marginTop: "6px",
+                            padding: "5px 8px",
+                            fontSize: "10px",
+                            fontWeight: "700",
+                            color: "white",
+                            background: "var(--color-secondary)",
+                            borderRadius: "6px",
+                            border: "none",
+                            cursor: "pointer",
+                            width: "100%",
+                            textAlign: "center",
+                          }}
+                        >
+                          {m.action.label}
+                        </button>
+                      )}
+
+                      {m.route && !m.action && !m.yesNoAction && m.route !== location.pathname && (
                         <button
                           onClick={() => navigate(m.route)}
                           style={{

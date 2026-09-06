@@ -11,6 +11,8 @@ import ocrBenchmarkHarness from './kyc/ocrBenchmarkHarness.js';
 import { resolveAdminRole, requireSuperAdmin } from './adminAuth.js';
 import { createGeographyRouter } from './geographyRoutes.js';
 import { createGovernanceRouter } from './governanceRoutes.js';
+import { mountRazorpayRoutes } from './payment/razorpayRoutes.js';
+import { mountHandCashRoutes } from './payment/handCashRoutes.js';
 
 // Load .env from root
 const __filename = fileURLToPath(import.meta.url);
@@ -102,6 +104,10 @@ app.get('/api/admin/super-admin/test', requireSuperAdmin, (req, res) => {
     app.use('/api/admin/governance', govRouter);
 }
 
+// ─── Razorpay & Hand Cash Payment Routes ───
+mountRazorpayRoutes(app);
+mountHandCashRoutes(app);
+
 // NVIDIA AI Configuration
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const NVIDIA_MODEL = (process.env.NVIDIA_MODEL && !process.env.NVIDIA_MODEL.includes('nemotron-parse'))
@@ -148,15 +154,15 @@ async function generateAIResponse(messagesInput, systemPrompt = '', targetLang =
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${NVIDIA_API_KEY}`,
                 },
-                signal: AbortSignal.timeout(2500),
+                signal: AbortSignal.timeout(25000),
                 body: JSON.stringify({
                     model: chatModel,
                     messages: [
                         ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
                         ...messages
                     ],
-                    temperature: 0.7,
-                    max_tokens: 1024,
+                    temperature: 0.5,
+                    max_tokens: 300,
                 }),
             });
 
@@ -189,7 +195,7 @@ async function generateAIResponse(messagesInput, systemPrompt = '', targetLang =
             const response = await fetch(GEMINI_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                signal: AbortSignal.timeout(2500),
+                signal: AbortSignal.timeout(15000),
                 body: JSON.stringify({ contents }),
             });
 
@@ -211,77 +217,22 @@ async function generateAIResponse(messagesInput, systemPrompt = '', targetLang =
     return generateCoopBotFallback(lastUserQuery, targetLang);
 }
 
-// Resilient Offline Domain Knowledge Responder
+// Resilient Offline Fallback — Honest Provider Failure Notice (No fake keyword AI)
 function generateCoopBotFallback(userQuery = '', targetLang = 'English') {
-    const q = (userQuery || '').toLowerCase();
     const lang = (targetLang || '').toLowerCase();
 
-    // Tamil
+    // Honest provider-failure messages (not pretending to be AI understanding)
     if (lang.includes('tamil') || lang === 'ta') {
-        if (q.includes('electric') || q.includes('மின்சார') || q.includes('வயரிங்')) {
-            return "⚡ மின்சார சேவைகள்: COOP HUB-ல் சரிபார்க்கப்பட்ட மின்சார வல்லுநர்கள் உள்ளனர். வயரிங், சுவிட்ச் போர்டு, MCB பழுது, இன்வெர்ட்டர் மற்றும் மின்விசிறி பழுதுபார்க்க 'Services' பக்கத்தில் உடனடியாக பதிவு செய்யலாம்.";
-        }
-        if (q.includes('plumb') || q.includes('குழாய்') || q.includes('லீக்')) {
-            return "💧 பிளம்பிங் சேவைகள்: குழாய் கசிவு, புதிய பைப்லைன் பொருத்துதல், பாத்ரூம் ஃபிட்டிங்ஸ் மற்றும் மோட்டார் பழுதுபார்ப்புக்கு எங்கள் சான்றளிக்கப்பட்ட பிளம்பர்களை அழைக்கலாம்.";
-        }
-        if (q.includes('ac') || q.includes('ஏசி') || q.includes('கூலிங்')) {
-            return "❄️ ஏசி பழுது & சர்வீஸ்: ஏசி கேஸ் ரீஃபில், கூலிங் குறைபாடு, ஃபில்டர் சுத்தம் மற்றும் புதிய ஏசி நிறுவலை விரைவாக முன்பதிவு செய்யுங்கள்.";
-        }
-        if (q.includes('track') || q.includes('நிலை') || q.includes('ஆர்டர்') || q.includes('booking')) {
-            return "📦 முன்பதிவு கண்காணிப்பு: உங்கள் 'My Requests' பக்கத்திற்கு சென்று நேரடி நிலை, டெக்னீஷியனின் வருகை நேரம் மற்றும் சேவை தொடக்க OTP-ஐப் பார்க்கலாம்.";
-        }
-        if (q.includes('register') || q.includes('பதிவு') || q.includes('join') || q.includes('pillar')) {
-            return "🏛️ பில்லர் ஆகுங்கள்: COOP HUB-ல் தொழில் வல்லுநராக இணைய: 1) தனிப்பட்ட விவரங்களை உள்ளிடவும், 2) தொழில் திறன்களைத் தேர்ந்தெடுக்கவும், 3) அடையாள ஆவணத்தை (ஆதார்/பான்) பதிவேற்றவும், 4) சான்றிதழைப் பதிவேற்றி சரிபார்க்கவும்!";
-        }
-        return "வணக்கம்! 👋 நான் உங்கள் CoopBot AI உதவியாளர். வீட்டுப் பராமரிப்பு சேவைகளை முன்பதிவு செய்ய, பில்லர் பதிவு அல்லது முன்பதிவுகளைக் கண்காணிக்க என்னிடம் கேட்கலாம்!";
+        return "⚠️ AI சேவை தற்போது கிடைக்கவில்லை. தயவுசெய்து சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும். உதவிக்கு எங்கள் Help & Support பக்கத்தைப் பார்வையிடவும்.";
     }
-
-    // Hindi
     if (lang.includes('hindi') || lang === 'hi') {
-        if (q.includes('electric') || q.includes('बिजली')) {
-            return "⚡ इलेक्ट्रिकल सेवाएं: COOP HUB पर प्रमाणित इलेक्ट्रीशियन उपलब्ध हैं। वायरिंग, एमसीबी, स्विचबोर्ड और पंखा मरम्मत के लिए तुरंत बुक करें।";
-        }
-        if (q.includes('plumb') || q.includes('नल') || q.includes('पानी')) {
-            return "💧 प्लंबिंग सेवाएं: पाइप लीकेज, नए नल कनेक्शन और मोटर रिपेयर के लिए हमारे वेरिफाइड प्लंबर से संपर्क करें।";
-        }
-        if (q.includes('track') || q.includes('ऑर्डर') || q.includes('booking')) {
-            return "📦 बुकिंग ट्रैक करें: 'My Requests' पेज पर जाकर अपने तकनीशियन की लाइव लोकेशन, आगमन समय और ओटीपी देखें।";
-        }
-        return "नमस्ते! 👋 मैं आपका CoopBot AI सहायक हूँ। घरेलू सेवाओं की बुकिंग, तकनीशियन सत्यापन या ऑर्डर ट्रैकिंग के लिए मुझसे पूछें।";
+        return "⚠️ AI सेवा अभी अनुपलब्ध है। कृपया कुछ समय बाद पुनः प्रयास करें। सहायता के लिए Help & Support पेज देखें।";
     }
-
-    // Telugu
     if (lang.includes('telugu') || lang === 'te') {
-        if (q.includes('electric') || q.includes('కరెంట్')) {
-            return "⚡ ఎలక్ట్రికల్ సేవలు: COOP HUB వద్ద ధృవీకరించబడిన ఎలక్ట్రీషియన్లు ఉన్నారు. వైరింగ్, స్విచ్ బోర్డు, మోటారు మరమ్మతుల కోసం బుక్ చేసుకోండి.";
-        }
-        return "నమస్కారం! 👋 నేను మీ CoopBot AI అసిస్టెంట్‌ని. గృహ సేవల బుకింగ్, టెక్నీషియన్ వెరిఫికేషన్ లేదా రిక్వెస్ట్ ట్రాకింగ్ కోసం నన్ను అడగండి.";
+        return "⚠️ AI సేవ ప్రస్తుతం అందుబాటులో లేదు. దయచేసి కొంత సమయం తర్వాత మళ్ళీ ప్రయత్నించండి.";
     }
 
-    // English Default
-    if (q.includes('electric') || q.includes('wire') || q.includes('mcb') || q.includes('switch') || q.includes('power')) {
-        return "⚡ **Electrical Services**: COOP HUB provides certified and background-verified electricians across Chennai.\n\n• **Services Offered**: Full home wiring, MCB breaker replacement, switchboard repair, appliance connection, inverter installation, and safety earthing.\n• **How to Book**: Visit `/services`, choose Electrical, select your issue, and get a technician dispatched to your doorstep.";
-    }
-    if (q.includes('plumb') || q.includes('leak') || q.includes('pipe') || q.includes('tap') || q.includes('drain') || q.includes('motor')) {
-        return "💧 **Plumbing Services**: Get certified cooperative plumbers for all emergency and regular repairs.\n\n• **Services Offered**: Pipe leakage repair, bathroom fitting installation, drainage unclogging, water motor servicing, and overhead tank cleaning.\n• **How to Book**: Head to `/services` > Plumbing, or track ongoing jobs in `/requests`.";
-    }
-    if (q.includes('ac') || q.includes('air condition') || q.includes('cool') || q.includes('gas') || q.includes('compressor')) {
-        return "❄️ **AC Repair & Servicing**: Certified HVAC technicians for all AC brands (Split & Window).\n\n• **Services Offered**: Deep jet cleaning, gas charging/refill, PCB diagnosis, compressor repair, and installation/uninstallation.\n• **Pricing**: Transparent flat-rate pricing with GST cooperative invoice.";
-    }
-    if (q.includes('track') || q.includes('booking') || q.includes('order') || q.includes('status') || q.includes('otp')) {
-        return "📦 **Tracking Your Bookings**:\n\n1. Navigate to **My Requests** (`/requests`).\n2. View live status: *Assigned*, *On the Way*, or *In Progress*.\n3. Verify your unique 4-digit arrival OTP with the technician upon their doorstep arrival.";
-    }
-    if (q.includes('register') || q.includes('sign up') || q.includes('join') || q.includes('become a pillar') || q.includes('worker') || q.includes('technician')) {
-        return "🏛️ **Joining COOP HUB as a Verified Pillar**:\n\n1. **Step 1**: Complete basic profile (Name, Mobile, Trade Skills) at `/pillar/register`.\n2. **Step 2**: Select your operating zones and skills.\n3. **Step 3**: Upload Government ID (Aadhaar / PAN / Voter ID) for OCR validation.\n4. **Step 4**: Upload trade certificates to receive high-value cooperative job dispatches and same-day payouts.";
-    }
-    if (q.includes('earning') || q.includes('payout') || q.includes('money') || q.includes('balance') || q.includes('payment')) {
-        return "💰 **Earnings & Payouts**:\n• Cooperative technicians receive direct bank settlements with zero predatory commissions.\n• Check your detailed earnings ledger, pending payouts, and incentives under `/dashboard/earnings`.";
-    }
-    if (q.includes('support') || q.includes('help') || q.includes('ticket') || q.includes('complaint')) {
-        return "🤝 **COOP HUB Support**:\n• Open a 24/7 support ticket under `/support` for instant dispute resolution, billing inquiries, or technical assistance.\n• Our cooperative support team operates 24/7 across Chennai hubs.";
-    }
-
-    return "Hello! 👋 I am **CoopBot**, your official COOP HUB AI Assistant.\n\nI can help you with:\n• ⚡ **Booking Services**: Electricians, Plumbers, AC & Appliance specialists\n• 📦 **Tracking Requests**: Doorstep dispatch, arrival OTP & live timeline\n• 🏛️ **Pillar Portal**: Technician registration, ID verification & earnings\n• 🤝 **Help & Support**: Invoices, guarantees, and cooperative assistance\n\nHow may I assist you today?";
+    return "⚠️ AI service is temporarily unavailable. Both NVIDIA NIM and Gemini providers could not be reached. Please try again shortly, or visit Help & Support for immediate assistance.";
 }
 
 // ----------------------------------------------------------------------
@@ -516,6 +467,26 @@ async function AgentRouter(userMsg, token, currentContext) {
     return subAgentContext;
 }
 
+// Helper: Format dynamic runtime context for server-side LLM prompts
+function formatServerRuntimeContext(ctx = {}) {
+    if (!ctx || Object.keys(ctx).length === 0) return '';
+    const lines = [];
+    if (ctx.user?.name) lines.push(`User: ${ctx.user.name} (${ctx.user.isAuthenticated ? 'Logged In' : 'Guest'})`);
+    if (ctx.role) lines.push(`Role: ${ctx.role.toUpperCase()} | Scope: ${ctx.scope || 'PUBLIC'} (${ctx.zone || 'Chennai'})`);
+    if (ctx.page) lines.push(`Page: ${ctx.page} | Operation: ${ctx.operation || 'navigating'}`);
+    if (ctx.permissions && ctx.permissions.length > 0) lines.push(`Permissions: ${ctx.permissions.join(', ')}`);
+    if (ctx.request) {
+        lines.push(`Active Job/Booking: ID #${ctx.request.id?.slice(0, 8) || 'N/A'}, Service: ${ctx.request.serviceName || 'Home Service'}, Status: ${ctx.request.status || 'in_progress'}` +
+            (ctx.request.pillarName ? `, Assigned Technician: ${ctx.request.pillarName}` : '') +
+            (ctx.request.amount ? `, Amount: ₹${ctx.request.amount}` : '') +
+            (ctx.request.paymentStatus ? `, Payment: ${ctx.request.paymentStatus}` : ''));
+    }
+    if (ctx.pillarMetadata) {
+        lines.push(`Technician Details: Code: ${ctx.pillarMetadata.pillarCode || 'N/A'}, Skills: ${(ctx.pillarMetadata.skills || []).join(', ')}, Status: ${ctx.pillarMetadata.kycStatus || 'approved'}`);
+    }
+    return lines.length > 0 ? `\nLive Dynamic Application Context:\n${lines.map(l => `- ${l}`).join('\n')}\n` : '';
+}
+
 // 2. Chat Agent Conversational Assistant
 // Expected body: { messages: [{...}], prompt: '...', message: '...', language: 'English', token: 'jwt...', contextData: {...} }
 app.post('/api/ai/chat', async (req, res) => {
@@ -538,17 +509,20 @@ app.post('/api/ai/chat', async (req, res) => {
         const userLanguage = language || context?.language || 'English';
         const targetLang = langMap[userLanguage] || userLanguage || 'English';
         const currentRoute = route || context?.route || '/';
+        const mergedContext = { ...contextData, ...context };
+        const dynamicContextText = formatServerRuntimeContext(mergedContext);
 
         // 1. Pillar Prompt or direct single prompt format
         if (prompt !== undefined || (message !== undefined && !inputMessages)) {
             const userText = prompt || message || query || text || 'Hello';
             const authoritativeSystemPrompt = `You are CoopBot, the official 24/7 AI mascot and guide for the COOP HUB platform.
-The user is currently viewing the ${currentRoute} page.
+The user is currently viewing the ${currentRoute} page.${dynamicContextText}
 Rules:
 1. Provide helpful, polite, structured, and practical guidance for customers and service technicians in Chennai.
 2. Respond in ${targetLang}.
-3. NEVER generate, suggest, or execute arbitrary SQL queries.
-4. Keep replies concise, clean, and well-structured with clear bullet points.`;
+3. Acknowledge and utilize active user role, permissions, and booking context when relevant to the user's question.
+4. NEVER generate, suggest, or execute arbitrary SQL queries.
+5. Keep replies concise and actionable (2-4 clear sentences or short points).`;
 
             const reply = await generateAIResponse([{ role: 'user', content: userText }], authoritativeSystemPrompt, targetLang);
             res.json({
@@ -556,7 +530,8 @@ Rules:
                 message: reply,
                 reply: reply,
                 text: reply,
-                provider: NVIDIA_API_KEY ? 'NVIDIA NIM' : 'Gemini AI'
+                provider: NVIDIA_API_KEY ? 'NVIDIA NIM' : 'Gemini AI',
+                contextReceived: Boolean(dynamicContextText)
             });
             return;
         }
@@ -578,17 +553,18 @@ Rules:
         // Execute Internal Router & Controlled Tools using RLS Token (if session is active)
         let subAgentData = 'NO_CONTEXT';
         try {
-            subAgentData = await AgentRouter(latestMsg, token, { ...contextData, ...context });
+            subAgentData = await AgentRouter(latestMsg, token, mergedContext);
         } catch (routerErr) {
             console.warn('AgentRouter note:', routerErr.message);
         }
 
-        const systemPrompt = `You are the friendly, official Customer AI Assistant (CoopBot) for COOP HUB in Chennai.
+        const systemPrompt = `You are the friendly, official Customer AI Assistant (CoopBot) for COOP HUB in Chennai.${dynamicContextText}
 Strict Rules:
 1. Reply in the requested language: ${targetLang}.
 2. Provide clear, direct, and structured guidance on home services (Electrical, Plumbing, AC, Appliances, Carpentry), booking steps, arrival OTPs, and technician verification.
-3. DO NOT invent fake booking IDs or fabricate private customer data.
-4. Keep responses warm, structured, and helpful with bullet points.
+3. Seamlessly incorporate the user's active role, active booking, and permissions into your guidance.
+4. DO NOT invent fake booking IDs or fabricate private customer data.
+5. Keep responses warm, structured, and helpful with bullet points.
 
 Provided Catalog Context:
 ${catalogContext}
@@ -601,7 +577,8 @@ ${subAgentData !== 'NO_CONTEXT' && subAgentData !== 'GENERAL_CHAT' ? `Active Dat
             message: reply,
             reply: reply,
             text: reply,
-            provider: NVIDIA_API_KEY ? 'NVIDIA NIM' : 'Gemini AI'
+            provider: NVIDIA_API_KEY ? 'NVIDIA NIM' : 'Gemini AI',
+            contextReceived: Boolean(dynamicContextText)
         });
     } catch (error) {
         console.error('Chat endpoint error:', error);
@@ -1294,7 +1271,7 @@ CRITICAL INSTRUCTIONS:
 JSON format:
 ${getDocumentPromptSchema(detectedType, isSkillCert)}`;
 
-            for (const model of ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash']) {
+            for (const model of ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite']) {
                 try {
                     const gemUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
                     const controller = new AbortController();

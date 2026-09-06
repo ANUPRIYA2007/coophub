@@ -9,7 +9,7 @@ export const paymentService = {
     getPaymentDetails: async (requestId) => {
         try {
             // Fetch invoice
-            const { data: invoice, error: invoiceErr } = await supabase
+            let { data: invoice, error: invoiceErr } = await supabase
                 .from('invoices')
                 .select('*')
                 .eq('request_id', requestId)
@@ -18,13 +18,50 @@ export const paymentService = {
             if (invoiceErr) console.warn("Invoice query note:", invoiceErr);
 
             // Fetch payment
-            const { data: payment, error: paymentErr } = await supabase
+            let { data: payment, error: paymentErr } = await supabase
                 .from('payments')
                 .select('*')
                 .eq('request_id', requestId)
                 .maybeSingle();
 
             if (paymentErr) console.warn("Payment query note:", paymentErr);
+
+            // Resilient fallback from service_requests
+            if (!invoice || !payment) {
+                const { data: sReq } = await supabase
+                    .from('service_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .maybeSingle();
+                
+                if (sReq) {
+                    const baseAmount = Number(sReq.final_amount || sReq.total_amount || sReq.amount || 450);
+                    const isPaid = sReq.payment_status === 'completed';
+                    const isCash = sReq.payment_gateway_ref === 'HAND_CASH' || sReq.payment_method === 'HAND CASH';
+
+                    if (!invoice) {
+                        invoice = {
+                            id: `INV-${requestId.slice(0, 8)}`,
+                            request_id: requestId,
+                            invoice_number: `INV-${requestId.slice(0, 6).toUpperCase()}-001`,
+                            base_amount: sReq.amount || 450,
+                            extra_charges: sReq.extra_charge_amount || 0,
+                            tax_amount: Math.round(baseAmount * 0.18 * 100) / 100,
+                            total_amount: baseAmount,
+                            invoice_status: isPaid ? 'paid' : 'pending'
+                        };
+                    }
+                    if (!payment && isCash) {
+                        payment = {
+                            id: `PAY-${requestId.slice(0, 8)}`,
+                            request_id: requestId,
+                            payment_method: 'HAND CASH',
+                            payment_status: isPaid ? 'completed' : 'pending',
+                            amount: baseAmount
+                        };
+                    }
+                }
+            }
 
             return { invoice, payment };
         } catch (err) {
@@ -40,6 +77,20 @@ export const paymentService = {
     createOrGetInvoice: async (orderData) => {
         try {
             if (!orderData?.id) return { invoice: null, error: "Missing order ID" };
+
+            const isDemo = localStorage.getItem("coophub_demo_user") === "true" || localStorage.getItem("coophub_demo_customer") === "true";
+            
+            if (isDemo) {
+                return {
+                    invoice: {
+                        id: `INV-DEMO-${Date.now()}`,
+                        request_id: orderData.id,
+                        total_amount: orderData.amount || orderData.final_amount || 450,
+                        invoice_status: 'pending'
+                    },
+                    error: null
+                };
+            }
 
             // Check if exists
             const { data: existing } = await supabase
@@ -138,6 +189,53 @@ export const paymentService = {
             customerId: payload.customerId,
             pillarId: payload.pillarId
         });
+    },
+
+    /**
+     * Customer selects Hand Cash Payment method
+     * Payment and invoice remain pending until Pillar confirms receipt
+     */
+    chooseHandCash: async (requestId, customerId) => {
+        try {
+            const response = await fetch('/api/payment/choose-hand-cash', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, customerId })
+            });
+
+            if (response.ok) {
+                return await response.json();
+            }
+
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(errBody.error || `Failed to select hand cash payment (${response.status})`);
+        } catch (err) {
+            console.error("chooseHandCash error:", err);
+            return { success: false, error: err.message };
+        }
+    },
+
+    /**
+     * Authenticated Assigned Pillar marks Hand Cash payment complete
+     */
+    confirmHandCashPayment: async (requestId, pillarId) => {
+        try {
+            const response = await fetch('/api/payment/confirm-hand-cash', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, pillarId })
+            });
+
+            if (response.ok) {
+                return await response.json();
+            }
+
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(errBody.error || `Failed to confirm hand cash payment (${response.status})`);
+        } catch (err) {
+            console.error("confirmHandCashPayment error:", err);
+            return { success: false, error: err.message };
+        }
     }
 };
 

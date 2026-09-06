@@ -89,6 +89,20 @@ export function AuthProvider({ children }) {
               role: 'customer',
               email: 'customer@coophub.in'
             });
+          } else {
+            const storedCustomer = localStorage.getItem("coophub_customer_user");
+            if (storedCustomer) {
+              try {
+                const parsed = JSON.parse(storedCustomer);
+                const customSession = {
+                  user: { id: parsed.id || parsed.user_id, email: parsed.email },
+                  access_token: "active_token"
+                };
+                setSession(customSession);
+                setUser(customSession.user);
+                setProfile(parsed);
+              } catch (e) {}
+            }
           }
         }
       } catch (error) {
@@ -203,6 +217,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("coophub_demo_user");
     localStorage.removeItem("coophub_demo_admin");
     localStorage.removeItem("coophub_demo_customer");
+    localStorage.removeItem("coophub_customer_user");
   };
 
   return (

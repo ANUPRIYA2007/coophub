@@ -26,43 +26,17 @@ export default function RequestChat() {
                 const data = await serviceRequestService.getRequestDetails(id);
                 setRequestData(data);
 
-                if (isDemo) {
-                    setMessages([
-                        {
-                            id: 'msg-demo-1',
-                            sender_type: 'pillar',
-                            sender_name: 'Raj Kumar',
-                            content: 'வணக்கம்! நான் உங்கள் எலக்ட்ரீசியன் ராஜ் குமார். நான் தேவையான கருவிகளுடன் வந்து கொண்டிருக்கிறேன், சுமார் 8-10 நிமிடங்களில் வந்துவிடுவேன்.',
-                            created_at: new Date(Date.now() - 300000).toISOString()
-                        },
-                        {
-                            id: 'msg-demo-2',
-                            sender_type: 'customer',
-                            sender_name: 'You',
-                            content: 'Sure Raj, please make sure to bring a replacement 16A modular switch as well.',
-                            created_at: new Date(Date.now() - 180000).toISOString()
-                        },
-                        {
-                            id: 'msg-demo-3',
-                            sender_type: 'pillar',
-                            sender_name: 'Raj Kumar',
-                            content: 'Yes, I have spare Anchor/Legrand 16A switches with me. See you shortly!',
-                            created_at: new Date(Date.now() - 60000).toISOString()
-                        }
-                    ]);
-                    setLoading(false);
-                    return;
-                }
-
-                // Live Supabase Messages strictly for this booking ID
+                // Live Supabase Messages strictly for this service request / booking
                 const { data: msgs, error } = await supabase
                     .from('messages')
                     .select('*')
-                    .eq('booking_id', id)
+                    .or(`request_id.eq.${id},booking_id.eq.${id}`)
                     .order('created_at', { ascending: true });
 
                 if (msgs && msgs.length > 0) {
                     setMessages(msgs);
+                } else if (isDemo) {
+                    setMessages([]);
                 } else {
                     setMessages([]);
                 }
@@ -75,24 +49,36 @@ export default function RequestChat() {
 
         fetchInitialData();
 
-        if (!isDemo) {
-            const subscription = supabase
-                .channel(`messages-live-${id}-${Date.now()}`)
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-                    if (!payload.new) return;
-                    if (payload.new.booking_id === id) {
-                        setMessages(prev => {
-                            if (prev.some(m => m.id === payload.new.id)) return prev;
-                            return [...prev, payload.new];
-                        });
-                    }
-                })
-                .subscribe();
+        const subscription = supabase
+            .channel(`messages-live-${id}-${Date.now()}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                if (!payload.new) return;
+                if (payload.new.request_id === id || payload.new.booking_id === id) {
+                    setMessages(prev => {
+                        if (prev.some(m => m.id === payload.new.id)) return prev;
+                        return [...prev, payload.new];
+                    });
+                }
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+                if (!payload.new) return;
+                if (payload.new.request_id === id || payload.new.booking_id === id) {
+                    setMessages(prev => {
+                        const existingIdx = prev.findIndex(m => m.id === payload.new.id);
+                        if (existingIdx !== -1) {
+                            const clone = [...prev];
+                            clone[existingIdx] = payload.new;
+                            return clone;
+                        }
+                        return [...prev, payload.new];
+                    });
+                }
+            })
+            .subscribe();
 
-            return () => {
-                supabase.removeChannel(subscription);
-            };
-        }
+        return () => {
+            supabase.removeChannel(subscription);
+        };
     }, [id, navigate, isDemo]);
 
     useEffect(() => {
@@ -105,58 +91,43 @@ export default function RequestChat() {
         if (!text) return;
         setNewMessage('');
 
+        const localId = `msg-${Date.now()}`;
         const userMsg = {
-            id: `msg-${Date.now()}`,
+            id: localId,
             sender_type: 'customer',
             sender_name: 'You',
             message: text,
             content: text,
-            booking_id: id,
+            request_id: id,
             created_at: new Date().toISOString()
         };
 
         setMessages(prev => [...prev, userMsg]);
 
-        if (isDemo) {
-            // Simulated interactive reply in Demo Mode
-            setIsPillarTyping(true);
-            setTimeout(() => {
-                const replies = [
-                    'சரிங்க, நான் கவனித்துக் கொள்கிறேன்! (Noted, I will take care of it!)',
-                    'I am right around the corner at your street. Please keep the arrival PIN ready.',
-                    'Got your message, reaching in 2 minutes!'
-                ];
-                const replyText = replies[Math.floor(Math.random() * replies.length)];
-                setMessages(prev => [
-                    ...prev,
-                    {
-                        id: `pillar-reply-${Date.now()}`,
-                        sender_type: 'pillar',
-                        sender_name: 'Raj Kumar',
-                        message: replyText,
-                        content: replyText,
-                        created_at: new Date().toISOString()
-                    }
-                ]);
-                setIsPillarTyping(false);
-            }, 1200);
-            return;
-        }
-
-        // Live Supabase Insert
+        // Live Supabase Insert (Strict Authoritative Persistence)
         try {
             const payload = {
-                booking_id: id,
+                request_id: id,
+                booking_id: null,
                 sender_type: 'customer',
-                message: text
+                message: text,
+                content: text,
+                message_type: 'TEXT',
+                created_at: new Date().toISOString()
             };
             if (profile?.user_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.user_id)) {
                 payload.sender_id = profile.user_id;
             }
 
-            await supabase.from('messages').insert(payload);
+            const { data, error } = await supabase.from('messages').insert(payload).select().single();
+            if (error) {
+                console.error('Failed to send message: ', error);
+            } else if (data) {
+                // Replace optimistic local ID with authoritative database record ID
+                setMessages(prev => prev.map(m => m.id === localId ? data : m));
+            }
         } catch (err) {
-            console.error('Failed to send message: ', err);
+            console.error('Failed to send message exception: ', err);
         }
     };
 

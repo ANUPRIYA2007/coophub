@@ -225,8 +225,8 @@ export const pillarOrderService = {
               category: r.services?.category || "Service",
               price: r.services?.price || 450
             },
-            total_amount: r.services?.price || 450,
-            base_amount: r.services?.price || 450,
+            total_amount: r.total_amount || r.final_amount || r.amount || r.services?.price || 450,
+            base_amount: r.amount || r.services?.price || 450,
             service_address: [r.address_line, r.area, r.city].filter(Boolean).join(", ") || "Chennai Service Zone",
             landmark: r.landmark || "",
             pincode: r.pincode || "",
@@ -377,6 +377,46 @@ export const pillarOrderService = {
       return { data: sData || updates, error: null };
     } catch (error) {
       console.error("Update order status error:", error);
+      return { data: null, error };
+    }
+  },
+
+  async cancelOrder(bookingId, reason, pillarId) {
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true";
+    if (isDemo) {
+      const match = DEMO_ORDERS.find(o => o.id === bookingId);
+      if (match) {
+        match.status = "cancelled";
+      }
+      return { data: match, error: null };
+    }
+
+    try {
+      const updates = {
+        status: "cancelled",
+        escalation_reason: reason,
+        updated_at: new Date().toISOString(),
+      };
+
+      // 1. Update service_requests
+      const { data: sData, error: sErr } = await supabase
+        .from("service_requests")
+        .update(updates)
+        .eq("id", bookingId)
+        .select()
+        .maybeSingle();
+
+      if (sErr) throw sErr;
+
+      // 2. Update bookings (if exists)
+      await supabase
+        .from("bookings")
+        .update(updates)
+        .eq("id", bookingId);
+
+      return { data: sData || updates, error: null };
+    } catch (error) {
+      console.error("Cancel order error:", error);
       return { data: null, error };
     }
   },

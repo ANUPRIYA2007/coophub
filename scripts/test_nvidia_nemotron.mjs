@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const apiKey = "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";
+const apiKey = process.env.NVIDIA_API_KEY;
 const model = "nvidia/nemotron-parse";
 
 // 1x1 transparent PNG / test image data URL

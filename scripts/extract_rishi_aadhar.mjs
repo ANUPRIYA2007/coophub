@@ -4,7 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 dotenv.config();
 
-const NVIDIA_KEY = process.env.NVIDIA_API_KEY || "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";
+const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 
 async function extractAadharDirect() {
   const filePath = 'D:/Documents/RISHI CERTIFICATES & DOCUMENTS/AADHAR.pdf';

@@ -19,122 +19,43 @@ import { adminAgent } from "./adminAgent.js";
 import { translateDynamic } from "../../../i18n/centralEngine.js";
 
 // ============================================================
-// INTENT ROUTER — 100% LIVE AI (Zero Hardcoded Responses)
-// Every route → Live NVIDIA Nemotron / Gemini API
+// INTENT ROUTER — AI-FIRST (No Keyword Interception)
+// All natural-language understanding flows through NVIDIA NIM / Gemini API
+// Route-based dispatching is preserved for role separation only
 // ============================================================
 
 export const intentRouter = {
-  async route({ message, session, language = "en", route = "/dashboard" }) {
-    const q = message.toLowerCase().trim();
-    const isAuthenticated = Boolean(session?.user);
+  async route({ message, session, language = "en", route = "/dashboard", context = {} }) {
+    const isAuthenticated = Boolean(session?.user || context.user?.isAuthenticated);
 
     // ============================================================
-    // 1. DEDICATED PORTAL AGENT ROUTING
+    // 1. ADMIN PORTAL — Route-based dispatch (legitimate role separation)
     // ============================================================
-    if (route.startsWith("/admin")) {
-      return await adminAgent.handle(message, { language, route });
+    if (route.startsWith("/admin") || context.role === "admin" || context.role === "super_admin") {
+      return await adminAgent.handle(message, { language, route, context });
     }
 
     // ============================================================
-    // 1. CUSTOMER PORTAL AI MODE (Live Service Guidance & Booking)
+    // 2. CUSTOMER PORTAL — Route-based dispatch (legitimate role separation)
     // ============================================================
     const customerRoutes = ["/home", "/services", "/requests", "/messages", "/history", "/support", "/settings", "/profile"];
-    if (route.startsWith("/customer") || customerRoutes.some(cr => route === cr || (cr !== "/" && route.startsWith(cr)))) {
-      return await customerAgent.handle(message, { language, route, context: { session } });
+    if (route.startsWith("/customer") || customerRoutes.some(cr => route === cr || (cr !== "/" && route.startsWith(cr))) || context.role === "customer") {
+      return await customerAgent.handle(message, { language, route, context: { ...context, session } });
     }
 
     // ============================================================
-    // 2. PUBLIC AI MODE (Before Authentication)
+    // 3. PUBLIC (Unauthenticated) — All queries go through real AI
     // ============================================================
     if (!isAuthenticated) {
-      // Block private data requests before login
-      const isAskingPrivateData =
-        q.includes("my order") ||
-        q.includes("my earning") ||
-        q.includes("my message") ||
-        q.includes("my notification") ||
-        q.includes("my profile") ||
-        q.includes("my id") ||
-        q.includes("my money");
-
-      if (isAskingPrivateData) {
-        let authMsg = "🔒 Authentication Required: Please log in to view your orders, earnings, and profile data.";
-        if (language !== "en") {
-          authMsg = await translateDynamic(authMsg, language, "en");
-        }
-        return {
-          reply: authMsg,
-          intent: "auth_required",
-          route: "/login",
-        };
-      }
-
-      // ALL public queries → Live AI API
-      if (route.includes("register") || q.includes("register") || q.includes("sign up") || q.includes("join")) {
-        return await registrationHelpAgent.handle(message, language);
-      }
-
-      if (route.includes("login") || q.includes("otp") || q.includes("password") || q.includes("login")) {
-        return await authHelpAgent.handle(message, language);
-      }
-
-      return await publicInfoAgent.handle(message, language);
+      // All public queries go through publicInfoAgent which calls real AI API with context
+      return await publicInfoAgent.handle(message, language, { route, context });
     }
 
     // ============================================================
-    // 3. AUTHENTICATED PILLAR AI MODE — Live Context + Multi-Model AI
+    // 4. AUTHENTICATED PILLAR — ALL queries go to real AI API
+    // No keyword-based sub-agent routing. The AI model interprets
+    // the user's natural language directly with live job context.
     // ============================================================
-    const ctx = { session, language, route };
-
-    // Explicit Database Context Queries
-    if (q.includes("my order") || q.includes("my booking") || q.includes("today order") || q.includes("active job") || q.includes("pending job") || q.includes("ஆர்டர்") || q.includes("ऑर्डर")) {
-      return await orderAgent.handle(message, ctx);
-    }
-
-    if (q.includes("my earning") || q.includes("my payout") || q.includes("my balance") || q.includes("how much money") || q.includes("என் வருமானம்") || q.includes("मेरी कमाई")) {
-      return await financeAgent.handle(message, ctx);
-    }
-
-    if (q.includes("my notification") || q.includes("new alert") || q.includes("அறிவிப்பு") || q.includes("सूचना")) {
-      return await notificationAgent.handle(message, ctx);
-    }
-
-    if (q.includes("my message") || q.includes("customer chat") || q.includes("வாடிக்கையாளர் அரட்டை")) {
-      return await communicationAgent.handle(message, ctx);
-    }
-
-    if (q.includes("my arrival otp") || q.includes("verify otp") || q.includes("gps location") || q.includes("arrival code")) {
-      return await locationAgent.handle(message, ctx);
-    }
-
-    if (q.includes("create ticket") || q.includes("open complaint") || q.includes("support desk") || q.includes("உதவி டிக்கெட்")) {
-      return await supportAgent.handle(message, ctx);
-    }
-
-    if (q.includes("my profile") || q.includes("my pillar id") || q.includes("my certificate") || q.includes("சுயவிவரம்")) {
-      return await profileAgent.handle(message, ctx);
-    }
-
-    if (q.includes("change language") || q.includes("theme setting") || q.includes("அமைப்புகள்")) {
-      return await settingsAgent.handle(message, ctx);
-    }
-
-    if (
-      q.includes("my pf") ||
-      q.includes("my insurance") ||
-      q.includes("my claim") ||
-      q.includes("welfare scheme") ||
-      q.includes("pmjjby") ||
-      q.includes("pmsby") ||
-      q.includes("ayushman") ||
-      q.includes("tnuwwb") ||
-      q.includes("காப்பீடு") ||
-      q.includes("வைப்பு நிதி")
-    ) {
-      return await welfareAgent.handle(message, ctx);
-    }
-
-    // ALL other queries (tools, technical questions, repairs, safety, customer handling, general assistant) → Live NVIDIA/Gemini API!
-    return await generalPillarAssistantAgent.handle(message, ctx);
+    return await generalPillarAssistantAgent.handle(message, { session, language, route, context });
   },
 };

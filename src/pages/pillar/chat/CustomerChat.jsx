@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarChatService } from "../../../services/pillar/chatService";
@@ -8,9 +8,10 @@ import { Send, Phone, User, CheckCircle2, ArrowLeft, MapPin, Package, Radio } fr
 
 export default function CustomerChat() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const { profile } = useAuth();
-  const [activeChat, setActiveChat] = useState("CUST-1");
+  const [activeChat, setActiveChat] = useState(null);
   const [inputText, setInputText] = useState("");
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState({});
@@ -19,81 +20,47 @@ export default function CustomerChat() {
 
   const isDemo = localStorage.getItem("coophub_demo_user") === "true";
 
-  const DEMO_CONVERSATIONS = [
-    {
-      id: "CUST-1",
-      customerName: "Rakesh Kumar",
-      service: "Fan Repair & Installation",
-      bookingId: "ORD-9824",
-      lastMessage: "I will be waiting near the gate.",
-      time: "10:14 AM",
-      unread: 1,
-    },
-    {
-      id: "CUST-2",
-      customerName: "Sneha Reddy",
-      service: "Pipe Leakage",
-      bookingId: "ORD-9812",
-      lastMessage: "Please bring the wrench set.",
-      time: "Yesterday",
-      unread: 0,
-    },
-  ];
-
-  const DEMO_MESSAGES = {
-    "CUST-1": [
-      { id: 1, sender: "customer", text: "Hello! Are you on your way?", time: "10:10 AM" },
-      { id: 2, sender: "pillar", text: "Yes sir, I have started. Reaching in 15 minutes.", time: "10:12 AM" },
-      { id: 3, sender: "customer", text: "I will be waiting near the gate.", time: "10:14 AM" },
-    ],
-    "CUST-2": [
-      { id: 1, sender: "customer", text: "Please bring the wrench set.", time: "Yesterday 4:00 PM" },
-      { id: 2, sender: "pillar", text: "Sure ma'am, all tools are ready.", time: "Yesterday 4:05 PM" },
-    ],
-  };
+  // Check URL query parameters or location state for a target order/request ID
+  const queryParams = new URLSearchParams(location.search);
+  const targetRequestId = queryParams.get("requestId") || queryParams.get("orderId") || location.state?.orderId || location.state?.requestId;
 
   // Load conversations on mount
   useEffect(() => {
     async function loadConversations() {
-      if (isDemo) {
-        setConversations(DEMO_CONVERSATIONS);
-        setMessages(DEMO_MESSAGES);
-        setActiveChat("CUST-1");
-        setLoading(false);
-        return;
-      }
-
-      // Real Mode: Query bookings for active chats
       setLoading(true);
       const pillarId = profile?.id || profile?.user_id;
-      if (pillarId) {
-        const { data } = await pillarChatService.getActiveConversations(pillarId);
-        if (data && data.length > 0) {
-          const mapped = data.map((b) => ({
-            id: b.id,
-            customerName: b.customer_name || "Customer",
-            service: b.service_name || "Service Order",
-            bookingId: b.booking_code || b.id.substring(0, 8),
-            lastMessage: `Status: ${b.status}`,
-            time: new Date(b.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            unread: 0,
-          }));
-          setConversations(mapped);
-          setActiveChat(mapped[0].id);
+      
+      const { data } = await pillarChatService.getActiveConversations(pillarId);
+      if (data && data.length > 0) {
+        const mapped = data.map((b) => ({
+          id: b.id,
+          customerName: b.customer_name || "Customer",
+          service: b.service_name || "Service Order",
+          bookingId: b.booking_code || b.id.substring(0, 8),
+          lastMessage: `Status: ${b.status}`,
+          time: new Date(b.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          unread: 0,
+        }));
+        setConversations(mapped);
+        
+        if (targetRequestId && mapped.some(c => c.id === targetRequestId)) {
+          setActiveChat(targetRequestId);
         } else {
-          setConversations([]);
-          setActiveChat(null);
+          setActiveChat(mapped[0].id);
         }
+      } else {
+        setConversations([]);
+        setActiveChat(null);
       }
       setLoading(false);
     }
 
     loadConversations();
-  }, [isDemo, profile?.id, profile?.user_id]);
+  }, [profile?.id, profile?.user_id, targetRequestId]);
 
   // Load and subscribe to messages for activeChat in Real Mode
   useEffect(() => {
-    if (isDemo || !activeChat) return;
+    if (!activeChat) return;
 
     let isMounted = true;
     async function loadActiveMessages() {
@@ -119,17 +86,21 @@ export default function CustomerChat() {
         text: newMsg.content || newMsg.message,
         time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
-      setMessages((prev) => ({
-        ...prev,
-        [activeChat]: [...(prev[activeChat] || []), formattedMsg],
-      }));
+      setMessages((prev) => {
+        const currentList = prev[activeChat] || [];
+        if (currentList.some(m => m.id === newMsg.id)) return prev;
+        return {
+          ...prev,
+          [activeChat]: [...currentList, formattedMsg],
+        };
+      });
     });
 
     return () => {
       isMounted = false;
       if (channel) channel.unsubscribe();
     };
-  }, [activeChat, isDemo]);
+  }, [activeChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -141,8 +112,9 @@ export default function CustomerChat() {
     const textToSend = inputText.trim();
     setInputText("");
 
+    const localId = `local-${Date.now()}`;
     const newMsgLocal = {
-      id: Date.now(),
+      id: localId,
       sender: "pillar",
       text: textToSend,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -153,11 +125,21 @@ export default function CustomerChat() {
       [activeChat]: [...(prev[activeChat] || []), newMsgLocal],
     }));
 
-    if (isDemo) return;
-
-    // Real Mode: insert to Supabase
+    // Authoritative Supabase Insert
     const senderId = profile?.id || profile?.user_id;
-    await pillarChatService.sendMessage(activeChat, senderId, "pillar", textToSend);
+    const { data: sentData } = await pillarChatService.sendMessage(activeChat, senderId, "pillar", textToSend);
+    if (sentData?.id) {
+      setMessages((prev) => {
+        const list = prev[activeChat] || [];
+        return {
+          ...prev,
+          [activeChat]: list.map(m => m.id === localId ? {
+            ...m,
+            id: sentData.id
+          } : m)
+        };
+      });
+    }
   };
 
   const currentCustomer = conversations.find((c) => c.id === activeChat);

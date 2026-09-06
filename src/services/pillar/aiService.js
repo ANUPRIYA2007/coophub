@@ -1,4 +1,6 @@
 import { intentRouter } from "./ai/intentRouter.js";
+import { getLiveAiContext } from "../ai/dynamicContextService.js";
+import { capabilityResolutionEngine } from "../ai/capabilityResolutionEngine.js";
 
 export const aiService = {
   /**
@@ -7,28 +9,49 @@ export const aiService = {
    */
   async chatWithMascot(arg1, arg2 = {}) {
     let message = '';
-    let context = {};
+    let contextInput = {};
 
     if (typeof arg1 === 'string') {
       message = arg1;
-      context = arg2 || {};
+      contextInput = arg2 || {};
     } else if (arg1 && typeof arg1 === 'object') {
       message = arg1.message || arg1.text || arg1.query || '';
-      context = arg1.context || arg1.options || arg1;
+      contextInput = arg1.context || arg1.options || arg1;
     }
 
     try {
-      const result = await intentRouter.route({ message, context });
+      // Resolve comprehensive live runtime context (user, role, route, page, operation, job, scope, permissions)
+      const liveContext = await getLiveAiContext(contextInput);
+      const session = liveContext.session || contextInput.session || null;
+      const language = contextInput.language || liveContext.language || 'en';
+      const route = contextInput.route || liveContext.route || '/home';
+
+      const result = await intentRouter.route({
+        message,
+        session,
+        language,
+        route,
+        context: liveContext
+      });
       const rawText = result?.reply || result?.text || result?.message || "I am right here to help you!";
+
+      // Resolve authorized application capabilities & actionable YES/NO actions
+      const capability = capabilityResolutionEngine.resolveCapability({
+        query: message,
+        aiReply: rawText,
+        context: liveContext
+      });
 
       return {
         reply: rawText,
         text: rawText,
         message: rawText,
-        route: result?.route || null,
+        route: capability.action?.path || result?.route || null,
         provider: result?.provider || 'coophub_ai',
         intent: result?.intent || 'general_help',
-        action: result?.action || null,
+        action: capability.action || result?.action || null,
+        yesNoAction: capability.yesNoAction || null,
+        context: liveContext,
         ...result
       };
     } catch (err) {

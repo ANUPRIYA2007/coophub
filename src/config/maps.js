@@ -5,18 +5,15 @@
 // visual map style themes, and required Cloud APIs checklist.
 // ==============================================================================
 
-// Prototype/Demo Fallback Key — for development and interactive preview
-const PROTOTYPE_DEMO_KEY = "AIzaSyBFkD4K7uw_2K3mQegXbSar8QhF2LeUTQE";
-
 // Environment variable resolution
-const envKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
+const envKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || "";
 
 export const GOOGLE_MAPS_CONFIG = {
   // Resolved API key
-  apiKey: envKey || PROTOTYPE_DEMO_KEY,
+  apiKey: envKey,
   
-  // Flag indicating if using un-restricted prototype demo key
-  isPrototypeKey: !envKey || envKey === PROTOTYPE_DEMO_KEY,
+  // Flag indicating if API key is unconfigured
+  isPrototypeKey: !envKey,
   
   // Default Geographic Center: Chennai Cooperative Hub (Guindy)
   defaultCenter: {

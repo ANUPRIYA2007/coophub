@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/useTranslation.js';
 import { translateDynamic } from '../../i18n/centralEngine.js';
 import { getLanguageMetadata } from '../../i18n/languages.js';
@@ -12,6 +12,7 @@ export default function GlobalHeroAgent({ inline = false }) {
     const { t, language } = useTranslation();
     const location = useLocation();
     const params = useParams();
+    const navigate = useNavigate();
 
     const [animState, setAnimState] = useState('idle'); // idle, listening, speaking, thinking, success, error, greeting
     const [heroGreeting, setHeroGreeting] = useState('');
@@ -382,23 +383,26 @@ export default function GlobalHeroAgent({ inline = false }) {
             });
 
             const reply = res?.reply || "I am right here to help you!";
-            const clean = reply.split('\n')[0].replace(/[*#_]/g, '').trim();
+            // Preserve full AI response for chat history; use first line for greeting bubble only
+            const bubbleText = reply.split('\n')[0].replace(/[*#_]/g, '').trim();
 
             setHeroMessages(prev => [...prev, {
                 id: `hero-${Date.now()}`,
                 sender: 'hero',
-                text: clean,
+                text: reply,
                 route: res?.route,
+                action: res?.action,
+                yesNoAction: res?.yesNoAction,
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }]);
-            setHeroGreeting(clean);
+            setHeroGreeting(bubbleText);
             setAnimState('idle');
-            speakGreeting(null, clean);
+            speakGreeting(null, bubbleText);
         } catch (err) {
             setHeroMessages(prev => [...prev, {
                 id: `err-${Date.now()}`,
                 sender: 'hero',
-                text: "I am ready to help! Ask me anything about home services.",
+                text: "⚠️ AI service could not respond right now. Please try again.",
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }]);
             setAnimState('idle');
@@ -427,17 +431,20 @@ export default function GlobalHeroAgent({ inline = false }) {
                 message: query,
                 context: { route: location.pathname, language, module: 'home' }
             }).then(res => {
-                const clean = (res?.reply || "").split('\n')[0].replace(/[*#_]/g, '').trim();
+                const fullReply = res?.reply || "I can help with that!";
+                const bubbleText = fullReply.split('\n')[0].replace(/[*#_]/g, '').trim();
                 setHeroMessages(prev => [...prev, {
                     id: `hero-${Date.now()}`,
                     sender: 'hero',
-                    text: clean || "I can help with that!",
+                    text: fullReply,
                     route: res?.route,
+                    action: res?.action,
+                    yesNoAction: res?.yesNoAction,
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 }]);
-                setHeroGreeting(clean);
+                setHeroGreeting(bubbleText);
                 setAnimState('idle');
-                speakGreeting(null, clean);
+                speakGreeting(null, bubbleText);
             }).catch(() => {
                 setAnimState('idle');
             }).finally(() => {
@@ -453,7 +460,7 @@ export default function GlobalHeroAgent({ inline = false }) {
                 {isBubbleOpen && (
                     <div 
                         style={{ background: "rgba(15, 23, 42, 0.95)", borderColor: "rgba(255, 121, 0, 0.35)" }}
-                        className="w-full border rounded-2xl p-2.5 mb-2 relative shadow-2xl backdrop-blur-md animate-fadeIn flex flex-col gap-2 max-h-[260px]"
+                        className="w-full border rounded-2xl p-2.5 mb-2 relative shadow-2xl backdrop-blur-md animate-fadeIn flex flex-col gap-2 max-h-[300px]"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5 px-1">
@@ -479,20 +486,66 @@ export default function GlobalHeroAgent({ inline = false }) {
                         </div>
 
                         {/* Message list */}
-                        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[120px] text-[11px]">
+                        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[140px] text-[11px]">
                             {heroMessages.length === 0 ? (
                                 <p className="text-slate-200 font-medium leading-relaxed p-1">
                                     "{heroGreeting || 'Hello! I am CoopBot, your live service guide. How may I assist your home today?'}"
                                 </p>
                             ) : (
                                 heroMessages.map(m => (
-                                    <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`p-1.5 px-2.5 rounded-xl max-w-[90%] leading-relaxed ${
+                                    <div key={m.id} className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                                        <div className={`p-1.5 px-2.5 rounded-xl max-w-[92%] leading-relaxed ${
                                             m.sender === 'user'
                                                 ? 'bg-orange-500 text-white rounded-br-none'
                                                 : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700'
                                         }`}>
-                                            {m.text}
+                                            <div>{m.text}</div>
+
+                                            {/* Actionable YES / NO Buttons */}
+                                            {m.sender === 'hero' && m.yesNoAction && (
+                                                <div className="mt-2 pt-1.5 border-t border-slate-700/70 flex items-center gap-1.5 w-full">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (m.yesNoAction.yes?.path) {
+                                                                setIsBubbleOpen(false);
+                                                                navigate(m.yesNoAction.yes.path);
+                                                            }
+                                                        }}
+                                                        className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-[10px] py-1 px-2 rounded shadow transition-all active:scale-95 text-center flex items-center justify-center gap-1 cursor-pointer"
+                                                    >
+                                                        <CheckCircle2 size={11} />
+                                                        <span>{m.yesNoAction.yes.label}</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setHeroMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, yesNoAction: null } : msg));
+                                                        }}
+                                                        className="bg-slate-700/80 hover:bg-slate-600 text-slate-300 text-[10px] py-1 px-2 rounded font-medium transition-colors cursor-pointer"
+                                                    >
+                                                        {m.yesNoAction.no?.label || 'Dismiss'}
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Single Action Pill Button */}
+                                            {m.sender === 'hero' && m.action && !m.yesNoAction && (
+                                                <div className="mt-2 pt-1.5 border-t border-slate-700/70 w-full">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (m.action.path) {
+                                                                setIsBubbleOpen(false);
+                                                                navigate(m.action.path);
+                                                            }
+                                                        }}
+                                                        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-[10px] py-1 px-2 rounded shadow transition-all active:scale-95 text-center cursor-pointer"
+                                                    >
+                                                        {m.action.label}
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))

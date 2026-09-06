@@ -183,77 +183,6 @@ export default function ChatAgent({ contextData }) {
         }
     };
 
-    // ────── LOCAL CUSTOMER & PILLAR INTENT ROUTER ──────
-    const routeCustomerIntent = (text) => {
-        const q = text.toLowerCase();
-
-        // 1. Pillar Verification & Onboarding inquiries
-        if (q.includes('become a pillar') || q.includes('join as technician') || q.includes('pillar registration') || q.includes('pillar verify') || q.includes('verification process')) {
-            return {
-                reply: '🏛️ **How to Become a Verified COOP HUB Pillar**:\n\n1️⃣ **Register Online** at `/pillar/register`\n2️⃣ **Select Your Trade Skills** (Electrician, Plumber, AC Repair, etc.)\n3️⃣ **Step 3 KYC Verification**: Upload your Aadhaar, PAN, Voter ID, or Driving Licence\n4️⃣ **PaddleOCR Inspection & Admin Approval**: Once verified, you will receive your Unique Pillar ID (`PIL-CHE-XXX`) via official email\n\nWould you like to open the Pillar Registration portal?',
-                action: { type: 'navigate', path: '/pillar/register', label: 'Go to Pillar Registration' }
-            };
-        }
-
-        // 2. Check Track / status / request
-        if (q.includes('track') || q.includes('status') || q.includes('request') || q.includes('order') || q.includes('where') || q.includes('eta') || q.includes('pillar coming')) {
-            return {
-                reply: '📦 **Track Your Service Request**:\n\n1️⃣ Go to **My Requests** in your navigation\n2️⃣ Select your active booking\n3️⃣ View live technician dispatch status, ETA, and arrival OTP\n\nWould you like me to take you to your active requests?',
-                action: { type: 'navigate', path: '/requests', label: 'View My Requests' }
-            };
-        }
-
-        // 3. Check Support / help / ticket
-        if (q.includes('support') || q.includes('help') || q.includes('ticket') || q.includes('complaint') || q.includes('issue') || q.includes('problem with service')) {
-            return {
-                reply: '🆘 **COOP HUB Support Center**:\n\n• **24/7 Helpline**: Dedicated customer assistance\n• **Open a Support Ticket**: Guaranteed resolution within 2 hours\n• **Dispute Resolution**: Direct cooperative mediation for quality assurance\n\nGo to **Help & Support** in the menu to submit a ticket.',
-                action: { type: 'navigate', path: '/support', label: 'Go to Support Center' }
-            };
-        }
-
-        // 4. Check Payment / pricing / cost
-        if (q.includes('price') || q.includes('cost') || q.includes('charge') || q.includes('payment') || q.includes('invoice') || q.includes('pay') || q.includes('how much')) {
-            return {
-                reply: '💰 **Cooperative Pricing & Standard Rates**:\n\n• **Transparent Base Rates**: Starting from ₹250–₹2,500 based on standard trade rate cards\n• **Zero Hidden Fees**: All extra materials require your explicit OTP/in-app approval\n• **Safe Payment Options**: UPI, Doorstep Cash, or Card post-completion\n• **Official GST Invoices**: Auto-generated in your dashboard.',
-                action: null
-            };
-        }
-
-        // 5. Plumbing
-        if (q.includes('water') || q.includes('leak') || q.includes('plumb') || q.includes('pipe') || q.includes('tap') || q.includes('drainage')) {
-            return {
-                reply: '💧 **Plumbing & Pipe Repair**:\n\n• Tap & Mixer Replacement — from ₹250\n• Water Leakage & Clog Removal — from ₹400\n• Motor & Pump Installation — from ₹600\n\nAll technicians are background-verified and certified.',
-                action: { type: 'navigate', path: '/services', label: 'Book Plumbing Service' }
-            };
-        }
-
-        // 6. Electrical
-        if (q.includes('electric') || q.includes('fan') || q.includes('switch') || q.includes('wiring') || q.includes('mcb') || q.includes('inverter') || q.includes('short circuit')) {
-            return {
-                reply: '⚡ **Electrical Repair & Maintenance**:\n\n• Ceiling Fan & Switchboard Wiring — from ₹350\n• MCB Tripping & Short Circuit Inspection — from ₹450\n• Inverter & Battery Wiring — from ₹800\n\nNearest verified electrician will be assigned upon booking.',
-                action: { type: 'navigate', path: '/services', label: 'Book Electrical Service' }
-            };
-        }
-
-        // 7. AC Repair
-        if (/\bac\b/.test(q) || q.includes('air condition') || q.includes('cooling') || q.includes('gas') || q.includes('compressor')) {
-            return {
-                reply: '❄️ **AC Repair & Deep Cleaning**:\n\n• Jet Pump Cleaning & Filter Wash — from ₹600\n• Gas Leak Check & Refill — from ₹1,800\n• Compressor & PCB Diagnostics — from ₹2,500\n\nIncludes 30-day cooperative service warranty.',
-                action: { type: 'navigate', path: '/services', label: 'Book AC Service' }
-            };
-        }
-
-        // 8. Greetings
-        if (q.includes('hello') || q.includes('hi') || q.includes('hey') || q.includes('vanakkam') || q.includes('namaste')) {
-            return {
-                reply: 'Hello! 👋 I am CoopBot, your COOP HUB AI Guide. I can help you find verified technicians, track requests, calculate pricing, or guide Pillar verification.',
-                action: null
-            };
-        }
-
-        return null;
-    };
-
     const handleSend = async (e, directText = null) => {
         e?.preventDefault();
         const textToSend = (directText || input).trim();
@@ -279,23 +208,7 @@ export default function ChatAgent({ contextData }) {
         setLoading(true);
 
         try {
-            // 1. Try local intent router first
-            const localResult = routeCustomerIntent(combinedText);
-
-            if (localResult) {
-                const botReply = {
-                    id: `bot-${Date.now()}`,
-                    role: 'assistant',
-                    content: localResult.reply,
-                    action: localResult.action,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                };
-                await new Promise(r => setTimeout(r, 500));
-                setMessages(prev => [...prev, botReply]);
-                return;
-            }
-
-            // 2. Live AI Pipeline: Call aiService (NVIDIA Nemotron & Gemini multi-model engine)
+            // All messages go directly to the real AI pipeline (NVIDIA NIM / Gemini)
             const { data: { session } } = await supabase.auth.getSession();
             const currentContext = {
                 route: location.pathname,
@@ -312,8 +225,8 @@ export default function ChatAgent({ contextData }) {
             });
 
             if (response && response.reply) {
-                let action = null;
-                if (response.route && response.route !== location.pathname) {
+                let action = response.action || null;
+                if (!action && response.route && response.route !== location.pathname) {
                     action = {
                         type: 'navigate',
                         path: response.route,
@@ -327,6 +240,7 @@ export default function ChatAgent({ contextData }) {
                         role: 'assistant',
                         content: response.reply,
                         action: action,
+                        yesNoAction: response.yesNoAction || null,
                         provider: response.provider || 'CoopBot AI',
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     }
@@ -337,7 +251,7 @@ export default function ChatAgent({ contextData }) {
             }
         } catch (err) {
             console.error('Chat error:', err);
-            const baseErrMsg = "I'm here to help! You can ask about:\n• ⚡ \"Book Electrical Service\"\n• 💧 \"Fix plumbing leak\"\n• 📦 \"Track my request\"\n• 🏛️ \"How to become a Pillar technician\"\n\nOr click one of the quick options above!";
+            const baseErrMsg = "⚠️ AI service could not process your request right now. Please try again shortly. If this persists, visit Help & Support for assistance.";
             const errMsg = language !== 'en' ? await translateDynamic(baseErrMsg, language, 'en') : baseErrMsg;
             setMessages(prev => [
                 ...prev,
@@ -527,7 +441,65 @@ export default function ChatAgent({ contextData }) {
                                             >
                                                 <p className="whitespace-pre-line m-0 font-medium select-text">{msg.content}</p>
                                                 
-                                                {msg.action && (
+                                                {/* Actionable YES / NO Buttons */}
+                                                {msg.yesNoAction && (
+                                                    <div className="mt-2.5 pt-2 border-t border-slate-200/80 flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (msg.yesNoAction.yes?.path) {
+                                                                    setIsOpen(false);
+                                                                    navigate(msg.yesNoAction.yes.path);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                flex: 1,
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px",
+                                                                background: "linear-gradient(135deg, #FF7900 0%, #E66A00 100%)",
+                                                                color: "white",
+                                                                padding: "8px 12px",
+                                                                fontSize: "12px",
+                                                                fontWeight: "800",
+                                                                borderRadius: "10px",
+                                                                border: "none",
+                                                                cursor: "pointer",
+                                                                boxShadow: "0 2px 6px rgba(255, 121, 0, 0.3)"
+                                                            }}
+                                                            className="hover:brightness-105 active:scale-98 transition-all"
+                                                        >
+                                                            <span>{msg.yesNoAction.yes.label}</span>
+                                                            <ArrowRight size={13} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, yesNoAction: null } : m));
+                                                            }}
+                                                            style={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                background: "#F1F5F9",
+                                                                color: "#64748B",
+                                                                padding: "8px 12px",
+                                                                fontSize: "12px",
+                                                                fontWeight: "600",
+                                                                borderRadius: "10px",
+                                                                border: "1px solid #CBD5E1",
+                                                                cursor: "pointer"
+                                                            }}
+                                                            className="hover:bg-slate-200 transition-colors"
+                                                        >
+                                                            <span>{msg.yesNoAction.no.label}</span>
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Single Action Button (if no Yes/No choice) */}
+                                                {msg.action && !msg.yesNoAction && (
                                                     <div className="mt-2.5 pt-2 border-t border-slate-200">
                                                         <button
                                                             type="button"

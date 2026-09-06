@@ -12,6 +12,16 @@ const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
 const IS_SANDBOX_MODE = !RAZORPAY_KEY_ID || RAZORPAY_KEY_ID === "rzp_test_placeholder";
 
 /**
+ * Load Razorpay Checkout SDK dynamically (already loaded via index.html <script>)
+ */
+function getRazorpaySDK() {
+  if (typeof window !== 'undefined' && window.Razorpay) {
+    return window.Razorpay;
+  }
+  return null;
+}
+
+/**
  * Payment Gateway Adapter Interface
  */
 export const paymentGatewayAdapter = {
@@ -24,61 +34,110 @@ export const paymentGatewayAdapter = {
   },
 
   /**
-   * 1. Create a Payment Gateway Order
-   * Generates a unique order ID and prepares client checkout metadata
+   * 1. Create a Payment Gateway Order via backend
+   * Calls POST /api/payment/create-order → returns Razorpay orderId, amount, currency, keyId
+   * NOTE: The backend ignores frontend amount and calculates it authoritatively.
    */
-  async createGatewayOrder({ invoiceId, amount, currency = "INR", customer, serviceName }) {
+  async createGatewayOrder({ invoiceId, currency = "INR", customer, serviceName, fallbackAmount }) {
     const orderRef = `ORD_${invoiceId ? invoiceId.slice(0, 8) : Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
-    if (IS_SANDBOX_MODE) {
-      return {
-        success: true,
-        orderId: `order_sandbox_${orderRef}`,
-        amount: amount * 100, // in paise
-        currency,
-        keyId: "rzp_test_coophub_sandbox",
-        isSandbox: true,
-        notes: {
-          invoiceId,
-          serviceName,
-          customerName: customer?.full_name || "Cooperative Customer"
-        }
-      };
-    }
-
-    // Live Razorpay order initiation (can call backend endpoint or REST API)
     try {
       const response = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(amount * 100),
+          invoiceId,
           currency,
           receipt: orderRef,
-          notes: { invoiceId, serviceName }
+          notes: { serviceName },
+          fallbackAmount
         })
       });
 
       if (response.ok) {
         const orderData = await response.json();
-        return { success: true, ...orderData, isSandbox: false };
+        return {
+          success: true,
+          orderId: orderData.orderId,
+          amount: orderData.amount, // Authoritative amount returned by backend
+          currency: orderData.currency,
+          keyId: orderData.keyId,
+          isSandbox: false
+        };
       }
-      throw new Error(`Order creation returned HTTP ${response.status}`);
-    } catch (liveErr) {
-      console.warn("Falling back to client-safe order session:", liveErr.message);
-      return {
-        success: true,
-        orderId: `order_live_${orderRef}`,
-        amount: amount * 100,
-        currency,
-        keyId: RAZORPAY_KEY_ID,
-        isSandbox: false
-      };
+
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error(errBody.error || `Order creation returned HTTP ${response.status}`);
+    } catch (err) {
+      console.error("[PaymentGateway] Order creation failed:", err.message);
+      throw err;
     }
   },
 
   /**
-   * 2. Server-Side Signature Verification & Double-Payment Prevention
+   * 2. Open the Razorpay Checkout modal
+   * Returns a Promise that resolves with { paymentId, orderId, signature } on success
+   * or rejects on user cancellation / error
+   */
+  openCheckout({ orderId, amount, currency, keyId, customer, serviceName, invoiceId }) {
+    return new Promise((resolve, reject) => {
+      const RazorpaySDK = getRazorpaySDK();
+      if (!RazorpaySDK) {
+        reject(new Error('Razorpay SDK not loaded. Check that checkout.js is included in index.html.'));
+        return;
+      }
+
+      const options = {
+        key: keyId || RAZORPAY_KEY_ID,
+        amount: amount,
+        currency: currency || 'INR',
+        name: 'COOP HUB',
+        description: serviceName || 'Cooperative Service Payment',
+        order_id: orderId,
+        prefill: {
+          name: customer?.full_name || customer?.name || '',
+          email: customer?.email || '',
+          contact: customer?.phone || customer?.mobile || ''
+        },
+        notes: {
+          invoiceId: invoiceId || '',
+          serviceName: serviceName || ''
+        },
+        theme: {
+          color: '#1B2A4A'   // Navy theme matching COOP HUB
+        },
+        modal: {
+          ondismiss: function () {
+            reject(new Error('Payment cancelled by user.'));
+          }
+        },
+        handler: function (response) {
+          // Razorpay returns: razorpay_payment_id, razorpay_order_id, razorpay_signature
+          resolve({
+            paymentId: response.razorpay_payment_id,
+            orderId: response.razorpay_order_id,
+            signature: response.razorpay_signature
+          });
+        }
+      };
+
+      const rzp = new RazorpaySDK(options);
+
+      rzp.on('payment.failed', function (failureResponse) {
+        console.error('[Razorpay] Payment failed:', failureResponse.error);
+        reject(new Error(
+          failureResponse.error?.description ||
+          failureResponse.error?.reason ||
+          'Payment failed.'
+        ));
+      });
+
+      rzp.open();
+    });
+  },
+
+  /**
+   * 3. Server-Side Signature Verification & Double-Payment Prevention
    * Validates cryptographic authenticity and prevents duplicate processing
    */
   async verifyPayment({ orderId, paymentId, signature, invoiceId, requestId, amount, customerId, pillarId }) {
@@ -99,29 +158,23 @@ export const paymentGatewayAdapter = {
       };
     }
 
-    // 2. Cryptographic / Gateway Confirmation
+    // 2. Cryptographic / Gateway Confirmation via backend
     let isValid = false;
-    if (IS_SANDBOX_MODE) {
-      // In sandbox mode, signature must conform to sandbox token format
-      isValid = Boolean(paymentId && orderId);
-    } else {
-      // Server-side HMAC SHA256 signature verification proxy
-      try {
-        const response = await fetch('/api/payment/verify-signature', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, paymentId, signature })
-        });
-        if (response.ok) {
-          const res = await response.json();
-          isValid = res.verified === true;
-        } else {
-          isValid = false;
-        }
-      } catch (err) {
-        // Fallback validation check
-        isValid = Boolean(paymentId && signature);
+    try {
+      const response = await fetch('/api/payment/verify-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, paymentId, signature })
+      });
+      if (response.ok) {
+        const res = await response.json();
+        isValid = res.verified === true;
+      } else {
+        isValid = false;
       }
+    } catch (err) {
+      console.error('[PaymentGateway] Signature verification request failed:', err.message);
+      isValid = false;
     }
 
     if (!isValid) {

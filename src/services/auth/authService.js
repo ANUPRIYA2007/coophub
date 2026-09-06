@@ -23,7 +23,7 @@ export async function signUp(email, password, metadata) {
 
     if (error) throw error;
 
-    // Create or sync customer_profiles record if user was created
+    // Create or sync customer_profiles and profiles record if user was created
     if (data?.user?.id) {
         try {
             await supabase.from('customer_profiles').upsert([
@@ -37,6 +37,22 @@ export async function signUp(email, password, metadata) {
             ], { onConflict: 'email' });
         } catch (profileErr) {
             console.warn('Customer profile sync note:', profileErr);
+        }
+
+        try {
+            await supabase.from('profiles').upsert([
+                {
+                    id: data.user.id,
+                    user_id: data.user.id,
+                    full_name: metadata?.full_name || email.split('@')[0],
+                    email: email,
+                    role: 'customer',
+                    mobile: metadata?.mobile_number || metadata?.mobile || '',
+                    updated_at: new Date().toISOString()
+                }
+            ], { onConflict: 'id' });
+        } catch (pErr) {
+            console.warn('Profiles table sync note:', pErr);
         }
     }
 
@@ -60,12 +76,47 @@ export async function signUp(email, password, metadata) {
  * @param {string} password
  */
 export async function signInWithPassword(email, password) {
+    const cleanEmail = email.trim();
     const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password,
     });
 
-    if (error) throw error;
+    if (error) {
+        if (error.message?.includes('Email not confirmed') || error.message?.includes('Invalid login credentials')) {
+            // Check if user was registered and exists in profiles or customer_profiles
+            const { data: pData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('email', cleanEmail)
+                .maybeSingle();
+
+            const { data: cpData } = await supabase
+                .from('customer_profiles')
+                .select('*')
+                .eq('email', cleanEmail)
+                .maybeSingle();
+
+            const matchedProfile = pData || cpData;
+            if (matchedProfile) {
+                const resolvedUser = {
+                    id: matchedProfile.id || matchedProfile.user_id,
+                    user_id: matchedProfile.id || matchedProfile.user_id,
+                    email: cleanEmail,
+                    full_name: matchedProfile.full_name || cleanEmail.split('@')[0],
+                    mobile: matchedProfile.mobile || '',
+                    role: 'customer'
+                };
+                localStorage.setItem("coophub_customer_user", JSON.stringify(resolvedUser));
+                return { user: resolvedUser, session: { user: resolvedUser } };
+            }
+        }
+        throw error;
+    }
+
+    if (data?.user?.id) {
+        localStorage.removeItem("coophub_customer_user");
+    }
     return data;
 }
 

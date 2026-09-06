@@ -1,4 +1,5 @@
 import { callPillarAiApi } from "./aiApi.js";
+import { formatContextForSystemPrompt } from "../../ai/dynamicContextService.js";
 
 const CUSTOMER_ROUTE_DATA = {
   "/home": {
@@ -59,14 +60,17 @@ export const customerAgent = {
 
     try {
       const isNavTip = query.toLowerCase().includes("just navigated to");
+      const ctxSummary = context ? formatContextForSystemPrompt(context) : '';
+
       const promptText = isNavTip
-        ? `The user is a customer on the COOP HUB Customer Portal on route '${route}'. ${routeInfo.tipPrompt} Give a concise 1-2 sentence friendly tip in ${langName}.`
-        : `You are CoopBot, the helpful 24/7 AI Service Assistant for COOP HUB customer home services in Chennai. The customer is currently on '${route}' and asks: "${query}". Provide a helpful, clear, and structured response in ${langName}. If relevant, mention standard rates, how to book or track requests, and cooperative technician guarantees.`;
+        ? `The user is a customer on the COOP HUB Customer Portal on route '${route}'. ${ctxSummary}\n${routeInfo.tipPrompt} Give a concise 1-2 sentence friendly tip in ${langName}.`
+        : `You are CoopBot, the helpful 24/7 AI Service Assistant for COOP HUB customer home services in Chennai.\n${ctxSummary}\nThe customer is currently on '${route}' and asks: "${query}". Provide a helpful, clear, and structured response in ${langName}. If relevant, mention standard rates, how to book or track requests, and cooperative technician guarantees.`;
 
       const aiResponse = await callPillarAiApi({
         prompt: promptText,
         language,
         route,
+        context,
       });
 
       if (aiResponse && aiResponse.reply) {

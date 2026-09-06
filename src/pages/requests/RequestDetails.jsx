@@ -9,10 +9,11 @@ import LiveTrackingMap from '../../components/maps/LiveTrackingMap';
 import { 
     Phone, MessageSquare, MapPin, Navigation, Clock, ShieldCheck, 
     CheckCircle2, AlertTriangle, FileText, Star, UserCheck, ChevronRight,
-    CreditCard, ArrowLeft, Sparkles
+    CreditCard, ArrowLeft, Sparkles, Banknote
 } from 'lucide-react';
 import OrderReceiptModal from '../../components/common/OrderReceiptModal';
 import CustomerChatDrawer from '../../components/chat/CustomerChatDrawer';
+import PillarProfileModal from '../../components/common/PillarProfileModal';
 
 export default function RequestDetails() {
     const { id } = useParams();
@@ -31,28 +32,142 @@ export default function RequestDetails() {
     const [showCheckoutModal, setShowCheckoutModal] = useState(false);
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
     const [showReceiptModal, setShowReceiptModal] = useState(false);
+    const [showPillarProfile, setShowPillarProfile] = useState(false);
     const [showChatDrawer, setShowChatDrawer] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
+    const [isSelectingCash, setIsSelectingCash] = useState(false);
+    const [dynamicDistance, setDynamicDistance] = useState(null);
+    const [dynamicEta, setDynamicEta] = useState(null);
+    const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+    const [showPaymentSuccessAnimation, setShowPaymentSuccessAnimation] = useState(false);
 
-    const handleInitiatePayment = () => {
-        setShowCheckoutModal(true);
+    const handleSelectHandCash = async () => {
+        setIsSelectingCash(true);
+        try {
+            const res = await paymentService.chooseHandCash(id, requestData?.customer_id);
+            if (res.success) {
+                const { invoice, payment } = await paymentService.getPaymentDetails(id);
+                setInvoiceData(invoice);
+                setPaymentData(payment);
+                setRequestData(prev => prev ? ({ ...prev, payment_status: 'pending', payment_gateway_ref: 'HAND_CASH' }) : prev);
+            } else {
+                alert('Could not set hand cash: ' + (res.error || 'Server error'));
+            }
+        } catch (err) {
+            console.error('Hand cash selection error:', err);
+        } finally {
+            setIsSelectingCash(false);
+        }
     };
 
-    const handleConfirmPayment = async () => {
+    const handleInitiatePayment = async () => {
         setIsPaying(true);
         try {
-            await paymentService.processPayment(id, { method: 'upi', amount: invoiceData?.total_amount || 450 });
-            const { invoice, payment } = await paymentService.getPaymentDetails(id);
+            // 1. Create or get invoice
+            const { invoice } = await paymentService.createOrGetInvoice({
+                id,
+                ...requestData,
+                customer_id: requestData?.customer_id,
+                pillar_id: requestData?.pillar_id
+            });
             setInvoiceData(invoice);
-            setPaymentData(payment);
-            setShowCheckoutModal(false);
+
+            // 2. Create Razorpay order via backend
+            const { paymentGatewayAdapter } = await import('../../services/payment/paymentGatewayAdapter');
+            const orderResult = await paymentGatewayAdapter.createGatewayOrder({
+                invoiceId: invoice?.id || id,
+                currency: 'INR',
+                customer: { full_name: requestData?.customer_name },
+                serviceName: requestData?.service?.name || requestData?.service_name || 'Cooperative Service',
+                fallbackAmount: invoice?.total_amount || requestData?.total_amount
+            });
+
+            if (!orderResult.success) {
+                throw new Error('Failed to create payment order.');
+            }
+
+            // 3. Open real Razorpay Checkout modal
+            const checkoutResult = await paymentGatewayAdapter.openCheckout({
+                orderId: orderResult.orderId,
+                amount: orderResult.amount,
+                currency: orderResult.currency,
+                keyId: orderResult.keyId,
+                customer: {
+                    full_name: requestData?.customer_name,
+                    email: requestData?.customer_email || '',
+                    phone: requestData?.customer_mobile || ''
+                },
+                serviceName: requestData?.service?.name || requestData?.service_name || 'Cooperative Service',
+                invoiceId: invoice?.id
+            });
+
+            // 4. Verify payment signature server-side
+            const verifyResult = await paymentGatewayAdapter.verifyPayment({
+                orderId: checkoutResult.orderId,
+                paymentId: checkoutResult.paymentId,
+                signature: checkoutResult.signature,
+                invoiceId: invoice?.id,
+                requestId: id,
+                amount: orderResult.amount, // Use the verified backend amount
+                customerId: requestData?.customer_id,
+                pillarId: requestData?.pillar_id
+            });
+
+            if (verifyResult.verified) {
+                // Refresh payment & invoice data
+                const { invoice: updatedInvoice, payment } = await paymentService.getPaymentDetails(id);
+                setInvoiceData(updatedInvoice);
+                setPaymentData(payment);
+                
+                // Show Success Animation
+                setShowPaymentSuccessAnimation(true);
+                setTimeout(() => setShowPaymentSuccessAnimation(false), 5000);
+            } else {
+                alert('Payment verification failed. Please contact support.');
+            }
         } catch (err) {
-            alert('Payment processing note: ' + (err.message || 'Payment recorded.'));
-            setShowCheckoutModal(false);
+            if (err.message !== 'Payment cancelled by user.') {
+                alert('Payment error: ' + (err.message || 'Something went wrong.'));
+            }
         } finally {
             setIsPaying(false);
         }
     };
+
+    // Legacy handler — kept for backward compatibility with checkout modal button
+    const handleConfirmPayment = async () => {
+        await handleInitiatePayment();
+    };
+
+
+    useEffect(() => {
+        if (pillarGps && requestData?.latitude && requestData?.longitude) {
+            const p = 0.017453292519943295;
+            const c = Math.cos;
+            const a = 0.5 - c((requestData.latitude - pillarGps.lat) * p)/2 + 
+                    c(pillarGps.lat * p) * c(requestData.latitude * p) * 
+                    (1 - c((requestData.longitude - pillarGps.lng) * p))/2;
+            const distKm = 12742 * Math.asin(Math.sqrt(a));
+            setDynamicDistance(distKm.toFixed(1));
+            
+            if (distKm > 0.05) {
+                setDynamicEta(Math.ceil((distKm / 30) * 60)); // Assumes 30 km/h average
+            } else {
+                setDynamicEta(0); // Arrived
+            }
+        } else {
+            setDynamicDistance(null);
+            setDynamicEta(null);
+        }
+    }, [pillarGps, requestData?.latitude, requestData?.longitude]);
+
+    useEffect(() => {
+        if (requestData?.status === 'completed' && invoiceData?.invoice_status !== 'paid') {
+            setShowCompletionAnimation(true);
+            const t1 = setTimeout(() => setShowCompletionAnimation(false), 3500);
+            return () => clearTimeout(t1);
+        }
+    }, [requestData?.status, invoiceData?.invoice_status]);
 
     const handleShareCustomerLocation = async () => {
         setSharingLocation(true);
@@ -96,7 +211,7 @@ export default function RequestDetails() {
                 // Subscribe to realtime Pillar GPS telemetry if assigned
                 if (data.pillar_id) {
                     channel = supabase
-                        .channel(`pillar_gps_${data.pillar_id}`)
+                        .channel(`pillar_gps_${data.pillar_id}_${Date.now()}`)
                         .on(
                             'postgres_changes',
                             { event: 'UPDATE', schema: 'public', table: 'pillar_profiles', filter: `id=eq.${data.pillar_id}` },
@@ -151,6 +266,22 @@ export default function RequestDetails() {
                     fetchRequest();
                 }
             )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'invoices', filter: `request_id=eq.${id}` },
+                (payload) => {
+                    console.log("⚡ Live Invoice update in Customer Portal:", payload.new);
+                    fetchRequest();
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'payments', filter: `request_id=eq.${id}` },
+                (payload) => {
+                    console.log("⚡ Live Payment update in Customer Portal:", payload.new);
+                    fetchRequest();
+                }
+            )
             .subscribe();
 
         return () => {
@@ -200,15 +331,7 @@ export default function RequestDetails() {
     // Check if assigned with real pillar profile
     const isDemo = localStorage.getItem('coophub_demo_customer') === 'true' || localStorage.getItem('coophub_demo_user') === 'true';
     const isAssigned = ['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'completed'].includes(requestData.status) || !!requestData.pillar;
-    const pillar = requestData.pillar || (isAssigned ? {
-        id: requestData.pillar_id || "PIL-CHE-044",
-        full_name: requestData.pillar_name || (requestData.service_name?.includes("Plumb") ? "Leo" : "Raj Kumar"),
-        role: requestData.service_name?.includes("Plumb") ? "Certified Plumber" : "Certified Cooperative Technician",
-        rating: 4.9,
-        reviews_count: 92,
-        distance_km: "1.4",
-        eta_mins: "6"
-    } : null);
+    const pillar = requestData.pillar || null;
 
     // Extra Charge Decision Handler
     const handleExtraCharge = async (decision) => {
@@ -235,13 +358,38 @@ export default function RequestDetails() {
             case 'on_the_way': return { text: t('Pillar En Route'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
             case 'arrived': return { text: t('Pillar Arrived'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
             case 'in_progress': return { text: t('Service in Progress'), bg: 'bg-purple-100 text-purple-800 border-purple-200' };
-            case 'completed': return { text: t('Service Completed'), bg: 'bg-green-100 text-green-800 border-green-200' };
+            case 'completed': 
+                if (invoiceData?.invoice_status === 'paid') {
+                    return { text: t('Finally Completed'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-500' };
+                }
+                return { text: t('Payment Pending'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
             case 'cancelled': return { text: t('Cancelled'), bg: 'bg-red-100 text-red-800 border-red-200' };
             default: return { text: t(status.replace(/_/g, ' ')), bg: 'bg-navy-100 text-navy-800 border-navy-200' };
         }
     };
 
-    const currentBadge = statusBadge(requestData.status);
+    const getStepperProgress = () => {
+        if (!requestData) return -1;
+        if (invoiceData?.invoice_status === 'paid') return 6;
+        if (requestData.status === 'completed') return 5;
+        if (requestData.status === 'in_progress') return 4;
+        if (requestData.status === 'arrived') return 3;
+        if (requestData.status === 'on_the_way') return 2;
+        if (['assigned', 'accepted'].includes(requestData.status)) return 1;
+        return 0; // pending
+    };
+    
+    const stepperIndex = getStepperProgress();
+    const journeySteps = [
+        { label: 'Assigned', idx: 1 },
+        { label: 'En Route', idx: 2 },
+        { label: 'Arrived', idx: 3 },
+        { label: 'Working', idx: 4 },
+        { label: 'Completed', idx: 5 },
+        { label: 'Paid', idx: 6 }
+    ];
+
+    const currentBadge = statusBadge(requestData?.status || 'pending');
 
     return (
         <div className="min-h-screen bg-surface pb-28 pt-6 px-4">
@@ -263,6 +411,39 @@ export default function RequestDetails() {
                         {currentBadge.text}
                     </span>
                 </header>
+
+                {/* ─── LIVE STATUS JOURNEY STEPPER ─── */}
+                {requestData.status !== 'cancelled' && (
+                    <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm mb-4 overflow-hidden">
+                        <h3 className="font-bold text-navy-900 text-sm mb-4">Live Service Journey</h3>
+                        <div className="relative flex justify-between items-center w-full px-4 sm:px-8">
+                            <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-navy-50 rounded-full z-0"></div>
+                            <div 
+                                className="absolute left-8 top-1/2 -translate-y-1/2 h-1 bg-orange-500 rounded-full z-0 transition-all duration-500" 
+                                style={{ width: `calc(${Math.max(0, (Math.min(stepperIndex, 6) - 1) * 20)}% - 2rem)` }}
+                            ></div>
+                            {journeySteps.map((step) => {
+                                const isCompleted = stepperIndex >= step.idx;
+                                const isCurrent = stepperIndex === step.idx;
+                                return (
+                                    <div key={step.idx} className="relative z-10 flex flex-col items-center group">
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shadow-sm ${
+                                            isCompleted ? 'bg-orange-500 border-orange-500 text-white' : 'bg-white border-navy-200 text-transparent'
+                                        } ${isCurrent ? 'ring-4 ring-orange-500/20' : ''}`}>
+                                            {isCompleted && <CheckCircle2 size={12} />}
+                                        </div>
+                                        <span className={`absolute top-8 text-[9px] font-bold uppercase tracking-wide hidden sm:block whitespace-nowrap ${
+                                            isCurrent ? 'text-orange-600' : isCompleted ? 'text-navy-900' : 'text-navy-300'
+                                        }`}>
+                                            {step.label}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="h-6 sm:h-8"></div> {/* Spacing for absolute labels */}
+                    </div>
+                )}
 
                 {/* ─── ARRIVAL OTP CARD (Displayed when Assigned, En Route, or Arrived) ─── */}
                 {['assigned', 'accepted', 'on_the_way', 'arrived'].includes(requestData.status) && (
@@ -303,12 +484,15 @@ export default function RequestDetails() {
 
                 {/* ─── ASSIGNED PILLAR CARD (If Assigned) ─── */}
                 {isAssigned && pillar && (
-                    <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm relative overflow-hidden">
+                    <div 
+                        onClick={() => setShowPillarProfile(true)}
+                        className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm relative overflow-hidden cursor-pointer hover:shadow-lg hover:border-orange-200 transition-all group mb-4"
+                    >
                         <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center space-x-4">
-                                <div className="w-14 h-14 rounded-2xl bg-orange-100 border-2 border-orange-300 p-0.5 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                                <div className="w-14 h-14 rounded-2xl bg-orange-100 border-2 border-orange-300 p-0.5 flex items-center justify-center overflow-hidden shrink-0 shadow-md group-hover:ring-4 ring-orange-500/20 transition-all">
                                     <img
-                                        src="/assets/images/mascot-hero.png"
+                                        src={pillar.profile_image || "/assets/images/mascot-hero.png"}
                                         alt={pillar.full_name || "Pillar"}
                                         className="w-full h-full object-cover rounded-xl"
                                         onError={(e) => { e.target.src = '/src/assets/branding/mascot-ai.png'; }}
@@ -316,21 +500,40 @@ export default function RequestDetails() {
                                 </div>
                                 <div>
                                     <div className="flex items-center space-x-2">
-                                        <h3 className="font-bold text-navy-900 text-lg leading-tight">{pillar.full_name || t("Coop Technician")}</h3>
+                                        <h3 className="font-bold text-navy-900 text-lg leading-tight group-hover:text-orange-600 transition-colors">{pillar.full_name || t("Coop Technician")}</h3>
                                         <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
                                             <ShieldCheck size={12} /> {t("Verified")}
                                         </span>
                                     </div>
                                     <p className="text-xs text-navy-500 font-medium">{t(pillar.role || "Certified Cooperative Technician")}</p>
-                                    <div className="flex items-center space-x-2 mt-1 text-xs text-navy-600">
+                                    <div className="flex items-center space-x-2 mt-1 text-xs text-navy-600 flex-wrap gap-y-1">
                                         <span className="flex items-center text-amber-500 font-bold">
                                             <Star size={13} className="fill-amber-400 text-amber-400 mr-1" />
-                                            {pillar.rating || 5.0}
+                                            {pillar.rating || 5.0} ({pillar.reviews_count || pillar.total_completed_jobs || 0})
                                         </span>
                                         <span className="text-navy-300">•</span>
                                         <span className="text-navy-500">{t("Cooperative Verified")}</span>
+                                        
+                                        {/* Dynamic Distance & ETA */}
+                                        <span className="text-navy-300 w-full md:w-auto hidden md:inline">•</span>
+                                        {dynamicDistance !== null ? (
+                                            <span className="flex items-center font-mono font-medium text-navy-700 bg-navy-50 px-2 py-0.5 rounded-full border border-navy-100">
+                                                <Navigation size={12} className="mr-1 text-orange-500" />
+                                                {dynamicDistance} km 
+                                                {requestData.status === 'arrived' ? ' • Pillar has arrived' : (dynamicEta !== null && dynamicEta > 0 ? ` • Estimated ETA ~${dynamicEta} min` : ' • Arrived')}
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center font-medium text-navy-400 bg-navy-50/50 px-2 py-0.5 rounded-full">
+                                                <MapPin size={12} className="mr-1 opacity-50" />
+                                                Live Location Unavailable
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
+                            </div>
+                            <div className="hidden sm:flex text-navy-300 group-hover:text-orange-500 transition-colors items-center">
+                                <span className="text-[10px] font-bold uppercase tracking-wider mr-1">Profile</span>
+                                <ChevronRight size={16} />
                             </div>
                         </div>
 
@@ -528,48 +731,124 @@ export default function RequestDetails() {
                 {/* ─── INVOICE & PAYMENT SUMMARY ─── */}
                 {(requestData.status === 'completed' || invoiceData) && (
                     <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
-                        <div className="flex items-center justify-between border-b border-navy-50 pb-3">
-                            <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
-                                <FileText size={18} className="text-orange-500" />
-                                Invoice & Payment Summary
-                            </h3>
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">
-                                {invoiceData?.invoice_status === 'paid' ? 'PAID' : 'PAYMENT READY'}
-                            </span>
-                        </div>
-
-                        <div className="space-y-2.5 text-xs">
-                            <div className="flex justify-between text-navy-600">
-                                <span>Base Service Charge</span>
-                                <span className="font-mono font-medium">₹{requestData.amount || invoiceData?.base_amount || 450}</span>
+                        {showCompletionAnimation && invoiceData?.invoice_status !== 'paid' && (
+                            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-center animate-pulse mb-4">
+                                <h3 className="text-lg font-bold text-orange-600">🎉 Service Completed!</h3>
+                                <p className="text-xs text-orange-700 mt-1">Your service work has been completed. Preparing your final bill...</p>
                             </div>
-                            {Number(requestData.extra_charge_amount) > 0 && (
-                                <div className="flex justify-between text-orange-700 font-medium bg-orange-50/80 p-3 rounded-2xl border border-orange-200">
-                                    <div>
-                                        <span className="block font-bold text-orange-950">Additional Parts & Work (Verified by Pillar)</span>
-                                        <span className="text-[11px] text-orange-800/80 mt-0.5 block">{requestData.extra_charge_reason || 'Extra parts & labor added during inspection'}</span>
-                                    </div>
-                                    <span className="font-mono font-bold text-sm text-orange-600 shrink-0 ml-3">+ ₹{requestData.extra_charge_amount}</span>
-                                </div>
-                            )}
-                            <div className="flex justify-between pt-3 border-t border-navy-100 text-sm font-bold text-navy-900">
-                                <span>Grand Total</span>
-                                <span className="font-mono text-base text-orange-600">
-                                    ₹{Number(requestData.final_amount || invoiceData?.total_amount || (Number(requestData.amount || 450) + Number(requestData.extra_charge_amount || 0)))}
-                                </span>
-                            </div>
-                        </div>
-
-                        {invoiceData?.invoice_status !== 'paid' && (
-                            <button
-                                onClick={handleInitiatePayment}
-                                disabled={isPaying}
-                                className="btn-primary w-full py-3 text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
-                            >
-                                <CreditCard size={16} />
-                                <span>{isPaying ? "Processing..." : "Proceed to Payment"}</span>
-                            </button>
                         )}
+                        {showPaymentSuccessAnimation && (
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center animate-fade-in mb-4">
+                                <h3 className="text-lg font-bold text-emerald-600 flex items-center justify-center gap-2"><CheckCircle2 size={20}/> Payment Collected</h3>
+                                <p className="text-xs text-emerald-700 mt-1">Payment successfully received. Stay connected with COOP HUB.</p>
+                            </div>
+                        )}
+                        {(() => {
+                            const isPaymentDone = invoiceData?.invoice_status === 'paid' || requestData?.payment_status === 'completed';
+                            const isHandCashSelected = (paymentData?.payment_method === 'HAND CASH' || requestData?.payment_gateway_ref === 'HAND_CASH');
+
+                            return (
+                                <>
+                                    <div className="flex items-center justify-between border-b border-navy-50 pb-3">
+                                        <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
+                                            <FileText size={18} className="text-orange-500" />
+                                            Invoice & Payment Summary
+                                        </h3>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                                            isPaymentDone 
+                                                ? 'bg-green-100 text-green-800 border-green-200' 
+                                                : (isHandCashSelected ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-orange-100 text-orange-800 border-orange-200')
+                                        }`}>
+                                            {isPaymentDone ? 'PAID' : (isHandCashSelected ? 'PENDING CASH CONFIRMATION' : 'PAYMENT READY')}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2.5 text-xs">
+                                        <div className="flex justify-between text-navy-600">
+                                            <span>Base Service Charge</span>
+                                            <span className="font-mono font-medium">₹{requestData.amount || invoiceData?.base_amount || 450}</span>
+                                        </div>
+                                        {Number(requestData.extra_charge_amount) > 0 && (
+                                            <div className="flex justify-between text-orange-700 font-medium bg-orange-50/80 p-3 rounded-2xl border border-orange-200">
+                                                <div>
+                                                    <span className="block font-bold text-orange-950">Additional Parts & Work (Verified by Pillar)</span>
+                                                    <span className="text-[11px] text-orange-800/80 mt-0.5 block">{requestData.extra_charge_reason || 'Extra parts & labor added during inspection'}</span>
+                                                </div>
+                                                <span className="font-mono font-bold text-sm text-orange-600 shrink-0 ml-3">+ ₹{requestData.extra_charge_amount}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between pt-3 border-t border-navy-100 text-sm font-bold text-navy-900">
+                                            <span>Grand Total</span>
+                                            <span className="font-mono text-base text-orange-600">
+                                                ₹{Number(requestData.final_amount || invoiceData?.total_amount || (Number(requestData.amount || 450) + Number(requestData.extra_charge_amount || 0)))}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {!isPaymentDone && (
+                                        <div className="space-y-3 pt-1">
+                                            {isHandCashSelected && (
+                                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs space-y-1.5 animate-fade-in">
+                                                    <div className="flex items-center gap-2 font-bold text-amber-900">
+                                                        <Banknote size={16} className="text-amber-600" />
+                                                        <span>Hand Cash Selected</span>
+                                                        <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] uppercase font-bold">
+                                                            Pending Pillar Confirmation
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-amber-800 leading-relaxed">
+                                                        Please hand <strong>₹{Number(requestData.final_amount || invoiceData?.total_amount || 450)}</strong> in cash to your technician. Once the technician confirms receipt, your receipt will be available immediately.
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <button
+                                                    onClick={handleSelectHandCash}
+                                                    disabled={isSelectingCash || (isHandCashSelected && paymentData?.payment_status === 'pending')}
+                                                    className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs ${
+                                                        isHandCashSelected
+                                                            ? 'bg-amber-100 text-amber-950 border-amber-300'
+                                                            : 'bg-white hover:bg-slate-50 text-navy-800 border-navy-200'
+                                                    }`}
+                                                >
+                                                    <Banknote size={16} className={isHandCashSelected ? 'text-amber-600' : 'text-navy-600'} />
+                                                    <span>{isSelectingCash ? "Setting Cash..." : (isHandCashSelected ? "✓ Hand Cash Selected" : "Pay with Hand Cash")}</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={handleInitiatePayment}
+                                                    disabled={isPaying}
+                                                    className="btn-primary py-3 px-3 text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+                                                >
+                                                    <CreditCard size={16} />
+                                                    <span>{isPaying ? "Processing..." : "Pay Online (Razorpay)"}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {isPaymentDone && (
+                                        <div className="space-y-2 pt-1">
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center justify-between text-xs text-emerald-900 font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle2 size={16} className="text-emerald-600" />
+                                                    <span>Payment Confirmed ({paymentData?.payment_method || (requestData?.payment_gateway_ref === 'HAND_CASH' ? 'HAND CASH' : 'Online UPI')})</span>
+                                                </div>
+                                                <span className="font-bold uppercase tracking-wider text-[11px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                                                    PAID
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowReceiptModal(true)}
+                                                className="btn-secondary w-full py-3 text-xs flex items-center justify-center gap-2 font-bold"
+                                            >
+                                                <FileText size={16} />
+                                                <span>View Official Tax Receipt</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
                     </div>
                 )}
 
@@ -669,7 +948,8 @@ export default function RequestDetails() {
                         final_amount: requestData?.final_amount || requestData?.amount || 450,
                         scheduled_date: requestData?.scheduled_date || requestData?.preferred_date,
                         scheduled_time: requestData?.scheduled_time || requestData?.preferred_time,
-                        payment_method: paymentData?.payment_method || 'Online Payment (UPI)',
+                        payment_method: (paymentData?.payment_method === 'HAND CASH' || requestData?.payment_gateway_ref === 'HAND_CASH') ? 'HAND CASH' : (paymentData?.payment_method || 'Online Payment (UPI)'),
+                        payment_status: 'PAID',
                         pillar: requestData?.pillar
                     }}
                     onClose={() => {
@@ -690,6 +970,14 @@ export default function RequestDetails() {
                     setRequestData(prev => prev ? { ...prev, final_amount: newTotal, extra_charge_status: 'accepted' } : prev);
                 }}
             />
+            {showPillarProfile && (
+                <PillarProfileModal 
+                    pillar={pillar} 
+                    distanceKm={dynamicDistance} 
+                    etaMins={dynamicEta} 
+                    onClose={() => setShowPillarProfile(false)} 
+                />
+            )}
         </div>
     );
 }

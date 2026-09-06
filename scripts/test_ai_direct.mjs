@@ -1,5 +1,8 @@
-const NVIDIA_API_KEY = "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";
-const NVIDIA_MODEL = "meta/llama-3.2-11b-vision-instruct";
+import dotenv from 'dotenv';
+dotenv.config();
+
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.2-11b-vision-instruct";
 
 async function testAi() {
   const prompt = "what are the things i need to carry for a water leakage problem";

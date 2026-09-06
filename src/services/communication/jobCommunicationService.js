@@ -72,7 +72,7 @@ export const jobCommunicationService = {
     try {
       const payload = {
         request_id: requestId,
-        booking_id: requestId,
+        booking_id: null,
         sender_type: senderType,
         content: cleanContent,
         message: cleanContent,
@@ -83,7 +83,7 @@ export const jobCommunicationService = {
         created_at: new Date().toISOString()
       };
 
-      if (senderId && typeof senderId === 'string' && senderId.length === 36) {
+      if (senderId && typeof senderId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(senderId)) {
         payload.sender_id = senderId;
       }
 
@@ -157,7 +157,7 @@ export const jobCommunicationService = {
 
       const payload = {
         request_id: requestId,
-        booking_id: requestId,
+        booking_id: null,
         sender_type: 'system',
         content: text,
         message: text,

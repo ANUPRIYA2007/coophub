@@ -24,7 +24,7 @@ function runTest(name, fn) {
 // --- 1. Configuration & Key Management ---
 console.log("\n--- 1. Testing Google Maps Configuration & Key Isolation ---");
 
-const PROTOTYPE_DEMO_KEY = "AIzaSyBFkD4K7uw_2K3mQegXbSar8QhF2LeUTQE";
+const PROTOTYPE_DEMO_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyPlaceholderMockDemoKeyFormat1234";
 const DEFAULT_CENTER = { lat: 13.0067, lng: 80.2025, name: "Cooperative HQ (Guindy, Chennai)" };
 
 runTest("Default prototype demo key is present and formatted", () => {

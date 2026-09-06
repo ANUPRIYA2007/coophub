@@ -5,6 +5,7 @@ import { pillarOrderService } from "../../../services/pillar/orderService";
 import { emergencyDispatchService } from "../../../services/emergency/emergencyDispatchService";
 import ArrivalOTPModal from "../../../components/pillar/orders/ArrivalOTPModal";
 import ExtraChargeModal from "../../../components/pillar/orders/ExtraChargeModal";
+import CancelOrderModal from "../../../components/pillar/orders/CancelOrderModal";
 import LiveTrackingMap from "../../../components/maps/LiveTrackingMap";
 import {
   Clock,
@@ -28,6 +29,7 @@ import {
   Zap
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { paymentService } from "../../../services/customer/paymentService";
 
 import FinalizeBillModal from "../../../components/pillar/orders/FinalizeBillModal";
 import OrderDetailsModal from "../../../components/pillar/orders/OrderDetailsModal";
@@ -47,6 +49,12 @@ export default function OrdersList() {
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState(null);
   const [expandedMapOrderId, setExpandedMapOrderId] = useState(null);
+  const [cancelModalOrder, setCancelModalOrder] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [markingCashId, setMarkingCashId] = useState(null);
+
+  // Check if pillar already has an active order
+  const isEngaged = orders.some(o => ["accepted", "onTheWay", "arrived", "inProgress"].includes(o.status));
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -90,6 +98,42 @@ export default function OrdersList() {
     fetchOrders();
   };
 
+  const handleAcceptClick = async (bookingId) => {
+    if (isEngaged) {
+      alert(t("You already have an active order. Please complete or cancel it before accepting a new one."));
+      return;
+    }
+    handleStatusChange(bookingId, "accepted");
+  };
+
+  const handleCancelConfirm = async (reason) => {
+    if (!cancelModalOrder) return;
+    setIsCancelling(true);
+    await pillarOrderService.cancelOrder(cancelModalOrder.id, reason, user?.id);
+    setIsCancelling(false);
+    setCancelModalOrder(null);
+    fetchOrders();
+  };
+
+  const handleMarkPaymentComplete = async (order) => {
+    const activePillarId = user?.id || order?.pillar_id;
+    if (!order?.id || !activePillarId) return;
+    setMarkingCashId(order.id);
+    try {
+      const res = await paymentService.confirmHandCashPayment(order.id, activePillarId);
+      if (res && (res.success || res.status === "paid" || res.payment_status === "completed")) {
+        await fetchOrders();
+      } else {
+        alert(res?.error || "Failed to confirm payment");
+      }
+    } catch (err) {
+      console.error("Mark payment error:", err);
+      alert(err.message || "Failed to confirm payment");
+    } finally {
+      setMarkingCashId(null);
+    }
+  };
+
   const filteredOrders = orders.filter((o) => {
     if (activeTab === "inProgress") {
       return ["onTheWay", "arrived", "inProgress"].includes(o.status);
@@ -122,6 +166,15 @@ export default function OrdersList() {
           <p className="page-subtitle">{t("Manage customer bookings, dispatch transit, and record completion")}</p>
         </div>
       </div>
+
+      {/* Global Modals */}
+      <CancelOrderModal
+        isOpen={!!cancelModalOrder}
+        order={cancelModalOrder}
+        onClose={() => setCancelModalOrder(null)}
+        onConfirm={handleCancelConfirm}
+        isSubmitting={isCancelling}
+      />
 
       {/* Tabs */}
       <div className="filter-bar">
@@ -346,8 +399,10 @@ export default function OrdersList() {
                     </button>
                     <button
                       className="btn btn-success btn-sm"
-                      style={{ flex: 1.5, fontWeight: "700", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
-                      onClick={() => handleStatusChange(order.id, "accepted")}
+                      style={{ flex: 1.5, fontWeight: "700", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px", opacity: isEngaged ? 0.5 : 1, cursor: isEngaged ? 'not-allowed' : 'pointer' }}
+                      onClick={() => handleAcceptClick(order.id)}
+                      disabled={isEngaged}
+                      title={isEngaged ? "Complete your active order first" : "Accept Order"}
                     >
                       <Check size={14} /> {t("orders.accept")}
                     </button>
@@ -357,73 +412,101 @@ export default function OrdersList() {
                 {order.status === "accepted" && (
                   <>
                     <button
-                      className="btn btn-primary"
-                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1, color: "var(--color-error)", borderColor: "var(--color-error)", fontWeight: "600" }}
+                      onClick={() => setCancelModalOrder(order)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 2, fontWeight: "700", background: "var(--color-primary)" }}
                       onClick={() => handleStatusChange(order.id, "onTheWay")}
                     >
-                      <Navigation size={16} /> {t("orders.startTravel")}
-                    </button>
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude || 13.3627904},${order.longitude || 80.134144}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline btn-sm"
-                      title="Open Directions in Google Maps"
-                    >
-                      🗺️ {t("Maps")}
-                    </a>
-                    <button
-                      className="btn btn-outline btn-sm"
-                      onClick={() => navigate("/dashboard/chat")}
-                    >
-                      <MessageSquare size={16} />
+                      <Navigation size={14} style={{ display: "inline", marginRight: "4px" }} />
+                      {t("Start Trip to Location")}
                     </button>
                   </>
                 )}
 
                 {order.status === "onTheWay" && (
-                  <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
+                  <>
                     <button
-                      className="btn btn-warning"
-                      style={{ flex: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
-                      onClick={() => setSelectedBookingForOtp(order.id)}
-                    >
-                      <MapPin size={16} /> {t("orders.markArrived")} ({t("Enter OTP")})
-                    </button>
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude || 13.3627904},${order.longitude || 80.134144}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="btn btn-outline btn-sm"
-                      style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                      title="Open Directions in Google Maps"
+                      style={{ flex: 1, color: "var(--color-error)", borderColor: "var(--color-error)", fontWeight: "600" }}
+                      onClick={() => setCancelModalOrder(order)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1.5, fontWeight: "700" }}
+                      onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${order.latitude || order.lat},${order.longitude || order.lng}`, "_blank")}
                     >
                       🗺️ {t("Maps")}
-                    </a>
-                  </div>
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 2, fontWeight: "700", background: "var(--color-secondary)" }}
+                      onClick={() => setSelectedBookingForOtp(order.id)}
+                    >
+                      <MapPin size={14} style={{ display: "inline", marginRight: "4px" }} />
+                      {t("Mark Arrived (Enter OTP)")}
+                    </button>
+                  </>
                 )}
 
                 {(order.status === "arrived" || order.status === "inProgress") && (
-                  <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
+                  <>
                     <button
                       className="btn btn-outline btn-sm"
-                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
-                      onClick={() => setSelectedBookingForExtra(order.id)}
+                      style={{ flex: 1, color: "var(--color-error)", borderColor: "var(--color-error)", fontWeight: "600" }}
+                      onClick={() => setCancelModalOrder(order)}
                     >
-                      <DollarSign size={16} /> + {t("Extra")}
+                      Cancel
                     </button>
                     <button
-                      className="btn btn-success btn-sm"
-                      style={{ flex: 2, fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1.5, fontWeight: "700" }}
+                      onClick={() => setSelectedBookingForExtra(order.id)}
+                    >
+                      <DollarSign size={14} style={{ display: "inline", marginRight: "4px" }} />
+                      {t("Add Spares/Extra")}
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 2, fontWeight: "700", background: "var(--color-success)" }}
                       onClick={() => setSelectedOrderForCompletion(order)}
                     >
-                      <Check size={16} /> {t("Complete & Finalize")}
+                      <Check size={14} style={{ display: "inline", marginRight: "4px" }} />
+                      {t("Finish Job & Bill")}
                     </button>
-                  </div>
+                  </>
                 )}
 
                 {order.status === "completed" && (
-                  <div style={{ display: "flex", gap: "var(--space-2)", width: "100%" }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)", width: "100%", flexWrap: "wrap" }}>
+                    {order.payment_status !== "completed" && (
+                      <button
+                        className="btn btn-success btn-sm"
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          fontWeight: "700",
+                          padding: "10px 14px",
+                          background: "#10B981",
+                          color: "#fff"
+                        }}
+                        onClick={() => handleMarkPaymentComplete(order)}
+                        disabled={markingCashId === order.id}
+                      >
+                        <Check size={16} />
+                        {markingCashId === order.id ? t("Confirming...") : t("MARK PAYMENT COMPLETE")}
+                      </button>
+                    )}
                     <button
                       className="btn btn-primary btn-sm"
                       style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontWeight: "700", padding: "10px 16px" }}

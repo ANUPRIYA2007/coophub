@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-const NVIDIA_KEY = process.env.NVIDIA_API_KEY || "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";
-const GEMINI_KEY = process.env.GEMINI_API_KEY || "AQ.Ab8RN6J24z0pu89-nym7TCiEJx5QHtO8_gYdrnfxRN_RCh9kTA";
+const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
 async function testExtraction() {
   console.log("Testing Gemini 1.5 Flash Vision / Document Extraction...");

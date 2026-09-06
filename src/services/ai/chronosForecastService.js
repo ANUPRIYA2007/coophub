@@ -65,7 +65,7 @@ export const chronosForecastService = {
           .gte('created_at', cutoffDate.toISOString()),
         supabase
           .from('service_requests')
-          .select('id, category, service_id, address, scheduled_at, created_at, status')
+          .select('id, service_id, area, preferred_date, created_at, status')
           .gte('created_at', cutoffDate.toISOString())
       ]);
 
@@ -87,9 +87,9 @@ export const chronosForecastService = {
         .filter(r => r.status !== 'cancelled' && r.status !== 'rejected')
         .map(r => ({
           id: r.id,
-          service: r.category || r.service_id,
-          address: r.address,
-          created_at: r.created_at || r.scheduled_at,
+          service: r.service_id,
+          address: r.area,
+          created_at: r.created_at || r.preferred_date,
           status: r.status
         }));
 

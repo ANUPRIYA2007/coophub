@@ -32,6 +32,7 @@ import {
   Printer
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { paymentService } from "../../../services/customer/paymentService";
 
 export default function OrderDetailsModal({
   order,
@@ -49,8 +50,30 @@ export default function OrderDetailsModal({
   const [copied, setCopied] = useState(false);
   const [showMap, setShowMap] = useState(true);
   const [previewImage, setPreviewImage] = useState(null);
+  const [markingCash, setMarkingCash] = useState(false);
+  const [cashConfirmed, setCashConfirmed] = useState(order?.payment_status === 'completed');
 
   if (!order) return null;
+
+  const handleMarkPaymentComplete = async () => {
+    setMarkingCash(true);
+    try {
+      const activePillarId = user?.id || order.pillar_id;
+      const res = await paymentService.confirmHandCashPayment(order.id, activePillarId);
+      if (res.success) {
+        setCashConfirmed(true);
+        if (onStatusChange) {
+          onStatusChange(order.id, order.status);
+        }
+      } else {
+        alert(res.error || "Failed to confirm cash payment.");
+      }
+    } catch (err) {
+      alert("Error confirming payment: " + err.message);
+    } finally {
+      setMarkingCash(false);
+    }
+  };
 
   const copyBookingCode = () => {
     navigator.clipboard.writeText(order.booking_code || order.id);
@@ -598,7 +621,7 @@ export default function OrderDetailsModal({
                     <Phone size={14} />
                   </a>
                   <button
-                    onClick={() => navigate("/dashboard/chat")}
+                    onClick={() => navigate(`/dashboard/chat?orderId=${order.id}`, { state: { orderId: order.id } })}
                     className="btn btn-outline btn-sm"
                     style={{ borderRadius: "50%", width: "34px", height: "34px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-secondary)" }}
                     title="Message Customer"
@@ -795,7 +818,7 @@ export default function OrderDetailsModal({
               <>
                 <button
                   className="btn btn-outline btn-sm"
-                  onClick={() => navigate("/dashboard/chat")}
+                  onClick={() => navigate(`/dashboard/chat?orderId=${order.id}`, { state: { orderId: order.id } })}
                 >
                   <MessageSquare size={14} /> Message Customer
                 </button>
@@ -842,15 +865,31 @@ export default function OrderDetailsModal({
             )}
 
             {order.status === "completed" ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#10B981", fontWeight: "700", fontSize: "13px" }}>
-                  <CheckCircle2 size={18} />
-                  <span>Job Completed & Settlement Paid</span>
-                </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                {!cashConfirmed && order.payment_status !== "completed" ? (
+                  <button
+                    className="btn btn-success"
+                    style={{ fontSize: "12.5px", padding: "8px 18px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700" }}
+                    onClick={handleMarkPaymentComplete}
+                    disabled={markingCash}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>{markingCash ? "Confirming..." : "MARK PAYMENT COMPLETE"}</span>
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#10B981", fontWeight: "700", fontSize: "13px" }}>
+                    <CheckCircle2 size={18} />
+                    <span>Payment Confirmed ({order.payment_method || "HAND CASH"})</span>
+                  </div>
+                )}
                 <button
                   className="btn btn-primary"
                   style={{ fontSize: "12.5px", padding: "8px 18px", display: "flex", alignItems: "center", gap: "6px" }}
-                  onClick={() => onTriggerReceipt?.(order)}
+                  onClick={() => onTriggerReceipt?.({
+                    ...order,
+                    payment_status: (cashConfirmed || order.payment_status === "completed") ? "PAID" : "pending",
+                    payment_method: (cashConfirmed || order.payment_status === "completed") ? "HAND CASH" : (order.payment_method || "HAND CASH")
+                  })}
                 >
                   <Printer size={15} /> Generate & Print Receipt
                 </button>

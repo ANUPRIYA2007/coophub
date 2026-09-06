@@ -15,15 +15,43 @@ const GEMINI_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env ? 
 
 import { getLanguageMetadata } from "../../../i18n/languages.js";
 import { translateDynamic } from "../../../i18n/centralEngine.js";
+import { formatContextForSystemPrompt } from "../../ai/dynamicContextService.js";
 
-export async function callPillarAiApi({ prompt, language = "en", route = "/" }) {
+export async function callPillarAiApi({ prompt, language = "en", route = "/", context = {} }) {
   const langMeta = getLanguageMetadata(language);
   const langName = langMeta?.name || "English";
+  const contextBlock = context ? formatContextForSystemPrompt(context) : '';
 
   const systemPrompt = `You are CoopBot, the intelligent 24/7 AI Companion and Assistant for customers, certified technicians (Pillars), and administrators in the COOP HUB cooperative platform in Chennai.
+${contextBlock ? `\n${contextBlock}\n` : ''}
 Respond directly, professionally, and helpfully in ${langName}. If asking about services, repairs, booking, pricing, verification, or tools, provide a thorough, structured, and practical guide with clear bullet points. Keep tone polite, empowering, and accurate.`;
 
-  // 1. Primary: NVIDIA Nemotron AI API
+  // 1. Primary: Backend Proxy (keeps API keys server-side, avoids CORS)
+  try {
+    const backendUrl = (typeof window !== 'undefined') ? "/api/ai/chat" : "http://localhost:5000/api/ai/chat";
+    const response = await fetch(backendUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, language, route, context }),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const replyText = data.text || data.reply || data.message;
+      if (replyText) {
+        return {
+          reply: replyText,
+          provider: data.provider || "COOP HUB AI",
+          intent: "ai_live_reply",
+        };
+      }
+    } else {
+      console.warn(`Backend proxy HTTP ${response.status}. Trying direct NVIDIA...`);
+    }
+  } catch (err) {
+    console.warn("Backend proxy unavailable:", err.message);
+  }
+
+  // 2. Secondary: Direct NVIDIA NIM API (may be CORS-blocked from browser)
   if (NVIDIA_API_KEY) {
     try {
       const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
@@ -50,19 +78,19 @@ Respond directly, professionally, and helpfully in ${langName}. If asking about 
           return {
             reply: reply.trim(),
             provider: `NVIDIA NIM (${NVIDIA_MODEL.split('/').pop()})`,
-            intent: "ai_public_reply",
+            intent: "ai_live_reply",
           };
         }
       }
     } catch (err) {
-      console.warn("NVIDIA NIM API failed, falling back to Gemini:", err.message);
+      console.warn("Direct NVIDIA NIM API failed:", err.message);
     }
   }
 
-  // 2. Secondary: Google Gemini API
+  // 3. Tertiary: Direct Google Gemini API (may be CORS-blocked or quota-limited)
   if (GEMINI_API_KEY) {
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
       const response = await fetch(geminiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,46 +115,20 @@ Respond directly, professionally, and helpfully in ${langName}. If asking about 
         if (reply && reply.trim().length > 0) {
           return {
             reply: reply.trim(),
-            provider: "Google Gemini 1.5 Flash",
-            intent: "ai_public_reply",
+            provider: "Google Gemini 3.6 Flash",
+            intent: "ai_live_reply",
           };
         }
       }
     } catch (err) {
-      console.warn("Gemini API failed:", err.message);
+      console.warn("Direct Gemini API failed:", err.message);
     }
   }
 
-  // 3. Tertiary: Local / Backend Proxy Relay
-  try {
-    const backendUrl = "/api/ai/chat";
-    const response = await fetch(backendUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, language, route }),
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const replyText = data.text || data.reply || data.message;
-      if (replyText) {
-        return {
-          reply: replyText,
-          provider: data.provider || "COOP HUB AI",
-          intent: "ai_public_reply",
-        };
-      }
-    }
-  } catch (err) {
-    console.warn("Backend proxy failed:", err.message);
-  }
-
-  // 4. Final Resilient Domain Fallback
-  const baseFallback = "Hello! COOP HUB provides certified electricians, plumbers, and home repair professionals across Chennai. How may I assist you today?";
-  const dynamicFallback = language !== "en" ? await translateDynamic(baseFallback, language, "en") : baseFallback;
-
+  // 4. All providers failed — honest error (no fake keyword fallback)
   return {
-    reply: dynamicFallback,
-    provider: "CoopBot Intelligence",
-    intent: "local_guidance"
+    reply: "⚠️ AI service is temporarily unavailable. All providers (NVIDIA NIM, Gemini, Backend Proxy) could not be reached. Please try again shortly.",
+    provider: "none",
+    intent: "ai_provider_failure"
   };
 }

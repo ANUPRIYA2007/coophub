@@ -4,7 +4,7 @@ import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarAuthService } from "../../../services/pillar/authService";
 import HeroInteractiveAgent from "../../../components/pillar/ai/HeroInteractiveAgent";
-import { ShieldCheck, ChevronRight, Loader2, AlertCircle, Eye, EyeOff, Globe, KeyRound, Clock, ArrowLeft } from "lucide-react";
+import { ShieldCheck, ChevronRight, Loader2, AlertCircle, Eye, EyeOff, Globe, KeyRound, Clock, ArrowLeft, Sparkles } from "lucide-react";
 
 export default function Login() {
   const { t, language, changeLanguage, supportedLanguages } = useTranslation();

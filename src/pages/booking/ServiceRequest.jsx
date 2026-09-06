@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useAuth } from '../../context/AuthContext';
@@ -8,9 +8,10 @@ import { attachmentService } from '../../services/customer/attachmentService';
 import { locationService } from '../../services/customer/locationService';
 import { workerService } from '../../services/workers/workerService';
 import LocationPickerModal from '../../components/maps/LocationPickerModal';
+import CameraCaptureModal from '../../components/common/CameraCaptureModal';
 import {
     MapPin, AlertTriangle, CheckCircle2, Home, ShoppingBag,
-    Star, ShieldCheck, Sparkles, UserCheck, Check, Clock
+    Star, ShieldCheck, Sparkles, UserCheck, Check, Clock, Camera, X
 } from 'lucide-react';
 
 export default function ServiceRequest() {
@@ -48,6 +49,9 @@ export default function ServiceRequest() {
         attachments: []
     });
     const [selectedFile, setSelectedFile] = useState(null);
+    const [cameraPreview, setCameraPreview] = useState(null);
+    const cameraInputRef = useRef(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -138,6 +142,38 @@ export default function ServiceRequest() {
         }
         setError(null);
         setSelectedFile(file);
+        // Generate preview for images
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onloadend = () => setCameraPreview(reader.result);
+            reader.readAsDataURL(file);
+        } else {
+            setCameraPreview(null);
+        }
+    };
+
+    const handleCameraCapture = () => {
+        setIsCameraOpen(true);
+    };
+
+    const handleCapturedPhoto = (file) => {
+        const formError = attachmentService.validateFile(file);
+        if (formError) {
+            setError(formError);
+            return;
+        }
+        setError(null);
+        setSelectedFile(file);
+        
+        // Generate preview for image
+        const reader = new FileReader();
+        reader.onloadend = () => setCameraPreview(reader.result);
+        reader.readAsDataURL(file);
+    };
+
+    const clearAttachment = () => {
+        setSelectedFile(null);
+        setCameraPreview(null);
     };
 
     const nextStep = () => {
@@ -350,13 +386,55 @@ export default function ServiceRequest() {
 
                             <div>
                                 <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2 mb-4">{t('booking.attachments')}</h2>
-                                <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-navy-200 rounded-xl cursor-pointer hover:bg-navy-50/50 transition-colors">
-                                    <div className="text-center space-y-2">
-                                        <svg className="mx-auto h-8 w-8 text-navy-400" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                                        <p className="text-sm text-navy-600 font-medium">{selectedFile ? selectedFile.name : t('booking.upload_file')}</p>
+
+                                {/* Preview area */}
+                                {selectedFile && (
+                                    <div className="mb-4 relative">
+                                        <button
+                                            onClick={clearAttachment}
+                                            className="absolute -top-2 -right-2 z-10 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
+                                            type="button"
+                                        >
+                                            <X size={14} strokeWidth={3} />
+                                        </button>
+                                        {cameraPreview ? (
+                                            <img src={cameraPreview} alt="Attachment preview" className="w-full h-40 object-cover rounded-xl border border-navy-200" />
+                                        ) : (
+                                            <div className="w-full py-4 px-4 bg-navy-50 rounded-xl border border-navy-200 flex items-center gap-3">
+                                                <svg className="h-6 w-6 text-navy-400 shrink-0" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                <p className="text-sm text-navy-700 font-medium truncate">{selectedFile.name}</p>
+                                            </div>
+                                        )}
                                     </div>
-                                    <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleFileChange} />
-                                </label>
+                                )}
+
+                                {/* Upload & Camera buttons */}
+                                {!selectedFile && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* File Upload */}
+                                        <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-navy-200 rounded-xl cursor-pointer hover:bg-navy-50/50 hover:border-orange-300 transition-all group">
+                                            <div className="text-center space-y-2">
+                                                <svg className="mx-auto h-8 w-8 text-navy-400 group-hover:text-orange-500 transition-colors" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                                <p className="text-sm text-navy-600 font-medium group-hover:text-orange-600 transition-colors">{t('booking.upload_file')}</p>
+                                                <p className="text-[10px] text-navy-400">JPG, PNG, PDF</p>
+                                            </div>
+                                            <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={handleFileChange} />
+                                        </label>
+
+                                        {/* Camera Capture */}
+                                        <button
+                                            type="button"
+                                            onClick={handleCameraCapture}
+                                            className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-navy-200 rounded-xl cursor-pointer hover:bg-navy-50/50 hover:border-orange-300 transition-all group"
+                                        >
+                                            <div className="text-center space-y-2">
+                                                <Camera className="mx-auto h-8 w-8 text-navy-400 group-hover:text-orange-500 transition-colors" />
+                                                <p className="text-sm text-navy-600 font-medium group-hover:text-orange-600 transition-colors">{t('Take Photo')}</p>
+                                                <p className="text-[10px] text-navy-400">{t('Use Web Camera')}</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex gap-3 pt-4">
