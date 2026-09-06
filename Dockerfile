@@ -3,7 +3,7 @@
 # High-performance, secure, stateless Express API instance
 # ============================================================
 
-FROM node:20-bookworm-slim AS production
+FROM node:22-bookworm-slim AS production
 
 # Security & Runtime Environment Configuration
 ENV NODE_ENV=production \
