@@ -1,0 +1,24 @@
+# Railway deployment exclusions (Backend-only deployment)
+node_modules/
+.git/
+.env*
+3d-hero/
+public/assets/3d/
+src/
+dist/
+build/
+backup/
+docs/
+scratch/
+scripts/
+reports/
+database/
+supabase/
+*.blend*
+*.traineddata
+*.glb
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.log
