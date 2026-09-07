@@ -424,7 +424,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { name: "Customers", path: "/admin/customers", icon: UserCheck },
     { name: "Services", path: "/admin/services", icon: Wrench },
     { name: "Service Requests", path: "/admin/requests", icon: ClipboardList },
-    { name: "Live Operations", path: "/admin/operations", icon: Radio },
+    { name: "Operations", path: "/admin/operations", icon: Radio },
     { name: "Live Tracking", path: "/admin/tracking", icon: Clock },
     { name: "Financials & Payouts", path: "/admin/finance", icon: Wallet },
     { name: "Customer Feedback", path: "/admin/feedback", icon: Star },

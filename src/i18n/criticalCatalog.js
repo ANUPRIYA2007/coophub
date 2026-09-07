@@ -78,6 +78,8 @@ export const CRITICAL_CATALOG = {
     "nav.feedback": "Feedback",
     "nav.pillar_network": "Pillar Network",
     "nav.operations": "Operations",
+    "nav.allocation": "AI Workforce Allocation",
+    "nav.tracking": "Live Tracking",
     "nav.finance": "Finance",
     "nav.system_health": "System Management",
     "nav.security_audit": "Security & Audit",
