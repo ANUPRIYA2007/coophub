@@ -33,6 +33,7 @@
     "cluster:proxy": "node scripts/load_balancer.mjs"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.1",
     "@supabase/supabase-js": "^2.49.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -50,6 +51,8 @@
     "uuid": "^11.0.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.5.0",

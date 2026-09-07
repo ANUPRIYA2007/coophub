@@ -57,14 +57,16 @@ export function AuthProvider({ children }) {
 
           if (isPillarDemo || isAdminDemo) {
             const pillarDemoSession = {
-              user: { id: "00000000-0000-0000-0000-000000000000", email: "senthil@coophub.in" }
+              user: { id: "00000000-0000-0000-0000-000000000000", email: "raj@coophub.in" }
             };
             setSession(pillarDemoSession);
             setUser(pillarDemoSession.user);
             setProfile({
               id: "00000000-0000-0000-0000-000000000000",
-              full_name: "Senthil Kumar",
+              full_name: localStorage.getItem("coophub_demo_user_name") || "Raj Kumar",
               pillar_code: "PIL-CHE-042",
+              mobile: "+91 98400 11223",
+              email: "raj@coophub.in",
               main_services: ["Electrician", "AC Repair"],
               sub_services: ["Wiring", "DB Box", "Inverter", "MCB Installation"],
               experience_years: 6,

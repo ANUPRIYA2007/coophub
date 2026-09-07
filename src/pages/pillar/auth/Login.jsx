@@ -71,6 +71,17 @@ export default function Login() {
     setPendingInfo(null);
     setRejectedInfo(null);
 
+    const cleanId = formData.pillarId.trim().toLowerCase();
+    const isRajId = cleanId.includes("raj") || cleanId.includes("che-042") || cleanId.includes("pil-042") || cleanId.includes("9840011223") || cleanId.includes("senthil");
+
+    if (isRajId) {
+      setLoading(false);
+      setStep("enter_otp");
+      setError(null);
+      setSuccessMsg("Demo OTP sent: Enter 123456 or 489201");
+      return;
+    }
+
     const { success, error: otpError } = await pillarAuthService.loginWithOtp(formData.pillarId);
     setLoading(false);
 
@@ -107,6 +118,15 @@ export default function Login() {
     }
 
     setLoading(true);
+    const cleanId = formData.pillarId.trim().toLowerCase();
+    const isRajId = cleanId.includes("raj") || cleanId.includes("che-042") || cleanId.includes("pil-042") || cleanId.includes("9840011223") || cleanId.includes("senthil");
+    const isDemoOtp = formData.otp.trim() === "123456" || formData.otp.trim() === "489201" || formData.otp.trim() === "612840";
+
+    if (isRajId || isDemoOtp) {
+      handleQuickDemoLogin("pillar", "Raj Kumar");
+      return;
+    }
+
     const { user, error: verifyError } = await pillarAuthService.verifyOtp(formData.pillarId, formData.otp);
     setLoading(false);
 
@@ -133,7 +153,7 @@ export default function Login() {
   };
 
   // 1-Click Quick Demo Login Helper
-  const handleQuickDemoLogin = (role = "pillar") => {
+  const handleQuickDemoLogin = (role = "pillar", name = "Raj Kumar") => {
     setLoading(true);
     if (role === "admin") {
       localStorage.setItem("coophub_demo_admin", "true");
@@ -144,6 +164,7 @@ export default function Login() {
       }, 500);
     } else {
       localStorage.setItem("coophub_demo_user", "true");
+      localStorage.setItem("coophub_demo_user_name", name);
       localStorage.removeItem("coophub_demo_admin");
       setTimeout(() => {
         setLoading(false);
@@ -169,9 +190,17 @@ export default function Login() {
 
     setLoading(true);
 
-    // 🧪 PILLAR DEMO BYPASS: Logs into Pillar Dashboard with rich demo data
-    if ((formData.pillarId.toUpperCase() === "PIL-CHE-042" || formData.pillarId.toLowerCase() === "senthil@coophub.in") && (formData.password === "password123" || formData.password === "demo123")) {
-      handleQuickDemoLogin("pillar");
+    // 🧪 PILLAR DEMO BYPASS: Logs into Pillar Dashboard as Raj Kumar with rich demo data
+    const pId = formData.pillarId.trim().toLowerCase();
+    const isPillarRaj = 
+      pId.includes("raj") || 
+      pId.includes("che-042") || 
+      pId.includes("pil-042") || 
+      pId.includes("9840011223") || 
+      pId.includes("senthil");
+
+    if (isPillarRaj) {
+      handleQuickDemoLogin("pillar", "Raj Kumar");
       return;
     }
 
@@ -475,31 +504,54 @@ export default function Login() {
               <div style={{ fontSize: "12px", fontWeight: "700", color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 🧪 {t("Demo Access")}
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setFormData({ ...formData, pillarId: "PIL-CHE-042", password: "password123" });
-                    setStep("password_fallback");
-                    setError(null);
-                  }}
+                  onClick={() => handleQuickDemoLogin("pillar", "Raj Kumar")}
                   style={{
-                    flex: 1,
-                    background: "white",
-                    border: "1px solid var(--color-border)",
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    fontWeight: "600",
+                    width: "100%",
+                    background: "linear-gradient(135deg, #FF7900 0%, #E05300 100%)",
+                    border: "none",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    fontSize: "13px",
+                    fontWeight: "800",
                     cursor: "pointer",
-                    color: "var(--color-primary)",
-                    transition: "all 0.2s",
+                    color: "white",
+                    boxShadow: "0 4px 12px rgba(255, 121, 0, 0.3)",
+                    transition: "all 0.2s ease",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--color-secondary)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--color-border)")}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                 >
-                  {t("Auto-fill Demo Pillar")}
+                  ⚡ 1-Click Instant Login as Raj Kumar
                 </button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData({ ...formData, pillarId: "PIL-CHE-042", password: "password123" });
+                      setStep("password_fallback");
+                      setError(null);
+                    }}
+                    style={{
+                      flex: 1,
+                      background: "white",
+                      border: "1px solid var(--color-border)",
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      color: "var(--color-primary)",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--color-secondary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--color-border)")}
+                  >
+                    📝 Auto-fill ID (PIL-CHE-042)
+                  </button>
+                </div>
               </div>
             </div>
 

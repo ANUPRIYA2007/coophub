@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">COOP HUB</string>
+    <string name="title_activity_main">COOP HUB</string>
+    <string name="package_name">in.gov.coophub.app</string>
+    <string name="custom_url_scheme">in.gov.coophub.app</string>
+</resources>
