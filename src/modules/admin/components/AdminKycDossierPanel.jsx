@@ -412,8 +412,8 @@ export default function AdminKycDossierPanel({
             </span>
           </div>
           <div style={{ fontSize: "0.82rem", display: "flex", flexDirection: "column", gap: "4px" }}>
-            <div>Aadhaar QR: <strong>{doc?.verification_method === 'uidai_qr' ? 'Verified (UIDAI Signature)' : 'QR Detected (Unverified Signature)'}</strong></div>
-            <div>DigiLocker: <strong>{doc?.verification_method === 'digilocker_sandbox' || doc?.verification_method === 'digilocker_tsp' ? 'Verified (Government Authoritative - Sandbox)' : (doc?.digilocker_status || 'Configured (Sandbox Gateway Ready)')}</strong></div>
+            <div>Aadhaar QR: <strong>{primaryDoc?.verification_method === 'uidai_qr' ? 'Verified (UIDAI Signature)' : 'QR Detected (Unverified Signature)'}</strong></div>
+            <div>DigiLocker: <strong>{primaryDoc?.verification_method === 'digilocker_sandbox' || primaryDoc?.verification_method === 'digilocker_tsp' ? 'Verified (Government Authoritative - Sandbox)' : (primaryDoc?.digilocker_status || 'Configured (Sandbox Gateway Ready)')}</strong></div>
             <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>
               Clearance requires cooperative administrative review.
             </div>

@@ -71,7 +71,6 @@ export default function SuperAdminSidebar({ isOpen, toggleSidebar, onOpenChat })
     { name: "Broadcast", path: "/admin/broadcast", icon: Radio },
     { name: "Feedback Management", path: "/admin/feedback-mgmt", icon: Star },
     { name: "Pillar Network", path: "/admin/pillar-network", icon: Users },
-    { name: "Verification Workspace", path: "/admin/verification", icon: ShieldCheck },
     { name: "Operations", path: "/admin/ops", icon: Activity },
     { name: "Finance", path: "/admin/coop-finance", icon: Wallet },
     { name: "Welfare", path: "/admin/welfare-mgmt", icon: Shield },

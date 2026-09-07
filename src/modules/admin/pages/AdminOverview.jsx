@@ -229,26 +229,7 @@ export default function AdminOverview() {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          <button
-            onClick={() => navigate("/admin/verification")}
-            style={{
-              background: "rgba(245, 124, 32, 0.15)",
-              color: "var(--color-secondary)",
-              border: "1px solid rgba(245, 124, 32, 0.4)",
-              padding: "8px 18px",
-              borderRadius: "20px",
-              fontWeight: "700",
-              fontSize: "12.5px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "transform 0.15s ease",
-            }}
-          >
-            <ShieldCheck size={15} /> {t("Verification Workspace →")}
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             onClick={() => navigate("/admin/chatai")}
             style={{

@@ -97,18 +97,7 @@ export default function PillarsList() {
             Review applicant documents, verify skills, assign unique Pillar IDs, and manage verified workforce.
           </p>
         </div>
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <Link 
-            to="/admin/verification" 
-            className="btn" 
-            style={{ 
-              display: "flex", alignItems: "center", gap: "6px",
-              background: "rgba(245, 124, 32, 0.15)", color: "var(--color-secondary)", 
-              border: "1px solid rgba(245, 124, 32, 0.4)", fontWeight: "700" 
-            }}
-          >
-            <ShieldCheck size={16} /> Open Verification Workspace
-          </Link>
+        <div style={{ display: "flex", gap: "10px" }}>
           <button 
             onClick={() => setShowAddModal(true)} 
             className="btn btn-primary" 

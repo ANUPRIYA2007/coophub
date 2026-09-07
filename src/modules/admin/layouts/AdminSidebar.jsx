@@ -417,7 +417,6 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const navItems = [
     { name: "Overview", path: "/admin", icon: LayoutDashboard },
-    { name: "Verification Workspace", path: "/admin/verification", icon: ShieldCheck },
     { name: "AI Demand Forecast", path: "/admin/forecast", icon: TrendingUp },
     { name: "AI Workforce Allocation", path: "/admin/allocation", icon: Zap },
     { name: "Skill Certifications", path: "/admin/certifications", icon: Award },
