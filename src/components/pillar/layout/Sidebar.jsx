@@ -406,7 +406,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   const bottomNavItems = [
     { name: "Profile", path: "/dashboard/profile", icon: User },
     { name: "Settings", path: "/dashboard/settings", icon: Settings },
-    { name: "Support", path: "/dashboard/support", icon: HelpCircle },
+    { name: "Help & Support", path: "/dashboard/support", icon: HelpCircle },
     { name: "Portal Hub (Home)", path: "/", icon: Layers },
   ];
 

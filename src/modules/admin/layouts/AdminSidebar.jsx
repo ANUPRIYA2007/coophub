@@ -432,7 +432,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   ];
 
   const bottomNavItems = [
-    { name: "Support", path: "/admin/support", icon: HelpCircle },
+    { name: "Help & Support", path: "/admin/support", icon: HelpCircle },
     { name: "Welfare & PF", path: "/admin/welfare", icon: Shield },
     { name: "Settings", path: "/admin/settings", icon: Settings },
     { name: "Portal Hub (Home)", path: "/", icon: Layers },
