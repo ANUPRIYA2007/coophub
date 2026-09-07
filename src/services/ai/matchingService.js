@@ -172,11 +172,12 @@ export async function matchWorkforceForRequest(request) {
   if (isDemo) {
     pillars = [
       {
-        id: "P-DEMO-001",
-        full_name: "Senthil Kumar",
-        pillar_code: "PIL-CHE-001",
-        mobile: "+91 98401 23456",
-        main_services: ["Electrical Repair", "AC Repair & HVAC"],
+        id: "7842d4fd-ac93-4014-93ed-001c0237a36c",
+        full_name: "Raj Kumar",
+        pillar_code: "PIL-CHE-042",
+        mobile: "+91 98400 11223",
+        email: "raj@coophub.in",
+        main_services: ["Electrical Repair", "AC Repair & Installation"],
         sub_services: ["Ceiling Fan Wiring", "MCB Tripping Check", "DB Box Servicing"],
         service_area: ["Guindy", "600032"],
         experience_years: "6",

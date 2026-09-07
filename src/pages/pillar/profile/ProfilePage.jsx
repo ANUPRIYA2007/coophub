@@ -19,14 +19,14 @@ export default function ProfilePage() {
 
   // Personal profile state
   const [formData, setFormData] = useState({
-    fullName: profile?.full_name || "Senthil Kumar",
-    email: profile?.email || user?.email || "senthil.electrician@coophub.in",
-    mobile: profile?.mobile || "+91 98401 23456",
+    fullName: profile?.full_name || "Raj Kumar",
+    email: profile?.email || user?.email || "raj@coophub.in",
+    mobile: profile?.mobile || "+91 98400 11223",
     mainService: mainSvc,
-    customRole: profile?.custom_role || "",
+    customRole: profile?.custom_role || "Certified Senior Electrician",
     area: profile?.area || (Array.isArray(profile?.service_area) ? profile.service_area[0] : profile?.service_area) || "Guindy, Adyar",
     pincode: profile?.pincode || (Array.isArray(profile?.service_area) && profile.service_area[1] ? profile.service_area[1] : "600032"),
-    experience: profile?.experience_years || "5+ Years",
+    experience: profile?.experience_years || "6 Years",
     subServices: subSvc,
     locationSharingEnabled: profile?.location_sharing_enabled !== false,
   });
@@ -38,9 +38,9 @@ export default function ProfilePage() {
       const savedDemo = JSON.parse(localStorage.getItem("coophub_demo_pillar_profile") || "{}");
       const s = savedDemo.main_services ? (Array.isArray(savedDemo.main_services) ? savedDemo.main_services[0] : savedDemo.main_services) : (Array.isArray(profile?.main_services) ? profile.main_services[0] : (profile?.main_services || "Electrician"));
       setFormData({
-        fullName: savedDemo.full_name || profile?.full_name || "Senthil Kumar",
-        email: savedDemo.email || profile?.email || user?.email || "senthil.electrician@coophub.in",
-        mobile: savedDemo.mobile || profile?.mobile || "+91 98401 23456",
+        fullName: savedDemo.full_name || profile?.full_name || "Raj Kumar",
+        email: savedDemo.email || profile?.email || user?.email || "raj@coophub.in",
+        mobile: savedDemo.mobile || profile?.mobile || "+91 98400 11223",
         mainService: s,
         customRole: savedDemo.custom_role || profile?.custom_role || "",
         area: savedDemo.area || profile?.area || (Array.isArray(profile?.service_area) ? profile.service_area[0] : profile?.service_area) || "Guindy, Adyar",
@@ -164,12 +164,12 @@ export default function ProfilePage() {
 
   // Bank account details state
   const [bankData, setBankData] = useState({
-    accountHolderName: profile?.bank_account_holder || "Senthil Kumar",
+    accountHolderName: profile?.bank_account_holder || "Raj Kumar",
     bankName: profile?.bank_name || "State Bank of India",
     accountNumber: profile?.bank_account_number || "308945781234",
     confirmAccountNumber: profile?.bank_account_number || "308945781234",
     ifscCode: profile?.bank_ifsc || "SBIN0000842",
-    upiId: profile?.bank_upi_id || "9840123456@sbi",
+    upiId: profile?.bank_upi_id || "9840011223@sbi",
   });
 
   const [profileSaved, setProfileSaved] = useState(false);

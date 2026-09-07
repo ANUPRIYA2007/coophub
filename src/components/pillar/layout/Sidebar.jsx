@@ -49,7 +49,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   const heroMsgEndRef = useRef(null);
   const heroInputRef = useRef(null);
 
-  const userName = profile?.full_name?.split(" ")[0] || "Senthil";
+  const userName = profile?.full_name?.split(" ")[0] || "Raj";
 
   const handleToggleOnline = async () => {
     const next = !isAvailable;
@@ -490,11 +490,11 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             alignItems: "center", justifyContent: "center",
             fontWeight: "bold", fontSize: "1.2rem", flexShrink: 0
           }}>
-            {profile?.full_name?.charAt(0) || "S"}
+            {profile?.full_name?.charAt(0) || "R"}
           </div>
           <div style={{ overflow: "hidden" }}>
             <div style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "14.5px" }}>
-              {profile?.full_name || "Senthil Kumar"}
+              {profile?.full_name || "Raj Kumar"}
             </div>
             <div style={{ fontSize: "11px", color: "var(--color-secondary)", fontWeight: "600", letterSpacing: "0.5px", marginTop: "1px" }}>
               ID: {profile?.pillar_code || "PIL-CHE-042"}

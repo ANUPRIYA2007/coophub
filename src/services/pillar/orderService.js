@@ -158,7 +158,10 @@ export const pillarOrderService = {
   getDeterministicArrivalOtp,
   formatOrderTime,
   async getOrders(pillarId, status = null) {
-    const isDemo = localStorage.getItem("coophub_demo_user") === "true" || pillarId === "00000000-0000-0000-0000-000000000000";
+    const isDemo = localStorage.getItem("coophub_demo_user") === "true" || 
+                   pillarId === "00000000-0000-0000-0000-000000000000" ||
+                   pillarId === "7842d4fd-ac93-4014-93ed-001c0237a36c" ||
+                   pillarId === "c4200000-0000-0000-0000-000000000042";
 
     // 🔒 REAL USER & DEMO: Query live Supabase database across service_requests and bookings
     try {
