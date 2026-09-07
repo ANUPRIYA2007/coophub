@@ -113,6 +113,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   // Friendly greeting emojis and moods per route
   const routePersonality = {
     "/admin": { emoji: "👋", mood: "happy", greeting: `Welcome back, Admin! System analytics and performance look strong.` },
+    "/admin/verification": { emoji: "🛡️", mood: "helpful", greeting: `Pillar Verification Workspace active. Review applicant identity, inspect OCR extracts, and verify official credentials.` },
     "/admin/pillars": { emoji: "👥", mood: "helpful", greeting: `Let's review the registered Pillar workforce.` },
     "/admin/services": { emoji: "🔧", mood: "excited", greeting: `Manage cooperative service catalog and pricing.` },
     "/admin/requests": { emoji: "📦", mood: "excited", greeting: `Active customer service requests overview.` },
@@ -416,6 +417,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
   const navItems = [
     { name: "Overview", path: "/admin", icon: LayoutDashboard },
+    { name: "Verification Workspace", path: "/admin/verification", icon: ShieldCheck },
     { name: "AI Demand Forecast", path: "/admin/forecast", icon: TrendingUp },
     { name: "AI Workforce Allocation", path: "/admin/allocation", icon: Zap },
     { name: "Skill Certifications", path: "/admin/certifications", icon: Award },

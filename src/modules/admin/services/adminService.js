@@ -479,17 +479,32 @@ export const adminService = {
   async getPillarById(pillarId) {
     try {
       if (!pillarId) return null;
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pillarId);
+      const cleanId = String(pillarId).trim();
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
       let query = supabase.from('pillar_profiles').select('*');
 
       if (isUuid) {
-        query = query.eq('id', pillarId);
+        query = query.eq('id', cleanId);
       } else {
-        query = query.or(`pillar_code.eq.${pillarId},application_id.eq.${pillarId},email.eq.${pillarId}`);
+        query = query.or(`pillar_code.eq.${cleanId},application_id.eq.${cleanId},email.eq.${cleanId},mobile.eq.${cleanId},full_name.ilike.%${cleanId}%`);
       }
 
       const { data, error } = await query.maybeSingle();
       if (!error && data) return data;
+
+      // Fallback: search across all pillars in memory
+      const all = await this.getAllPillars();
+      if (all && all.length > 0) {
+        const found = all.find(p => 
+          p.id === cleanId || 
+          p.pillar_code?.toLowerCase() === cleanId.toLowerCase() ||
+          p.application_id?.toLowerCase() === cleanId.toLowerCase() ||
+          p.email?.toLowerCase() === cleanId.toLowerCase() ||
+          p.mobile?.includes(cleanId) ||
+          p.full_name?.toLowerCase().includes(cleanId.toLowerCase())
+        );
+        if (found) return found;
+      }
     } catch (error) {
       console.error(`Error fetching pillar ${pillarId} from Supabase:`, error);
     }

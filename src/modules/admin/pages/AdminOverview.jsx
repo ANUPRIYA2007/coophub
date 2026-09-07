@@ -43,7 +43,7 @@ export default function AdminOverview() {
           { name: "Deep Home Cleaning", count: 15, percentage: 12, color: "#8B5CF6" },
         ],
         recentTransactions: [
-          { id: "TX-9081", customer: "Meenakshi S.", service: "Fan Wiring & Switchboard", pillar: "Senthil Kumar (PIL-042)", amount: "₹450", status: "Completed", time: "10 mins ago" },
+          { id: "TX-9081", customer: "Meenakshi S.", service: "Fan Wiring & Switchboard", pillar: "Raj Kumar (PIL-CHE-042)", amount: "₹450", status: "Completed", time: "10 mins ago" },
           { id: "TX-9080", customer: "Karthik R.", service: "Main Pipe Leak Repair", pillar: "Murugan V (PIL-019)", amount: "₹350", status: "Completed", time: "42 mins ago" },
           { id: "TX-9079", customer: "Deepak S.", service: "AC Deep Gas Top-up", pillar: "Praveen K (PIL-031)", amount: "₹1,200", status: "In Progress", time: "1h ago" },
           { id: "TX-9078", customer: "Lakshmi M.", service: "Kitchen Sink Drain Unclog", pillar: "Ramesh P (PIL-055)", amount: "₹300", status: "Completed", time: "2h ago" },
@@ -229,7 +229,26 @@ export default function AdminOverview() {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => navigate("/admin/verification")}
+            style={{
+              background: "rgba(245, 124, 32, 0.15)",
+              color: "var(--color-secondary)",
+              border: "1px solid rgba(245, 124, 32, 0.4)",
+              padding: "8px 18px",
+              borderRadius: "20px",
+              fontWeight: "700",
+              fontSize: "12.5px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "transform 0.15s ease",
+            }}
+          >
+            <ShieldCheck size={15} /> {t("Verification Workspace →")}
+          </button>
           <button
             onClick={() => navigate("/admin/chatai")}
             style={{

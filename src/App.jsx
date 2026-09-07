@@ -282,6 +282,10 @@ export default function App() {
           <Route path="/admin/system-health" element={<SuperAdminRoute><SuperAdminLayout><SuperAdminSystemHealth /></SuperAdminLayout></SuperAdminRoute>} />
           <Route path="/admin/security-audit" element={<SuperAdminRoute><SuperAdminLayout><SuperAdminSecurityAudit /></SuperAdminLayout></SuperAdminRoute>} />
           <Route path="/admin/settings-apex" element={<SuperAdminRoute><SuperAdminLayout><SuperAdminSettingsApex /></SuperAdminLayout></SuperAdminRoute>} />
+          <Route path="/admin/verification" element={<SuperAdminRoute><SuperAdminLayout><PillarDetails /></SuperAdminLayout></SuperAdminRoute>} />
+          <Route path="/admin/verification/:pillarId" element={<SuperAdminRoute><SuperAdminLayout><PillarDetails /></SuperAdminLayout></SuperAdminRoute>} />
+          <Route path="/admin/verification-workspace" element={<SuperAdminRoute><SuperAdminLayout><PillarDetails /></SuperAdminLayout></SuperAdminRoute>} />
+          <Route path="/admin/verification-workspace/:pillarId" element={<SuperAdminRoute><SuperAdminLayout><PillarDetails /></SuperAdminLayout></SuperAdminRoute>} />
 
           {/* 🏛️ Cooperative Admin Authentication & Dashboard Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -299,6 +303,12 @@ export default function App() {
                     <Route path="/certifications" element={<AdminCertifications />} />
                     <Route path="/pillars" element={<PillarsList />} />
                     <Route path="/pillars/:pillarId" element={<PillarDetails />} />
+                    <Route path="/verification" element={<PillarDetails />} />
+                    <Route path="/verification/:pillarId" element={<PillarDetails />} />
+                    <Route path="/verification-workspace" element={<PillarDetails />} />
+                    <Route path="/verification-workspace/:pillarId" element={<PillarDetails />} />
+                    <Route path="/workspace" element={<PillarDetails />} />
+                    <Route path="/workspace/:pillarId" element={<PillarDetails />} />
                     <Route path="/customers" element={<AdminCustomers />} />
                     <Route path="/services" element={<AdminServices />} />
                     <Route path="/requests" element={<AdminRequests />} />
