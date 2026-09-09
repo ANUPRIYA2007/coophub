@@ -156,6 +156,10 @@ export default function ServiceRequest() {
     };
 
     const handleCameraCapture = () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            cameraInputRef.current?.click();
+            return;
+        }
         setIsCameraOpen(true);
     };
 
@@ -204,8 +208,40 @@ export default function ServiceRequest() {
         try {
             let uploadedAttachments = [];
             if (selectedFile) {
-                const path = await attachmentService.uploadAttachment(selectedFile, profile?.user_id);
-                uploadedAttachments.push(path);
+                // 1. Generate base64 DataURL for guaranteed immediate preview across all storage environments
+                let base64DataUrl = cameraPreview;
+                if (!base64DataUrl) {
+                    base64DataUrl = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = () => resolve(null);
+                        reader.readAsDataURL(selectedFile);
+                    });
+                }
+
+                // 2. Safely attempt Supabase storage upload
+                let uploadResult = null;
+                try {
+                    uploadResult = await attachmentService.uploadAttachment(selectedFile, profile?.user_id || profile?.id || 'customer');
+                } catch (upErr) {
+                    console.warn('Storage upload note (using base64 dataUrl mirror):', upErr);
+                }
+
+                const finalUrl = uploadResult?.url || base64DataUrl;
+                const isPdf = selectedFile.type?.includes('pdf') || selectedFile.name?.toLowerCase().endsWith('.pdf');
+
+                const attachmentItem = {
+                    id: `att-${Date.now()}`,
+                    name: selectedFile.name || (isPdf ? 'document.pdf' : 'customer_photo.jpg'),
+                    type: isPdf ? 'pdf' : 'image',
+                    size: `${(selectedFile.size / 1024).toFixed(1)} KB`,
+                    url: finalUrl,
+                    previewUrl: base64DataUrl || finalUrl,
+                    path: uploadResult?.path || null,
+                    uploaded_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+
+                uploadedAttachments.push(attachmentItem);
             }
 
             const chosenPillar = availablePillars.find(p => p.id === selectedPillarId);
@@ -227,7 +263,8 @@ export default function ServiceRequest() {
                 amount: chosenPillar?.starting_price || subServiceInfo?.base_price || 450,
                 ...formData,
                 address_line: cleanAddress,
-                attachments: uploadedAttachments
+                attachments: uploadedAttachments,
+                photo_urls: uploadedAttachments.map(a => a.url).filter(Boolean)
             };
 
             const requestId = await serviceRequestService.createServiceRequest(payload);
@@ -638,6 +675,24 @@ export default function ServiceRequest() {
                                         <p className="font-medium text-navy-800">{formData.customer_description}</p>
                                     </div>
                                 )}
+                                {selectedFile && (
+                                    <div className="bg-navy-50 p-4 rounded-xl border border-navy-200">
+                                        <p className="text-xs text-muted mb-2 font-semibold text-navy-500 uppercase tracking-wider">{t('Customer Attachment (Visible to Pillar)')}</p>
+                                        <div className="flex items-center gap-3">
+                                            {cameraPreview ? (
+                                                <img src={cameraPreview} alt="Attached preview" className="w-14 h-14 object-cover rounded-xl border border-orange-200 shadow-sm" />
+                                            ) : (
+                                                <div className="w-14 h-14 bg-red-100 text-red-600 rounded-xl flex items-center justify-center font-black text-xs border border-red-200">
+                                                    PDF
+                                                </div>
+                                            )}
+                                            <div className="overflow-hidden flex-1">
+                                                <p className="text-sm font-bold text-navy-800 truncate">{selectedFile.name}</p>
+                                                <p className="text-xs text-navy-500">{(selectedFile.size / 1024).toFixed(1)} KB • Ready for Technician Inspection</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-4 bg-orange-50 rounded-xl border border-orange-100 mt-4 flex items-center justify-between">
@@ -660,6 +715,26 @@ export default function ServiceRequest() {
                     )}
                 </div>
             </div>
+
+            {/* Camera Capture Modal */}
+            <CameraCaptureModal
+                isOpen={isCameraOpen}
+                onClose={() => setIsCameraOpen(false)}
+                onCapture={handleCapturedPhoto}
+            />
+
+            {/* Native device camera fallback input */}
+            <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleCapturedPhoto(file);
+                }}
+            />
         </div>
     );
 }

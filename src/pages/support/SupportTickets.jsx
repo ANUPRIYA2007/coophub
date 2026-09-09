@@ -114,7 +114,7 @@ export default function SupportTickets() {
                                 </div>
                                 <p className="text-navy-500 text-sm mb-4 line-clamp-2">{ticket.description}</p>
                                 <div className="flex justify-between items-center text-xs text-navy-400 font-mono">
-                                    <span>TKT-{ticket.id.split('-')[0]}</span>
+                                    <span>{String(ticket.id).startsWith('TKT-') ? ticket.id : `TKT-${String(ticket.id).slice(0, 6).toUpperCase()}`}</span>
                                     <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
                                 </div>
                             </div>

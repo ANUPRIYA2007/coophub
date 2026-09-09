@@ -124,12 +124,21 @@ app.get('/api/admin/super-admin/test', requireSuperAdmin, (req, res) => {
 {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-    const supabaseAdminClient = createClient(supabaseUrl, supabaseServiceKey);
-    const geoRouter = createGeographyRouter(supabaseAdminClient, requireSuperAdmin);
-    app.use('/api/admin/geography', geoRouter);
+    const supabaseAdminClient = (supabaseUrl && supabaseServiceKey)
+        ? createClient(supabaseUrl, supabaseServiceKey)
+        : null;
 
-    const govRouter = createGovernanceRouter(supabaseAdminClient, requireSuperAdmin, generateAIResponse);
-    app.use('/api/admin/governance', govRouter);
+    if (supabaseAdminClient) {
+        const geoRouter = createGeographyRouter(supabaseAdminClient, requireSuperAdmin);
+        app.use('/api/admin/geography', geoRouter);
+
+        const govRouter = createGovernanceRouter(supabaseAdminClient, requireSuperAdmin, generateAIResponse);
+        app.use('/api/admin/governance', govRouter);
+    } else {
+        const fallbackUnavailable = (req, res) => res.status(503).json({ error: 'Supabase database service not configured' });
+        app.use('/api/admin/geography', fallbackUnavailable);
+        app.use('/api/admin/governance', fallbackUnavailable);
+    }
 }
 
 // ─── Razorpay & Hand Cash Payment Routes ───

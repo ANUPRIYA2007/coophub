@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useTranslation } from '../../hooks/useTranslation';
+import { notificationSyncService } from '../../services/notifications/notificationSyncService';
 import { Bell, ArrowLeft, CheckCheck, Clock, ShieldCheck, Wrench, FileText, CheckCircle2, Navigation, AlertCircle, Trash2, X } from 'lucide-react';
 
 export default function NotificationsList() {
@@ -14,32 +15,13 @@ export default function NotificationsList() {
 
     const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
-    const getDismissedIds = () => {
-        try {
-            return JSON.parse(localStorage.getItem('coophub_dismissed_notifs') || '[]');
-        } catch {
-            return [];
-        }
-    };
-
-    const addDismissedId = (id) => {
-        try {
-            const current = getDismissedIds();
-            if (!current.includes(id)) {
-                current.push(id);
-                localStorage.setItem('coophub_dismissed_notifs', JSON.stringify(current));
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
-
     useEffect(() => {
         const fetchNotifications = async () => {
             setLoading(true);
             try {
                 const customerId = profile?.user_id || user?.id;
-                const dismissedIds = new Set(getDismissedIds());
+                const dismissedIds = new Set(notificationSyncService.getDismissedIds());
+                const readIds = new Set(notificationSyncService.getReadIds());
                 let notifList = [];
 
                 // 1. Fetch from Supabase notifications table if available
@@ -51,7 +33,12 @@ export default function NotificationsList() {
                         .order('created_at', { ascending: false });
 
                     if (dbNotifs && dbNotifs.length > 0) {
-                        notifList.push(...dbNotifs);
+                        dbNotifs.forEach(n => {
+                            notifList.push({
+                                ...n,
+                                is_read: Boolean(n.is_read || n.read || readIds.has(n.id))
+                            });
+                        });
                     }
                 }
 
@@ -102,7 +89,7 @@ export default function NotificationsList() {
                             title: statusTitle,
                             message: statusMsg,
                             type: iconType,
-                            is_read: false,
+                            is_read: Boolean(readIds.has(`req-status-${r.id}`)),
                             created_at: r.updated_at || r.created_at
                         });
 
@@ -117,6 +104,28 @@ export default function NotificationsList() {
                             created_at: r.created_at
                         });
                     });
+                }
+
+                // If empty list, check demo alerts
+                if (notifList.length === 0) {
+                    notifList.push(
+                        {
+                            id: 'notif-1',
+                            title: 'Welcome to COOP HUB',
+                            message: 'Book skilled electricians, plumbers, and home experts in your cooperative district.',
+                            type: 'system',
+                            is_read: Boolean(readIds.has('notif-1')),
+                            created_at: new Date(Date.now() - 3600000).toISOString()
+                        },
+                        {
+                            id: 'notif-2',
+                            title: 'Verified Cooperative Network',
+                            message: 'All service technicians on COOP HUB are authenticated with biometric KYC and verified certifications.',
+                            type: 'system',
+                            is_read: Boolean(readIds.has('notif-2')),
+                            created_at: new Date(Date.now() - 7200000).toISOString()
+                        }
+                    );
                 }
 
                 // Deduplicate by ID, filter out dismissed, and sort newest first
@@ -151,14 +160,21 @@ export default function NotificationsList() {
         return () => supabase.removeChannel(channel);
     }, [profile, user]);
 
-    const markAsRead = (id, e) => {
+    const markAsRead = async (id, e) => {
         e?.stopPropagation();
+        await notificationSyncService.markAsRead(id);
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    };
+
+    const handleMarkAllRead = async () => {
+        const ids = notifications.map(n => n.id);
+        await notificationSyncService.markAllAsRead(ids);
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     };
 
     const handleRemoveNotification = async (id, e) => {
         e?.stopPropagation();
-        addDismissedId(id);
+        await notificationSyncService.dismissNotification(id);
         setNotifications(prev => prev.filter(n => n.id !== id));
 
         // If UUID format from Supabase notifications table, delete directly
@@ -174,7 +190,8 @@ export default function NotificationsList() {
     const handleClearAll = async () => {
         if (!window.confirm("Are you sure you want to clear all notifications?")) return;
         
-        notifications.forEach(n => addDismissedId(n.id));
+        const ids = notifications.map(n => n.id);
+        await notificationSyncService.clearAll(ids);
         setNotifications([]);
 
         const customerId = profile?.user_id || user?.id;
@@ -236,7 +253,7 @@ export default function NotificationsList() {
                     {notifications.length > 0 && (
                         <div className="flex items-center space-x-2">
                             <button
-                                onClick={() => setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))}
+                                onClick={handleMarkAllRead}
                                 className="text-xs font-bold text-navy-600 hover:text-navy-800 transition-colors px-2 py-1 rounded-lg hover:bg-navy-50"
                             >
                                 Mark read

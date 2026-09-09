@@ -13,6 +13,7 @@ export default function Hero3DCanvas({
   className = '',
   style = {},
   onLoaded = null,
+  onClick = null,
 }) {
   const containerRef = useRef(null);
   const [loadError, setLoadError] = useState(null);
@@ -587,6 +588,7 @@ export default function Hero3DCanvas({
   return (
     <div
       ref={containerRef}
+      onClick={onClick}
       className={`relative w-full h-full overflow-hidden flex items-center justify-center ${className}`}
       style={{ width: '100%', height: '100%', ...style }}
     >

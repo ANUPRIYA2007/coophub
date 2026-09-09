@@ -3,7 +3,7 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/useTranslation.js';
 import { translateDynamic } from '../../i18n/centralEngine.js';
 import { getLanguageMetadata } from '../../i18n/languages.js';
-import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare, Send, Mic, MicOff, ChevronUp, ChevronDown, Bell } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, AlertCircle, CheckCircle2, Bot, MessageSquare, Send, Mic, MicOff, ChevronUp, ChevronDown, Bell, X } from 'lucide-react';
 import Hero3D from '../hero3d/Hero3D';
 import { aiService } from '../../services/pillar/aiService';
 import { heroNotificationHub } from '../../services/ai/heroNotificationHub';
@@ -19,6 +19,7 @@ export default function GlobalHeroAgent({ inline = false }) {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [activeInputName, setActiveInputName] = useState(null);
     const [isBubbleOpen, setIsBubbleOpen] = useState(false);
+    const [isFloatingBubbleOpen, setIsFloatingBubbleOpen] = useState(true);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
     // Interactive Sidebar Chat State
@@ -34,6 +35,7 @@ export default function GlobalHeroAgent({ inline = false }) {
         const unsubscribe = heroNotificationHub.subscribe(({ latest, unreadCount }) => {
             setUnreadNotifCount(unreadCount);
             if (latest) {
+                setIsFloatingBubbleOpen(true);
                 setAnimState('speaking');
                 setHeroGreeting(`🔔 ${latest.title}: ${latest.message}`);
                 setHeroMessages((prev) => [
@@ -55,6 +57,18 @@ export default function GlobalHeroAgent({ inline = false }) {
 
     // Dynamic Context & Route Tracking per page
     const routeGuidanceMap = useMemo(() => ({
+        '/': {
+            en: 'Welcome to COOP HUB! Choose your dedicated portal to access services, assignments, or administration.',
+            hi: 'कॉप हब में आपका स्वागत है! सेवाओं, कार्यों या प्रशासन तक पहुँचने के लिए अपना समर्पित पोर्टल चुनें।',
+            ta: 'கூட்டுறவு தளத்திற்கு உங்களை வரவேற்கிறோம்! சேவைகள், பணிகள் அல்லது நிர்வாகத்தை அணுக உங்கள் போர்ட்டலைத் தேர்வுசெய்யவும்.',
+            te: 'కూప్ హబ్ కు స్వాగతం! సేవలు, పనులు లేదా పరిపాలనను యాక్సెస్ చేయడానికి మీ పోర్టల్‌ను ఎంచుకోండి.',
+            kn: 'ಕೂಪ್ ಹಬ್‌ಗೆ ಸುಸ್ವಾಗತ! ಸೇವೆಗಳು, ನಿಯೋಜನೆಗಳು ಅಥವಾ ಆಡಳಿತವನ್ನು ಪ್ರವೇಶಿಸಲು ನಿಮ್ಮ ಮೀಸಲಾದ ಪೋರ್ಟಲ್ ಆಯ್ಕೆಮಾಡಿ.',
+            ml: 'കൂപ് ഹബിലേക്ക് സ്വാഗതം! സേവനങ്ങളും ഭരണനിർവ്വഹണവും ലഭ്യമാക്കാൻ നിങ്ങളുടെ പോർട്ടൽ തിരഞ്ഞെടുക്കുക.',
+            bn: 'কোপ হাবে স্বাগতম! পরিষেবা, কার্যাবলী বা প্রশাসনের জন্য আপনার নির্ধারিত পোর্টালটি নির্বাচন করুন।',
+            mr: 'कॉप हबमध्ये आपले स्वागत आहे! सेवा किंवा प्रशासनामध्ये प्रवेश करण्यासाठी आपले समर्पित पोर्टल निवडा.',
+            gu: 'કૂપ હબમાં આપનું સ્વાગત છે! સેવાઓ અથવા વહીવટ માટે તમારું સમર્પિત પોર્ટલ પસંદ કરો.',
+            mood: 'happy'
+        },
         '/home': {
             en: 'Welcome to your Dashboard! Browse top-rated services or track active technicians.',
             ta: 'உங்கள் முகப்புப் பக்கத்திற்கு வருக! சிறந்த சேவைகளை ஆராயலாம் அல்லது தொழில்நுட்ப வல்லுநர்களைக் கண்காணிக்கலாம்.',
@@ -117,6 +131,7 @@ export default function GlobalHeroAgent({ inline = false }) {
         let isMounted = true;
         const currentPath = location.pathname;
 
+        setIsFloatingBubbleOpen(true);
         // Immediate visual cue that CoopBot is active & processing new page
         setAnimState('speaking');
 
@@ -131,12 +146,17 @@ export default function GlobalHeroAgent({ inline = false }) {
             }
         }
 
-        const baseFallback = matched?.[language] || matched?.en || 'Hello! I am CoopBot, your live service guide. How can I assist your home today?';
+        const baseFallback = matched?.[language] || (matched?.en ? t(matched.en) : null) || t('How Can I Assist Your Home Today?');
         
         const resolveInitial = async () => {
             let initial = baseFallback;
             if (language !== 'en' && !matched?.[language]) {
-                initial = await translateDynamic(baseFallback, language, 'en');
+                const syncTrans = t(baseFallback);
+                if (syncTrans && syncTrans !== baseFallback) {
+                    initial = syncTrans;
+                } else {
+                    initial = await translateDynamic(baseFallback, language, 'en');
+                }
             }
             if (isMounted) setHeroGreeting(initial);
         };
@@ -309,7 +329,38 @@ export default function GlobalHeroAgent({ inline = false }) {
         }
     };
 
-    const handleOpenChat = () => {
+    const handleDismissHeroBubble = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        setIsFloatingBubbleOpen(false);
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        setIsSpeaking(false);
+        setAnimState('idle');
+    };
+
+    const handleHeroClick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (heroGreeting && isFloatingBubbleOpen) {
+            // Close the hero AI conversation bubble
+            handleDismissHeroBubble(e);
+        } else {
+            // Re-open guidance conversation bubble
+            setIsFloatingBubbleOpen(true);
+        }
+    };
+
+    const handleOpenChat = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         window.dispatchEvent(new CustomEvent('open-customer-chat'));
     };
 
@@ -648,9 +699,9 @@ export default function GlobalHeroAgent({ inline = false }) {
                         }}
                     >
                         <span className="status-dot available" style={{ width: "6px", height: "6px", background: "#10B981", borderRadius: "50%" }}></span>
-                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {isLoadingAi ? 'thinking' : animState}</span>
+                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {isLoadingAi ? t('Thinking') : t(animState)}</span>
                         <span className="text-[9px] text-orange-400 font-normal ml-1">
-                            {isBubbleOpen ? "• Close" : "• Tap to Chat"}
+                            {isBubbleOpen ? `• ${t("Close")}` : `• ${t("Tap to chat with AI")}`}
                         </span>
                     </div>
                 </div>
@@ -672,15 +723,16 @@ export default function GlobalHeroAgent({ inline = false }) {
             
             {/* Big Uncaged 3D Mascot Character Trigger */}
             <div 
-                onClick={handleOpenChat}
+                onClick={handleHeroClick}
                 className="relative group pointer-events-auto cursor-pointer flex flex-col items-center"
-                title="Click to talk with CoopBot"
+                title={heroGreeting && isFloatingBubbleOpen ? "Click to close conversation" : "Click to view CoopBot guidance"}
             >
                 <div className="relative w-48 h-60 sm:w-56 sm:h-72 flex items-center justify-center transition-transform transform group-hover:scale-105">
-                    <Hero3D mode="card" state={animState} style={{ width: "100%", height: "100%" }} />
+                    <Hero3D mode="card" state={animState} onClick={handleHeroClick} style={{ width: "100%", height: "100%" }} />
 
                     {/* Status Pill Aura */}
                     <div 
+                        onClick={handleHeroClick}
                         style={{
                             position: "absolute",
                             bottom: "8px",
@@ -695,34 +747,51 @@ export default function GlobalHeroAgent({ inline = false }) {
                             alignItems: "center",
                             gap: "6px",
                             border: "1px solid rgba(255, 121, 0, 0.3)",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                            cursor: "pointer",
+                            pointerEvents: "auto"
                         }}
                     >
                         <span className="status-dot available" style={{ width: "7px", height: "7px", background: "#10B981", borderRadius: "50%" }}></span>
-                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {animState}</span>
+                        <span style={{ textTransform: "capitalize", color: "#F1F5F9" }}>CoopBot: {t(animState)}</span>
+                        {heroGreeting && isFloatingBubbleOpen && (
+                            <span className="text-[10px] text-orange-400 font-semibold ml-1 hover:underline">
+                                • {t("Close")}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Lively Reactive Speech Bubble */}
-            {heroGreeting && (
+            {heroGreeting && isFloatingBubbleOpen && (
                 <div
-                    onClick={handleOpenChat}
                     style={{ backgroundColor: 'var(--color-surface, #FFFFFF)', borderColor: '#FF7900' }}
-                    className="pointer-events-auto cursor-pointer max-w-xs sm:max-w-sm border-2 shadow-2xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative mb-6"
+                    className="pointer-events-auto max-w-xs sm:max-w-sm border-2 shadow-2xl rounded-2xl rounded-bl-none p-3.5 transition-all duration-300 transform group hover:-translate-y-1 relative mb-6"
                 >
                     <div className="flex items-center justify-between gap-2 mb-1.5 border-b border-orange-200 dark:border-slate-700 pb-1">
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                            <Sparkles size={12} /> CoopBot Live Guide
+                            <Sparkles size={12} /> {t("CoopBot Live Guide")}
                         </span>
 
                         <div className="flex items-center space-x-1.5">
                             <button
-                                onClick={speakGreeting}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    speakGreeting();
+                                }}
                                 className={`p-1 rounded-md transition-colors ${isSpeaking ? 'bg-orange-500 text-white animate-pulse' : 'text-slate-600 dark:text-slate-300 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-slate-800'}`}
                                 title={isSpeaking ? "Mute speech" : "Read aloud"}
                             >
                                 {isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                            </button>
+
+                            <button
+                                onClick={handleDismissHeroBubble}
+                                className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Close conversation"
+                            >
+                                <X size={14} />
                             </button>
                         </div>
                     </div>
@@ -734,11 +803,15 @@ export default function GlobalHeroAgent({ inline = false }) {
                         "{heroGreeting}"
                     </p>
 
-                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                    <div 
+                        onClick={handleOpenChat}
+                        className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer hover:opacity-80 transition-opacity"
+                        title="Click to open AI Chat"
+                    >
                         <span className="italic flex items-center gap-1">
-                            <MessageSquare size={12} /> Tap to chat with AI
+                            <MessageSquare size={12} /> {t("Tap to chat with AI")}
                         </span>
-                        <span style={{ color: '#FF7900' }} className="font-bold">Ask anything →</span>
+                        <span style={{ color: '#FF7900' }} className="font-bold">{t("Ask anything →")}</span>
                     </div>
                 </div>
             )}

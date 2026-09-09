@@ -328,55 +328,110 @@ export const jobCommunicationService = {
    * Subscribe to live messages for a specific request
    */
   subscribeToConversation(requestId, callback) {
-    if (!requestId) return null;
+    return subscribeToMessages(requestId, callback);
+  },
 
-    const channel = supabase
-      .channel(`conversation-${requestId}-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          if (!payload.new) return;
-          const msg = payload.new;
-          if (msg.request_id === requestId || msg.booking_id === requestId) {
-            callback({
-              id: msg.id,
-              request_id: msg.request_id,
-              sender_type: msg.sender_type,
-              content: msg.content || msg.message,
-              message_type: msg.message_type || 'TEXT',
-              metadata: msg.metadata || {},
-              is_read: msg.read || msg.is_read || false,
-              created_at: msg.created_at
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages' },
-        (payload) => {
-          if (!payload.new) return;
-          const msg = payload.new;
-          if (msg.request_id === requestId || msg.booking_id === requestId) {
-            callback({
-              id: msg.id,
-              request_id: msg.request_id,
-              sender_type: msg.sender_type,
-              content: msg.content || msg.message,
-              message_type: msg.message_type || 'TEXT',
-              metadata: msg.metadata || {},
-              is_read: msg.read || msg.is_read || false,
-              read_at: msg.read_at,
-              created_at: msg.created_at
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return channel;
+  /**
+   * Subscribe to live messages with granular onInsert, onUpdate, onError callbacks
+   */
+  subscribeToMessages(requestId, callbacks) {
+    return subscribeToMessages(requestId, callbacks);
   }
 };
+
+/**
+ * Standalone export: Subscribe to live messages for a specific request
+ * @param {string} requestId - Order/Request UUID or Code
+ * @param {Object|Function} callbacks - { onInsert, onUpdate, onError } or a single callback
+ * @returns {Function} cleanup - Clean unsubscribe function for useEffect
+ */
+export function subscribeToMessages(requestId, callbacks = {}) {
+  if (!requestId) return () => {};
+
+  const onInsertCb = typeof callbacks === 'function' ? callbacks : callbacks?.onInsert;
+  const onUpdateCb = typeof callbacks === 'object' ? callbacks?.onUpdate : null;
+  const onErrorCb = typeof callbacks === 'object' ? callbacks?.onError : null;
+
+  const channelName = `conversation-${requestId}-${Date.now()}`;
+  
+  const channel = supabase
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages' },
+      (payload) => {
+        if (!payload.new) return;
+        const msg = payload.new;
+        if (msg.request_id === requestId || msg.booking_id === requestId) {
+          console.log('[Realtime] New message for request', requestId, payload);
+          const formatted = {
+            id: msg.id,
+            request_id: msg.request_id || requestId,
+            booking_id: msg.booking_id || requestId,
+            sender_id: msg.sender_id,
+            sender_type: msg.sender_type || 'customer',
+            content: msg.content || msg.message || '',
+            message: msg.content || msg.message || '',
+            text: msg.content || msg.message || '',
+            message_type: msg.message_type || 'TEXT',
+            metadata: msg.metadata || {},
+            is_read: msg.read || msg.is_read || false,
+            read_at: msg.read_at,
+            created_at: msg.created_at
+          };
+          if (onInsertCb) onInsertCb(formatted);
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'messages' },
+      (payload) => {
+        if (!payload.new) return;
+        const msg = payload.new;
+        if (msg.request_id === requestId || msg.booking_id === requestId) {
+          console.log('[Realtime] Message update for request', requestId, payload);
+          const formatted = {
+            id: msg.id,
+            request_id: msg.request_id || requestId,
+            booking_id: msg.booking_id || requestId,
+            sender_id: msg.sender_id,
+            sender_type: msg.sender_type || 'customer',
+            content: msg.content || msg.message || '',
+            message: msg.content || msg.message || '',
+            text: msg.content || msg.message || '',
+            message_type: msg.message_type || 'TEXT',
+            metadata: msg.metadata || {},
+            is_read: msg.read || msg.is_read || false,
+            read_at: msg.read_at,
+            created_at: msg.created_at
+          };
+          if (onUpdateCb) onUpdateCb(formatted);
+          else if (onInsertCb) onInsertCb(formatted);
+        }
+      }
+    )
+    .subscribe((status, err) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`[Realtime] Connected to conversation channel: ${channelName}`);
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error(`[Realtime] Subscription error on conversation ${requestId}:`, err);
+        if (onErrorCb) onErrorCb(err);
+      }
+    });
+
+  // Return a cleanup function that safely calls removeChannel
+  const cleanup = () => {
+    try {
+      console.log(`[Realtime] Tearing down conversation channel: ${channelName}`);
+      supabase.removeChannel(channel);
+    } catch (e) {
+      console.warn('Channel teardown note:', e);
+    }
+  };
+  cleanup.channel = channel;
+  cleanup.unsubscribe = cleanup;
+  return cleanup;
+}
 
 export default jobCommunicationService;

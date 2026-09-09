@@ -29,6 +29,7 @@ export default function CoopHubServiceReceipt({
   pillarVerification,
   pillarRating,
 
+  serviceId,
   serviceTitle,
   serviceDescription,
   serviceDate,
@@ -72,6 +73,7 @@ export default function CoopHubServiceReceipt({
   const displayPillarVerification = pillarVerification || "Verified";
   const displayPillarRating = pillarRating || (order?.pillar?.rating ? `★ ${order.pillar.rating}` : "★ 4.8");
 
+  const displayServiceId = serviceId || order?.service_id || (order?.service?.id ? (String(order.service.id).length > 12 ? 'SRV-' + String(order.service.id).slice(0, 8).toUpperCase() : order.service.id) : "SRV-ELEC-101");
   const displayServiceTitle = serviceTitle || order?.service_name || order?.service?.name || "[Electrical Repair]";
   const displayServiceDesc = serviceDescription || order?.sub_service_name || order?.service_description || order?.description || "[Service Description]";
   const displayServiceDate = serviceDate || order?.scheduled_date || "[Service Date]";
@@ -466,6 +468,10 @@ export default function CoopHubServiceReceipt({
             <div>
               <span style={{ color: "#64748B", fontWeight: "500", display: "block", fontSize: "11px", textTransform: "uppercase" }}>Service:</span>
               <span style={{ fontWeight: "700", color: "#162238", fontSize: "13.5px" }}>{displayServiceTitle}</span>
+            </div>
+            <div>
+              <span style={{ color: "#64748B", fontWeight: "500", display: "block", fontSize: "11px", textTransform: "uppercase" }}>Service ID:</span>
+              <span style={{ color: "#162238", fontWeight: "700", fontFamily: "monospace", fontSize: "12.5px" }}>{displayServiceId}</span>
             </div>
             <div>
               <span style={{ color: "#64748B", fontWeight: "500", display: "block", fontSize: "11px", textTransform: "uppercase" }}>Schedule:</span>

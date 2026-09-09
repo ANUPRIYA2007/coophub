@@ -18,7 +18,12 @@ export default function ServicesBrowse() {
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            <h1 className="text-2xl font-bold text-navy-800 mb-1">{t('Find Services')}</h1>
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
+                <h1 className="text-2xl font-bold text-navy-800">{t('Find Services')}</h1>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-900">
+                    Total: {filteredServices.length} {filteredServices.length === 1 ? 'Service' : 'Services'} Available
+                </span>
+            </div>
             <p className="text-sm text-navy-400 mb-6">{t('Browse available services in your area')}</p>
 
             {/* Search */}

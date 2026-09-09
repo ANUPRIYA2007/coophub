@@ -10,7 +10,9 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
+    ? createClient(supabaseUrl, supabaseServiceKey)
+    : null;
 
 /**
  * Server-side Authoritative Admin Role Verification
@@ -45,7 +47,7 @@ export async function resolveAdminRole(req) {
         let userId = null;
 
         // 2. Authoritative JWT validation via Supabase Auth
-        if (authHeader && authHeader.startsWith('Bearer ')) {
+        if (supabaseAdmin && authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
             try {
                 const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
@@ -71,30 +73,32 @@ export async function resolveAdminRole(req) {
 
         // 4. Authoritative Super Admin verification
         // Check admin_accounts database table for verified SUPER_ADMIN record
-        try {
-            const { data: adminAcc } = await supabaseAdmin
-                .from('admin_accounts')
-                .select('*')
-                .or(`email.eq.${cleanEmail},admin_code.eq.${cleanEmail.toUpperCase()}`)
-                .eq('role', 'SUPER_ADMIN')
-                .eq('status', 'active')
-                .maybeSingle();
+        if (supabaseAdmin) {
+            try {
+                const { data: adminAcc } = await supabaseAdmin
+                    .from('admin_accounts')
+                    .select('*')
+                    .or(`email.eq.${cleanEmail},admin_code.eq.${cleanEmail.toUpperCase()}`)
+                    .eq('role', 'SUPER_ADMIN')
+                    .eq('status', 'active')
+                    .maybeSingle();
 
-            if (adminAcc) {
-                return {
-                    authenticated: true,
-                    admin_id: adminAcc.admin_code || 'SA-000001',
-                    email: adminAcc.email,
-                    full_name: adminAcc.full_name,
-                    role: 'SUPER_ADMIN',
-                    isSuperAdmin: true,
-                    scope: 'GLOBAL',
-                    jurisdiction: 'India (All 4 Zones: SZ, NZ, WZ, EZ)',
-                    clearance: adminAcc.clearance || 'Level 5 Apex'
-                };
+                if (adminAcc) {
+                    return {
+                        authenticated: true,
+                        admin_id: adminAcc.admin_code || 'SA-000001',
+                        email: adminAcc.email,
+                        full_name: adminAcc.full_name,
+                        role: 'SUPER_ADMIN',
+                        isSuperAdmin: true,
+                        scope: 'GLOBAL',
+                        jurisdiction: 'India (All 4 Zones: SZ, NZ, WZ, EZ)',
+                        clearance: adminAcc.clearance || 'Level 5 Apex'
+                    };
+                }
+            } catch (dbErr) {
+                console.warn('admin_accounts check note:', dbErr.message);
             }
-        } catch (dbErr) {
-            console.warn('admin_accounts check note:', dbErr.message);
         }
 
         // Apex fallback for seeded SA-000001
@@ -113,26 +117,28 @@ export async function resolveAdminRole(req) {
         }
 
         // 2. Query DB profiles / admin_accounts table
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('*')
-            .or(`email.eq.${cleanEmail},id.eq.${userId || '00000000-0000-0000-0000-000000000000'}`)
-            .single();
+        if (supabaseAdmin) {
+            const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('*')
+                .or(`email.eq.${cleanEmail},id.eq.${userId || '00000000-0000-0000-0000-000000000000'}`)
+                .single();
 
-        if (profile) {
-            const role = (profile.role || '').toUpperCase();
-            const isSuper = role === 'SUPER_ADMIN';
-            return {
-                authenticated: true,
-                admin_id: profile.admin_code || `ADM-${(profile.id || '').slice(0, 6).toUpperCase()}`,
-                email: profile.email,
-                full_name: profile.full_name || 'Cooperative Administrator',
-                role: role || 'COOPERATIVE_ADMIN',
-                isSuperAdmin: isSuper,
-                scope: profile.scope || 'REGIONAL',
-                jurisdiction: profile.jurisdiction || 'Tamil Nadu (Chennai Metro Hub)',
-                clearance: isSuper ? 'Level 5 Apex' : 'Level 3 Regional'
-            };
+            if (profile) {
+                const role = (profile.role || '').toUpperCase();
+                const isSuper = role === 'SUPER_ADMIN';
+                return {
+                    authenticated: true,
+                    admin_id: profile.admin_code || `ADM-${(profile.id || '').slice(0, 6).toUpperCase()}`,
+                    email: profile.email,
+                    full_name: profile.full_name || 'Cooperative Administrator',
+                    role: role || 'COOPERATIVE_ADMIN',
+                    isSuperAdmin: isSuper,
+                    scope: profile.scope || 'REGIONAL',
+                    jurisdiction: profile.jurisdiction || 'Tamil Nadu (Chennai Metro Hub)',
+                    clearance: isSuper ? 'Level 5 Apex' : 'Level 3 Regional'
+                };
+            }
         }
 
         // Default Normal Admin fallback for registered demo administrators

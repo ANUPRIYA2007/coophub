@@ -54,6 +54,45 @@ export default function OrderDetailsModal({
   const [markingCash, setMarkingCash] = useState(false);
   const [cashConfirmed, setCashConfirmed] = useState(order?.payment_status === 'completed');
 
+  // Normalize customer uploaded files, whether stored as objects, URLs, base64 strings, or in photo_urls
+  const allAttachments = React.useMemo(() => {
+    const raw = (order?.attachments && order.attachments.length > 0)
+      ? order.attachments
+      : (order?.photo_urls || order?.photos || []);
+    const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    return list.map((item, idx) => {
+      if (typeof item === 'string') {
+        const isPdf = item.includes('application/pdf') || item.toLowerCase().endsWith('.pdf');
+        const isData = item.startsWith('data:');
+        const isHttp = item.startsWith('http://') || item.startsWith('https://');
+        const url = (isData || isHttp)
+          ? item
+          : `https://aqzkzaswckfoazpqeeti.supabase.co/storage/v1/object/public/request_attachments/${item}`;
+        return {
+          id: `att-${idx}`,
+          name: isData ? `Customer_Photo_${idx + 1}.jpg` : (item.split('/').pop() || `Attachment_${idx + 1}`),
+          url: url,
+          previewUrl: url,
+          type: isPdf ? 'pdf' : 'image',
+          size: isPdf ? 'PDF Document' : 'Photo',
+          uploaded_at: 'Customer Upload'
+        };
+      }
+      const url = item.url || item.previewUrl || item.dataUrl || (item.path ? `https://aqzkzaswckfoazpqeeti.supabase.co/storage/v1/object/public/request_attachments/${item.path}` : '');
+      const isPdf = item.type === 'pdf' || (item.name || url || '').toLowerCase().includes('.pdf');
+      return {
+        ...item,
+        id: item.id || `att-${idx}`,
+        name: item.name || (isPdf ? `Document_${idx + 1}.pdf` : `Customer_Photo_${idx + 1}.jpg`),
+        url: url,
+        previewUrl: item.previewUrl || url,
+        type: isPdf ? 'pdf' : 'image',
+        size: item.size || (isPdf ? 'PDF Document' : 'Inspection Photo'),
+        uploaded_at: item.uploaded_at || 'Attached'
+      };
+    });
+  }, [order?.attachments, order?.photo_urls, order?.photos]);
+
   if (!order) return null;
 
   const handleMarkPaymentComplete = async () => {
@@ -286,18 +325,32 @@ export default function OrderDetailsModal({
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <span style={{
-                  fontSize: "10px",
-                  fontWeight: "700",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                  color: "var(--color-primary)",
-                  background: "rgba(27, 42, 74, 0.08)",
-                  padding: "2px 8px",
-                  borderRadius: "6px"
-                }}>
-                  {order.service?.category || "Electrical & Appliances"}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span style={{
+                    fontSize: "10px",
+                    fontWeight: "700",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    color: "var(--color-primary)",
+                    background: "rgba(27, 42, 74, 0.08)",
+                    padding: "2px 8px",
+                    borderRadius: "6px"
+                  }}>
+                    {order.service?.category || "Electrical & Appliances"}
+                  </span>
+                  <span style={{
+                    fontSize: "10px",
+                    fontWeight: "700",
+                    fontFamily: "monospace",
+                    color: "#64748B",
+                    background: "#F1F5F9",
+                    border: "1px solid #CBD5E1",
+                    padding: "2px 8px",
+                    borderRadius: "6px"
+                  }}>
+                    Service ID: {order.service_id ? (String(order.service_id).length > 12 ? 'SRV-' + String(order.service_id).slice(0, 8).toUpperCase() : order.service_id) : (order.service?.id || "SRV-ELEC-101")}
+                  </span>
+                </div>
                 <h3 style={{ margin: "6px 0 2px 0", fontSize: "1.15rem", fontWeight: "700", color: "var(--color-text)" }}>
                   {order.service_name}
                 </h3>
@@ -397,21 +450,21 @@ export default function OrderDetailsModal({
                 </div>
               </div>
               <span style={{
-                background: (order.attachments && order.attachments.length > 0) ? "rgba(16, 185, 129, 0.15)" : "var(--color-background)",
-                color: (order.attachments && order.attachments.length > 0) ? "#10B981" : "var(--color-text-muted)",
+                background: allAttachments.length > 0 ? "rgba(16, 185, 129, 0.15)" : "var(--color-background)",
+                color: allAttachments.length > 0 ? "#10B981" : "var(--color-text-muted)",
                 fontSize: "11px",
                 fontWeight: "700",
                 padding: "3px 10px",
                 borderRadius: "12px",
-                border: (order.attachments && order.attachments.length > 0) ? "1px solid rgba(16, 185, 129, 0.35)" : "1px solid var(--color-border)"
+                border: allAttachments.length > 0 ? "1px solid rgba(16, 185, 129, 0.35)" : "1px solid var(--color-border)"
               }}>
-                {order.attachments && order.attachments.length > 0 ? `📎 ${order.attachments.length} File${order.attachments.length > 1 ? "s" : ""} Attached` : "No Files Attached"}
+                {allAttachments.length > 0 ? `📎 ${allAttachments.length} File${allAttachments.length > 1 ? "s" : ""} Attached` : "No Files Attached"}
               </span>
             </div>
 
-            {order.attachments && order.attachments.length > 0 ? (
+            {allAttachments.length > 0 ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
-                {order.attachments.map((file, idx) => {
+                {allAttachments.map((file, idx) => {
                   const isPdf = file.type === "pdf" || file.name?.toLowerCase().endsWith(".pdf");
 
                   if (isPdf) {
@@ -510,11 +563,16 @@ export default function OrderDetailsModal({
                         title="Click to view full size photo"
                       >
                         <img
-                          src={file.url}
+                          src={file.url || file.previewUrl}
                           alt={file.name}
                           style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s ease" }}
                           onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.06)"}
                           onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                          onError={(e) => {
+                            if (file.previewUrl && e.currentTarget.src !== file.previewUrl) {
+                              e.currentTarget.src = file.previewUrl;
+                            }
+                          }}
                         />
                         <div style={{
                           position: "absolute",
@@ -964,7 +1022,7 @@ export default function OrderDetailsModal({
             </div>
             <div style={{ maxHeight: "75vh", overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", background: "#050B14" }}>
               <img
-                src={previewImage.url}
+                src={previewImage.url || previewImage.previewUrl}
                 alt={previewImage.name}
                 style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "8px" }}
               />

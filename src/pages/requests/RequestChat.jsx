@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { serviceRequestService } from '../../services/customer/serviceRequestService';
+import { jobCommunicationService, subscribeToMessages } from '../../services/communication/jobCommunicationService';
 import { useTranslation } from '../../hooks/useTranslation';
 import { ArrowLeft, Send, Phone, ShieldCheck, CheckCheck } from 'lucide-react';
 
@@ -49,35 +50,29 @@ export default function RequestChat() {
 
         fetchInitialData();
 
-        const subscription = supabase
-            .channel(`messages-live-${id}-${Date.now()}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-                if (!payload.new) return;
-                if (payload.new.request_id === id || payload.new.booking_id === id) {
-                    setMessages(prev => {
-                        if (prev.some(m => m.id === payload.new.id)) return prev;
-                        return [...prev, payload.new];
-                    });
-                }
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
-                if (!payload.new) return;
-                if (payload.new.request_id === id || payload.new.booking_id === id) {
-                    setMessages(prev => {
-                        const existingIdx = prev.findIndex(m => m.id === payload.new.id);
-                        if (existingIdx !== -1) {
-                            const clone = [...prev];
-                            clone[existingIdx] = payload.new;
-                            return clone;
-                        }
-                        return [...prev, payload.new];
-                    });
-                }
-            })
-            .subscribe();
+        // Subscribe to real-time updates via Supabase WebSockets
+        const unsubscribe = subscribeToMessages(id, {
+            onInsert: (newMsg) => {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === newMsg.id)) return prev;
+                    return [...prev, newMsg];
+                });
+            },
+            onUpdate: (updatedMsg) => {
+                setMessages(prev => {
+                    const existingIdx = prev.findIndex(m => m.id === updatedMsg.id);
+                    if (existingIdx !== -1) {
+                        const clone = [...prev];
+                        clone[existingIdx] = updatedMsg;
+                        return clone;
+                    }
+                    return [...prev, updatedMsg];
+                });
+            }
+        });
 
         return () => {
-            supabase.removeChannel(subscription);
+            unsubscribe();
         };
     }, [id, navigate, isDemo]);
 
@@ -106,20 +101,13 @@ export default function RequestChat() {
 
         // Live Supabase Insert (Strict Authoritative Persistence)
         try {
-            const payload = {
-                request_id: id,
-                booking_id: null,
-                sender_type: 'customer',
-                message: text,
+            const { data, error } = await jobCommunicationService.sendMessage({
+                requestId: id,
+                senderId: profile?.user_id,
+                senderType: 'customer',
                 content: text,
-                message_type: 'TEXT',
-                created_at: new Date().toISOString()
-            };
-            if (profile?.user_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.user_id)) {
-                payload.sender_id = profile.user_id;
-            }
-
-            const { data, error } = await supabase.from('messages').insert(payload).select().single();
+                messageType: 'TEXT'
+            });
             if (error) {
                 console.error('Failed to send message: ', error);
             } else if (data) {
@@ -158,7 +146,7 @@ export default function RequestChat() {
                             <h2 className="font-bold text-navy-900 text-sm leading-tight">{pillarName}</h2>
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         </div>
-                        <p className="text-[11px] font-mono text-navy-400">Order Ref: {id.split('-')[0]}</p>
+                        <p className="text-[11px] font-mono text-navy-400">Order Ref: {String(id).startsWith('REQ-') || String(id).startsWith('ORD-') ? id : `ORD-${String(id).slice(0, 8).toUpperCase()}`}</p>
                     </div>
                 </div>
 

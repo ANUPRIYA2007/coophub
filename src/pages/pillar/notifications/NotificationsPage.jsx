@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
-import { pillarNotificationService } from "../../../services/pillar/notificationService";
+import { notificationSyncService } from "../../../services/notifications/notificationSyncService";
 import { Bell, Check, CheckCheck, Trash2, X, ArrowLeft } from "lucide-react";
 
 export default function NotificationsPage() {
@@ -13,22 +13,31 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     async function load() {
-      const res = await pillarNotificationService.getNotifications(user?.id);
-      setNotifications(res.data || []);
+      const res = await notificationSyncService.getPortalNotifications('pillar', user?.id);
+      setNotifications(res.notifications || []);
     }
     load();
+
+    const handleSync = () => load();
+    window.addEventListener('coophub_notifications_updated', handleSync);
+    return () => window.removeEventListener('coophub_notifications_updated', handleSync);
   }, [user]);
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    const ids = notifications.map((n) => n.id);
+    await notificationSyncService.markAllAsRead(ids);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true, is_read: true })));
   };
 
-  const handleRemove = (id) => {
+  const handleRemove = async (id) => {
+    await notificationSyncService.dismissNotification(id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!window.confirm("Are you sure you want to clear all notifications?")) return;
+    const ids = notifications.map((n) => n.id);
+    await notificationSyncService.clearAll(ids);
     setNotifications([]);
   };
 

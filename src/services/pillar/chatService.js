@@ -187,8 +187,9 @@ export const pillarChatService = {
 
   // Subscribe to live messages for a specific booking / request
   subscribeToChat(bookingId, callback) {
+    const channelName = `chat-realtime-${bookingId || 'global'}-${Date.now()}`;
     const channel = supabase
-      .channel(`chat-realtime-${bookingId || 'global'}-${Date.now()}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
@@ -196,6 +197,7 @@ export const pillarChatService = {
           if (!payload.new) return;
           const msg = payload.new;
           if (!bookingId || msg.request_id === bookingId || msg.booking_id === bookingId) {
+            console.log('[Realtime] Pillar received new message:', msg);
             if (callback) {
               callback({ 
                 ...msg, 
@@ -214,6 +216,7 @@ export const pillarChatService = {
           if (!payload.new) return;
           const msg = payload.new;
           if (!bookingId || msg.request_id === bookingId || msg.booking_id === bookingId) {
+            console.log('[Realtime] Pillar received message update:', msg);
             if (callback) {
               callback({ 
                 ...msg, 
@@ -225,8 +228,22 @@ export const pillarChatService = {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[Realtime] Pillar subscribed to ${channelName}`);
+        }
+      });
 
+    // Provide clean unsubscribe teardown
+    const unsub = () => {
+      try {
+        console.log(`[Realtime] Pillar removing channel ${channelName}`);
+        supabase.removeChannel(channel);
+      } catch (e) {
+        console.warn('Pillar teardown note:', e);
+      }
+    };
+    channel.unsubscribe = unsub;
     return channel;
   }
 };

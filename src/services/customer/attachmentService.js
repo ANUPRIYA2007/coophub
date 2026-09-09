@@ -28,31 +28,50 @@ export const attachmentService = {
      */
     uploadAttachment: async (file, userId) => {
         const error = attachmentService.validateFile(file);
-        if (error) throw new Error(error);
-
-        const fileExt = file.name.split('.').pop();
-        // Construct path: user_id/random_uuid.ext
-        const filePath = `${userId}/${uuidv4()}.${fileExt}`;
-
-        const { data, error: uploadError } = await supabase.storage
-            .from('request_attachments')
-            .upload(filePath, file, {
-                cacheControl: '3600',
-                upsert: false
-            });
-
-        if (uploadError) {
-            console.error('Storage Upload Error:', uploadError);
-            throw new Error('Failed to upload file to secured storage.');
+        if (error) {
+            console.warn('File validation warning:', error);
+            return null;
         }
 
-        // Return path relative to bucket
-        return data.path;
+        const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
+        // Construct path: user_id/random_uuid.ext
+        const safeUserId = userId || 'customer_anon';
+        const filePath = `${safeUserId}/${uuidv4()}.${fileExt}`;
+
+        try {
+            const { data, error: uploadError } = await supabase.storage
+                .from('request_attachments')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) {
+                console.warn('Supabase Storage notice (will use local preview mirror):', uploadError.message);
+                return null;
+            }
+
+            // Return path and public URL
+            const { data: publicData } = supabase.storage
+                .from('request_attachments')
+                .getPublicUrl(data.path);
+
+            return {
+                path: data.path,
+                url: publicData?.publicUrl || null
+            };
+        } catch (storageErr) {
+            console.warn('Supabase storage catch (using dataUrl fallback):', storageErr);
+            return null;
+        }
     },
 
     getPublicUrl: (filePath) => {
         if (!filePath) return null;
-        // The bucket is private, but if we need a temporary signed URL:
-        return supabase.storage.from('request_attachments').createSignedUrl(filePath, 3600);
+        if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:')) {
+            return filePath;
+        }
+        const { data } = supabase.storage.from('request_attachments').getPublicUrl(filePath);
+        return data?.publicUrl || filePath;
     }
 };

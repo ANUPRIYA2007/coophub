@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { jobCommunicationService } from "../../services/communication/jobCommunicationService";
+import { jobCommunicationService, subscribeToMessages } from "../../services/communication/jobCommunicationService";
 import { useAuth } from "../../context/AuthContext";
 import { 
   Send, X, Phone, AlertTriangle, ShieldCheck, Check, CheckCheck, 
@@ -39,25 +39,33 @@ export default function CustomerChatDrawer({
     if (!isOpen || !requestId) return;
     fetchChatMessages();
 
-    // Subscribe to realtime messages
-    const channel = jobCommunicationService.subscribeToConversation(requestId, (newMsg) => {
-      setMessages(prev => {
-        const existingIdx = prev.findIndex(m => m.id === newMsg.id);
-        if (existingIdx !== -1) {
-          const clone = [...prev];
-          clone[existingIdx] = newMsg;
-          return clone;
+    // Subscribe to realtime messages (INSERT & UPDATE)
+    const unsubscribe = subscribeToMessages(requestId, {
+      onInsert: (newMsg) => {
+        setMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+        // Mark incoming messages from pillar as read
+        if (newMsg.sender_type !== 'customer') {
+          jobCommunicationService.markAsRead(requestId, 'customer');
         }
-        return [...prev, newMsg];
-      });
-      // Mark incoming messages from pillar as read
-      if (newMsg.sender_type !== 'customer') {
-        jobCommunicationService.markAsRead(requestId, 'customer');
+      },
+      onUpdate: (updatedMsg) => {
+        setMessages(prev => {
+          const idx = prev.findIndex(m => m.id === updatedMsg.id);
+          if (idx === -1) return prev;
+          const clone = [...prev];
+          clone[idx] = updatedMsg;
+          return clone;
+        });
       }
     });
 
     return () => {
-      channel?.unsubscribe();
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
     };
   }, [isOpen, requestId]);
 

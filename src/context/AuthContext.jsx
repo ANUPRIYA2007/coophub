@@ -83,13 +83,16 @@ export function AuthProvider({ children }) {
               user: { id: '11111111-1111-1111-1111-111111111111', email: 'demo_bypass@example.com' },
               access_token: 'dummy'
             };
+            const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
             setSession(customerDemoSession);
             setUser(customerDemoSession.user);
             setProfile({
               user_id: customerDemoSession.user.id,
-              full_name: 'Anupriya Murugan',
+              full_name: savedDemo.full_name || 'Anupriya Murugan',
               role: 'customer',
-              email: 'customer@coophub.in'
+              email: savedDemo.email || 'customer@coophub.in',
+              phone: savedDemo.phone || savedDemo.mobile || '+91 98401 23456',
+              ...savedDemo
             });
           } else {
             const storedCustomer = localStorage.getItem("coophub_customer_user");
@@ -222,6 +225,10 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("coophub_customer_user");
   };
 
+  const updateProfile = (updatedFields) => {
+    setProfile(prev => ({ ...prev, ...updatedFields }));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -232,6 +239,7 @@ export function AuthProvider({ children }) {
         isAvailable,
         setIsAvailable,
         updateAvailability,
+        updateProfile,
         login,
         loginCustomerDemo,
         register,

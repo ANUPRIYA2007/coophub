@@ -298,6 +298,31 @@ export const serviceRequestService = {
                 createdId = data.id;
                 createdRecord = data;
                 console.log("⚡ Live Supabase order created successfully:", createdId);
+
+                // Mirror to bookings table with service_id for unified order tracking
+                try {
+                    await supabase.from('bookings').insert([{
+                        id: data.id,
+                        booking_code: 'ORD-' + String(data.id).substring(0, 6).toUpperCase(),
+                        customer_id: validCustomerId,
+                        pillar_id: assignedPillarId,
+                        service_id: validServiceId,
+                        sub_service_id: validSubServiceId,
+                        service_name: requestData.service_name || "Home Service",
+                        sub_service_name: requestData.sub_service_name || "General Inspection",
+                        customer_name: customerName,
+                        customer_mobile: customerPhone,
+                        service_address: [requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Guindy, Chennai',
+                        scheduled_date: requestData.preferred_date || new Date().toISOString().split('T')[0],
+                        scheduled_time: requestData.preferred_time || '10:30 AM',
+                        base_amount: requestData.amount || 450,
+                        total_amount: requestData.total_amount || requestData.amount || 450,
+                        arrival_otp: arrivalOtp,
+                        status: assignedPillarId ? 'assigned' : 'pending'
+                    }]);
+                } catch (bErr) {
+                    console.warn("Bookings mirror note:", bErr?.message);
+                }
             } else if (error) {
                 console.warn("Supabase insert note:", error.message);
             }
@@ -313,6 +338,7 @@ export const serviceRequestService = {
         // 8. Construct rich standard order object
         const fullOrderObj = {
             id: createdId,
+            order_id: createdId,
             booking_code: String(createdId).startsWith('REQ-') ? createdId : 'REQ-' + String(createdId).substring(0, 6).toUpperCase(),
             status: assignedPillarId ? 'assigned' : 'pending',
             created_at: new Date().toISOString(),
@@ -354,8 +380,18 @@ export const serviceRequestService = {
             latitude: requestData.latitude || 13.0067,
             longitude: requestData.longitude || 80.2025,
             pillar_id: assignedPillarId,
+            attachments: requestData.attachments || [],
+            photo_urls: (requestData.attachments || []).map(a => typeof a === 'object' ? (a.url || a.previewUrl) : a).filter(Boolean),
             ...(createdRecord || {})
         };
+
+        // Guarantee attachments is not overwritten by null createdRecord property
+        if (!fullOrderObj.attachments || fullOrderObj.attachments.length === 0) {
+            fullOrderObj.attachments = requestData.attachments || [];
+        }
+        if (!fullOrderObj.photo_urls || fullOrderObj.photo_urls.length === 0) {
+            fullOrderObj.photo_urls = (requestData.attachments || []).map(a => typeof a === 'object' ? (a.url || a.previewUrl) : a).filter(Boolean);
+        }
 
         // 9. Persist into LocalStorage for immediate cross-role and demo access
         try {

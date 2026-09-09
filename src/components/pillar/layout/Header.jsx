@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
-import { pillarNotificationService } from "../../../services/pillar/notificationService";
+import { notificationSyncService } from "../../../services/notifications/notificationSyncService";
 import { supabase } from "../../../lib/supabase";
 import { Menu, Bell, Search, CheckCheck, Sun, Moon, Bot, Sparkles } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -12,7 +12,9 @@ export default function Header({ toggleSidebar }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const isAdmin = location.pathname.startsWith('/admin');
+  const isSuperAdmin = location.pathname.startsWith('/superadmin');
+  const isAdmin = location.pathname.startsWith('/admin') || isSuperAdmin;
+  const portalRole = isAdmin ? 'admin' : 'pillar';
 
   const [theme, setTheme] = useState(() => localStorage.getItem("coophub_theme") || "light");
   const [showNotifications, setShowNotifications] = useState(false);
@@ -20,38 +22,16 @@ export default function Header({ toggleSidebar }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
 
-  // Fetch Live Notifications from Supabase Realtime
+  // Fetch Live Dynamic Notifications
   useEffect(() => {
+    let isMounted = true;
+
     const fetchLiveNotifications = async () => {
       try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10);
-        if (data && data.length > 0) {
-          const formatted = data.map(n => ({
-            id: n.id,
-            title: n.title,
-            message: n.message,
-            created_at: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            is_read: n.is_read ?? n.read ?? false,
-            type: n.type || 'system'
-          }));
-          setNotifications(formatted);
-          setUnreadCount(formatted.filter(n => !n.is_read).length);
-        } else {
-          setNotifications([
-            {
-              id: "n-1",
-              title: "System Active & Online",
-              message: "COOP HUB cooperative administration and live Hero AI notifications active.",
-              created_at: "Just now",
-              is_read: false,
-              type: "system",
-            }
-          ]);
-          setUnreadCount(1);
+        const res = await notificationSyncService.getPortalNotifications(portalRole, user?.id);
+        if (isMounted) {
+          setNotifications(res.notifications || []);
+          setUnreadCount(res.unreadCount || 0);
         }
       } catch (err) {
         console.warn('Notifications fetch note:', err);
@@ -60,29 +40,32 @@ export default function Header({ toggleSidebar }) {
 
     fetchLiveNotifications();
 
+    const handleSync = () => {
+      fetchLiveNotifications();
+    };
+
+    window.addEventListener('coophub_notifications_updated', handleSync);
+
     const channel = supabase
-      .channel('header_notifications_live')
+      .channel(`header_notifs_sync_${portalRole}_${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        const newNotif = {
+        fetchLiveNotifications();
+        // Announce through Hero AI
+        heroNotificationHub.notify({
           id: payload.new.id,
           title: payload.new.title,
           message: payload.new.message,
-          created_at: 'Just now',
-          is_read: false,
           type: payload.new.type || 'system'
-        };
-        setNotifications(prev => [newNotif, ...prev.slice(0, 9)]);
-        setUnreadCount(prev => prev + 1);
-
-        // Announce through Hero AI
-        heroNotificationHub.notify(newNotif);
+        });
       })
       .subscribe();
 
     return () => {
+      isMounted = false;
+      window.removeEventListener('coophub_notifications_updated', handleSync);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [portalRole, user?.id]);
 
   // Sync theme with document
   useEffect(() => {
@@ -109,9 +92,36 @@ export default function Header({ toggleSidebar }) {
     setShowNotifications(!showNotifications);
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    const ids = notifications.map((n) => n.id);
+    await notificationSyncService.markAllAsRead(ids);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
+  };
+
+  const handleNotificationClick = async (n) => {
+    await notificationSyncService.markAsRead(n.id);
+    setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, is_read: true } : item));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+    setShowNotifications(false);
+    if (isSuperAdmin) {
+      navigate("/superadmin");
+    } else if (isAdmin) {
+      navigate("/admin/orders");
+    } else {
+      navigate("/dashboard/orders");
+    }
+  };
+
+  const handleViewAll = () => {
+    setShowNotifications(false);
+    if (isSuperAdmin) {
+      navigate("/superadmin");
+    } else if (isAdmin) {
+      navigate("/admin/orders");
+    } else {
+      navigate("/dashboard/notifications");
+    }
   };
 
   return (
@@ -183,17 +193,44 @@ export default function Header({ toggleSidebar }) {
         <button 
           className="btn-icon" 
           onClick={handleToggleNotifications}
-          style={{ position: "relative", cursor: "pointer", background: showNotifications ? "var(--color-surface-hover)" : "transparent", borderRadius: "50%", padding: "8px" }}
+          style={{ 
+            position: "relative", 
+            cursor: "pointer", 
+            background: showNotifications ? "var(--color-surface-hover)" : "transparent", 
+            borderRadius: "50%", 
+            padding: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
           title="Job & System Notifications"
+          id="header-notification-bell-btn"
         >
-          <Bell size={20} color={unreadCount > 0 ? "var(--color-primary)" : "var(--color-text-secondary)"} />
+          <Bell size={20} color={unreadCount > 0 ? "var(--color-secondary, #f97316)" : "var(--color-text-secondary)"} />
           {unreadCount > 0 && (
-            <span style={{ 
-              position: "absolute", top: "4px", right: "4px", 
-              width: "9px", height: "9px", borderRadius: "50%", 
-              background: "var(--color-error)",
-              boxShadow: "0 0 0 2px var(--color-surface)"
-            }}></span>
+            <span 
+              style={{ 
+                position: "absolute", 
+                top: "-2px", 
+                right: "-2px", 
+                minWidth: "18px", 
+                height: "18px", 
+                padding: "0 4px",
+                background: "#f97316",
+                color: "#ffffff",
+                fontSize: "10px",
+                fontWeight: "700",
+                borderRadius: "9999px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
+                lineHeight: 1,
+                pointerEvents: "none"
+              }}
+            >
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
           )}
         </button>
 
@@ -244,10 +281,7 @@ export default function Header({ toggleSidebar }) {
                     cursor: "pointer",
                     transition: "background 0.2s ease",
                   }}
-                  onClick={() => {
-                    navigate("/dashboard/orders");
-                    setShowNotifications(false);
-                  }}
+                  onClick={() => handleNotificationClick(n)}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
                     <span style={{ fontWeight: "700", fontSize: "13px", color: "var(--color-text)" }}>{n.title}</span>
@@ -262,14 +296,11 @@ export default function Header({ toggleSidebar }) {
 
             <div style={{ padding: "10px", background: "var(--color-surface-hover)", textAlign: "center", borderTop: "1px solid var(--color-border)" }}>
               <button
-                onClick={() => {
-                  navigate("/dashboard/orders");
-                  setShowNotifications(false);
-                }}
+                onClick={handleViewAll}
                 className="btn btn-ghost btn-sm"
                 style={{ width: "100%", fontSize: "12px", color: "var(--color-secondary)", fontWeight: "700" }}
               >
-                View Live Orders & Alerts →
+                {isSuperAdmin ? "View SuperAdmin Hub →" : isAdmin ? "View Admin Orders & Logs →" : "View All Notifications →"}
               </button>
             </div>
           </div>

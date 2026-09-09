@@ -378,9 +378,24 @@ export default function OrdersList() {
             <div key={order.id} className="card" style={{ display: "flex", flexDirection: "column" }}>
               <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "var(--font-size-sm)", fontWeight: "bold", color: "var(--color-primary)" }}>
                       {order.booking_code || order.id.slice(0, 8)}
+                    </span>
+                    <span 
+                      style={{ 
+                        fontSize: "11px", 
+                        fontWeight: "700", 
+                        fontFamily: "monospace", 
+                        color: "#64748B", 
+                        background: "rgba(100, 116, 139, 0.08)", 
+                        border: "1px solid rgba(100, 116, 139, 0.2)", 
+                        padding: "1px 6px", 
+                        borderRadius: "6px" 
+                      }} 
+                      title="Catalog Service ID"
+                    >
+                      {order.service_id ? (String(order.service_id).length > 12 ? 'SRV-' + String(order.service_id).slice(0, 6).toUpperCase() : order.service_id) : (order.service?.id || "SRV-ELEC-101")}
                     </span>
                     <span
                       className={`badge ${
@@ -400,8 +415,8 @@ export default function OrdersList() {
                       {t(order.sub_service_name)}
                     </p>
                   )}
-                  {order.attachments && order.attachments.length > 0 && (
-                    <div style={{ marginTop: "6px" }}>
+                  {((order.attachments && order.attachments.length > 0) || (order.photo_urls && order.photo_urls.length > 0)) && (
+                    <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                       <span
                         onClick={(e) => {
                           e.stopPropagation();
@@ -416,14 +431,51 @@ export default function OrdersList() {
                           border: "1px solid rgba(245, 124, 32, 0.3)",
                           fontSize: "11px",
                           fontWeight: "700",
-                          padding: "2px 8px",
+                          padding: "3px 8px",
                           borderRadius: "10px",
-                          cursor: "pointer"
+                          cursor: "pointer",
+                          transition: "background 0.2s"
                         }}
                         title="Customer uploaded photos / documents — Click to view"
                       >
-                        📎 {order.attachments.length} {t("Attached")}
+                        📎 {(order.attachments?.length || order.photo_urls?.length || 1)} {t("Attached")}
                       </span>
+
+                      {/* Mini Image Thumbnail Preview on Card */}
+                      {(() => {
+                        const firstAtt = (order.attachments && order.attachments[0]) || (order.photo_urls && order.photo_urls[0]);
+                        const imgUrl = typeof firstAtt === 'string' ? firstAtt : (firstAtt?.url || firstAtt?.previewUrl || firstAtt?.dataUrl);
+                        if (!imgUrl || (typeof imgUrl === 'string' && imgUrl.toLowerCase().endsWith('.pdf'))) return null;
+                        return (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrderForDetails(order);
+                            }}
+                            title="Click to zoom customer photo"
+                            style={{
+                              width: "32px",
+                              height: "32px",
+                              borderRadius: "8px",
+                              overflow: "hidden",
+                              border: "1.5px solid var(--color-secondary)",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "#050B14",
+                              boxShadow: "0 2px 5px rgba(0,0,0,0.15)"
+                            }}
+                          >
+                            <img 
+                              src={imgUrl} 
+                              alt="Customer Upload" 
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

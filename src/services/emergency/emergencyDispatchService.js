@@ -201,6 +201,7 @@ export const emergencyDispatchService = {
       await supabase.from('bookings').insert([{
         id: data.id,
         customer_id: customerId,
+        service_id: serviceId,
         service_name: serviceName,
         status: 'pending',
         is_emergency: true,

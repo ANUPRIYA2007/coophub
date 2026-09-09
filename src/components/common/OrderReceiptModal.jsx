@@ -31,6 +31,7 @@ export default function OrderReceiptModal({ order, onClose }) {
         invoice_no: `INV-2026-${order.id?.slice(0, 6)?.toUpperCase() || "00789"}`,
         service_date: order.scheduled_date || "02 Sep 2026",
         service_time: order.scheduled_time || "11:30 AM",
+        service_id: order.service_id || order.service?.id || "SRV-ELEC-101",
         service_title: order.service_name || "[Electrical Repair]",
         service_description: order.sub_service_name || order.description || "[Service Description]",
         service_location: order.service_address || "[Service Location]",
@@ -178,7 +179,7 @@ export default function OrderReceiptModal({ order, onClose }) {
         </div>
 
         {/* ─── DYNAMIC COOP HUB SERVICE RECEIPT (WITH MAINTAINED CHARGES) ─── */}
-        <CoopHubServiceReceipt order={order} />
+        <CoopHubServiceReceipt order={order} serviceId={order.service_id || order.service?.id} />
 
       </div>
     </div>

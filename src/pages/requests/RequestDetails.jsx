@@ -9,9 +9,11 @@ import LiveTrackingMap from '../../components/maps/LiveTrackingMap';
 import { 
     Phone, MessageSquare, MapPin, Navigation, Clock, ShieldCheck, 
     CheckCircle2, AlertTriangle, FileText, Star, UserCheck, ChevronRight,
-    CreditCard, ArrowLeft, Sparkles, Banknote
+    CreditCard, ArrowLeft, Sparkles, Banknote, Printer, Mail, Loader2, Check
 } from 'lucide-react';
 import OrderReceiptModal from '../../components/common/OrderReceiptModal';
+import CoopHubServiceReceipt from '../../components/common/CoopHubServiceReceipt';
+import { emailService } from '../../services/email/emailService';
 import CustomerChatDrawer from '../../components/chat/CustomerChatDrawer';
 import PillarProfileModal from '../../components/common/PillarProfileModal';
 
@@ -40,6 +42,58 @@ export default function RequestDetails() {
     const [dynamicEta, setDynamicEta] = useState(null);
     const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
     const [showPaymentSuccessAnimation, setShowPaymentSuccessAnimation] = useState(false);
+    const [activeView, setActiveView] = useState('receipt');
+    const [emailSending, setEmailSending] = useState(false);
+    const [emailSent, setEmailSent] = useState(false);
+
+    useEffect(() => {
+        if (requestData?.status === 'completed') {
+            setActiveView('receipt');
+        } else if (requestData) {
+            setActiveView('journey');
+        }
+    }, [requestData?.status]);
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleSendEmail = async () => {
+        setEmailSending(true);
+        try {
+            const recipientEmail = requestData?.customer_email || 'customer@coophub.in';
+            await emailService.sendServiceReceiptEmail({
+                email: recipientEmail,
+                customer_name: requestData?.customer_name || 'Coop Customer',
+                receipt_no: `CH-2026-${id?.slice(0, 6)?.toUpperCase() || '000123'}`,
+                booking_id: requestData?.booking_code || `BK-2026-${id?.slice(0, 5)?.toUpperCase() || '00456'}`,
+                invoice_no: `INV-2026-${id?.slice(0, 6)?.toUpperCase() || '00789'}`,
+                service_date: requestData?.preferred_date || '09 Sep 2026',
+                service_time: requestData?.preferred_time || '02:00 PM',
+                service_id: requestData?.service_code || (requestData?.services?.id ? (requestData.services.id === 'srv-1' ? 'SRV-ELEC-101' : requestData.services.id === 'srv-2' ? 'SRV-AC-202' : `SRV-${String(requestData.services.id).toUpperCase()}`) : 'SRV-AC-202'),
+                service_title: serviceName,
+                service_description: subServiceName || 'Standard Service',
+                service_location: requestData?.address_line || 'Chennai',
+                pillar_name: pillar?.full_name || 'Raj Kumar',
+                pillar_id: pillar?.id || 'PIL-CHE-042',
+                pillar_trade: pillar?.role || 'Senior Specialist',
+                service_charge: `₹${Number(requestData?.amount || 450).toFixed(2)}`,
+                materials_parts: `₹${Number(requestData?.extra_charge_amount || 0).toFixed(2)}`,
+                additional_charges: '₹0.00',
+                subtotal: `₹${(Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)).toFixed(2)}`,
+                gst: `₹${((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 0.18).toFixed(2)}`,
+                total_amount: `₹${Number(requestData?.final_amount || (Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0))).toFixed(2)}`,
+                payment_method: 'Online Payment (UPI)',
+                transaction_id: `TXN-CH-${id?.slice(0, 6)?.toUpperCase() || '8890'}`
+            });
+            setEmailSent(true);
+            setTimeout(() => setEmailSent(false), 3500);
+        } catch (err) {
+            console.error('Email send note:', err);
+        } finally {
+            setEmailSending(false);
+        }
+    };
 
     const handleSelectHandCash = async () => {
         setIsSelectingCash(true);
@@ -402,8 +456,18 @@ export default function RequestDetails() {
                             <ArrowLeft size={20} />
                         </button>
                         <div>
-                            <h1 className="font-bold text-navy-900 text-base leading-tight">{t('Request Tracker')}</h1>
-                            <p className="text-[11px] font-mono text-navy-400">ID: {requestData.id.split('-')[0]}</p>
+                            <h1 className="font-bold text-navy-900 text-base leading-tight">
+                                {requestData.status === 'completed' ? t('Service Receipt & Invoice') : t('Request Tracker')}
+                            </h1>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="text-[11px] font-mono font-bold text-orange-600">
+                                    Order: #{requestData.booking_code || requestData.order_code || (String(requestData.id).startsWith('REQ-') || String(requestData.id).startsWith('ORD-') ? requestData.id : `ORD-${String(requestData.id).slice(0, 8).toUpperCase()}`)}
+                                </span>
+                                <span className="text-navy-300 text-[10px]">•</span>
+                                <span className="text-[10px] font-mono font-bold text-navy-600 bg-navy-50 px-1.5 py-0.5 rounded border border-navy-100">
+                                    Service ID: {requestData.service_code || (requestData.services?.id ? (requestData.services.id === 'srv-1' ? 'SRV-ELEC-101' : requestData.services.id === 'srv-2' ? 'SRV-AC-202' : `SRV-${String(requestData.services.id).toUpperCase()}`) : 'SRV-ELEC-101')}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -411,6 +475,98 @@ export default function RequestDetails() {
                         {currentBadge.text}
                     </span>
                 </header>
+
+                {/* ─── VIEW SWITCHER FOR COMPLETED BOOKINGS ─── */}
+                {requestData.status === 'completed' && (
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-navy-100 dark:border-slate-700 shadow-2xs">
+                        <button
+                            type="button"
+                            onClick={() => setActiveView('receipt')}
+                            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                activeView === 'receipt'
+                                    ? 'bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-xs'
+                                    : 'text-navy-600 dark:text-slate-400 hover:text-navy-900'
+                            }`}
+                        >
+                            <FileText size={15} />
+                            <span>Official Service Receipt</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveView('journey')}
+                            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                activeView === 'journey'
+                                    ? 'bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-xs'
+                                    : 'text-navy-600 dark:text-slate-400 hover:text-navy-900'
+                            }`}
+                        >
+                            <Navigation size={15} />
+                            <span>Service Journey History</span>
+                        </button>
+                    </div>
+                )}
+
+                {/* ─── OFFICIAL SERVICE RECEIPT (DEFAULT FOR COMPLETED REQUESTS) ─── */}
+                {requestData.status === 'completed' && activeView === 'receipt' && (
+                    <div className="space-y-4 animate-fade-in">
+                        {/* Action Bar */}
+                        <div className="flex items-center justify-between bg-navy-950 text-white p-3.5 sm:p-4 rounded-2xl shadow-sm flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                                <span className="text-xs sm:text-sm font-bold">Official Cooperative Service Receipt</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleSendEmail}
+                                    disabled={emailSending}
+                                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-all border border-white/20 cursor-pointer"
+                                >
+                                    {emailSending ? <Loader2 size={13} className="animate-spin" /> : emailSent ? <Check size={13} /> : <Mail size={13} />}
+                                    <span>{emailSent ? 'Dispatched!' : 'Email Receipt'}</span>
+                                </button>
+                                <button
+                                    onClick={handlePrint}
+                                    className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                                >
+                                    <Printer size={13} />
+                                    <span>Print / PDF</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Official Receipt Card */}
+                        <CoopHubServiceReceipt
+                            order={{
+                                ...requestData,
+                                id: id,
+                                booking_code: requestData?.booking_code || requestData?.order_code || (String(id).startsWith('REQ-') || String(id).startsWith('ORD-') ? id : `ORD-${String(id).slice(0, 6).toUpperCase()}`),
+                                service_name: serviceName,
+                                sub_service_name: subServiceName,
+                                service_id: requestData?.service_code || (requestData?.services?.id ? (requestData.services.id === 'srv-1' ? 'SRV-ELEC-101' : requestData.services.id === 'srv-2' ? 'SRV-AC-202' : `SRV-${String(requestData.services.id).toUpperCase()}`) : 'SRV-AC-202'),
+                                customer_name: requestData?.customer_name || 'Coop Customer',
+                                customer_mobile: requestData?.customer_mobile || '+91 98401 23456',
+                                service_address: requestData?.address_line || 'Velachery, Chennai',
+                                base_amount: requestData?.amount || 450,
+                                extra_charge_amount: requestData?.extra_charge_amount || 500,
+                                extra_charge_reason: requestData?.extra_charge_reason || '',
+                                total_amount: requestData?.final_amount || 950,
+                                final_amount: requestData?.final_amount || 950,
+                                scheduled_date: requestData?.preferred_date || '09 Sep 2026',
+                                scheduled_time: requestData?.preferred_time || '02:00 PM',
+                                payment_method: 'Online Payment (UPI)',
+                                payment_status: 'PAID',
+                                pillar: pillar
+                            }}
+                        />
+
+                        {/* Customer Rating & Review */}
+                        <ReviewForm requestId={id} pillarId={requestData?.pillar_id || pillar?.id} />
+                    </div>
+                )}
+
+                {/* ─── LIVE TRACKING / JOURNEY CONTENT (SHOWN WHEN ACTIVE OR JOURNEY TAB SELECTED) ─── */}
+                {(requestData.status !== 'completed' || activeView === 'journey') && (
+                    <div className="space-y-6 animate-fade-in">
 
                 {/* ─── LIVE STATUS JOURNEY STEPPER ─── */}
                 {requestData.status !== 'cancelled' && (
@@ -592,75 +748,77 @@ export default function RequestDetails() {
                     </div>
                 )}
 
-                {/* ─── LIVE GOOGLE MAPS TRACKING / SERVICE LOCATION CARD ─── */}
-                <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
-                            <Navigation size={18} className="text-orange-500" />
-                            {isAssigned ? "Live Google Maps Telemetry" : "Service Location & Radar Bounds"}
-                        </h3>
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
-                            isAssigned && pillarGps
-                                ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                                : "text-orange-700 bg-orange-50 border-orange-200"
-                        }`}>
-                            <span className={`w-2 h-2 rounded-full ${isAssigned && pillarGps ? "bg-emerald-500 animate-ping" : "bg-orange-500"}`}></span>
-                            {isAssigned ? (pillarGps ? "Live GPS Connected" : "GPS Standby") : "Location Pinned"}
-                        </span>
-                    </div>
+                {/* ─── LIVE GOOGLE MAPS TRACKING / SERVICE LOCATION CARD (ONLY FOR ACTIVE JOBS) ─── */}
+                {requestData.status !== 'completed' && (
+                    <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
+                                <Navigation size={18} className="text-orange-500" />
+                                {isAssigned ? "Live Google Maps Telemetry" : "Service Location & Radar Bounds"}
+                            </h3>
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
+                                isAssigned && pillarGps
+                                    ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                                    : "text-orange-700 bg-orange-50 border-orange-200"
+                            }`}>
+                                <span className={`w-2 h-2 rounded-full ${isAssigned && pillarGps ? "bg-emerald-500 animate-ping" : "bg-orange-500"}`}></span>
+                                {isAssigned ? (pillarGps ? "Live GPS Connected" : "GPS Standby") : "Location Pinned"}
+                            </span>
+                        </div>
 
-                    {/* Live Google Map Canvas */}
-                    <LiveTrackingMap
-                        customerLocation={{
-                            lat: Number(requestData.latitude) || 13.0067,
-                            lng: Number(requestData.longitude) || 80.2025
-                        }}
-                        pillarLocation={pillarGps}
-                        pillarName={pillar?.full_name || "Assigned Technician"}
-                        pillarRole={pillar?.role || "Pillar"}
-                        height="280px"
-                    />
+                        {/* Live Google Map Canvas */}
+                        <LiveTrackingMap
+                            customerLocation={{
+                                lat: Number(requestData.latitude) || 13.0067,
+                                lng: Number(requestData.longitude) || 80.2025
+                            }}
+                            pillarLocation={pillarGps}
+                            pillarName={pillar?.full_name || "Assigned Technician"}
+                            pillarRole={pillar?.role || "Pillar"}
+                            height="280px"
+                        />
 
-                    <div className="bg-navy-50/70 border border-navy-100 rounded-2xl p-4 space-y-3">
-                        <div className="flex items-start space-x-3">
-                            <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                                <MapPin size={16} />
-                            </div>
-                            <div className="text-xs">
-                                <p className="font-bold text-navy-900">Your Service Location</p>
-                                <p className="text-navy-600 mt-0.5">
-                                    {[
-                                        requestData.address_line && !/^Lat:\s*[\d.-]+/i.test(requestData.address_line) ? requestData.address_line : null,
-                                        requestData.area,
-                                        requestData.city
-                                    ].filter(Boolean).join(', ') || 'Current Geolocation Bounds'}
-                                </p>
-                                {requestData.latitude && requestData.longitude && (
-                                    <p className="font-mono text-[11px] text-navy-400 mt-1">
-                                        GPS: {Number(requestData.latitude).toFixed(4)}, {Number(requestData.longitude).toFixed(4)}
+                        <div className="bg-navy-50/70 border border-navy-100 rounded-2xl p-4 space-y-3">
+                            <div className="flex items-start space-x-3">
+                                <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                                    <MapPin size={16} />
+                                </div>
+                                <div className="text-xs">
+                                    <p className="font-bold text-navy-900">Your Service Location</p>
+                                    <p className="text-navy-600 mt-0.5">
+                                        {[
+                                            requestData.address_line && !/^Lat:\s*[\d.-]+/i.test(requestData.address_line) ? requestData.address_line : null,
+                                            requestData.area,
+                                            requestData.city
+                                        ].filter(Boolean).join(', ') || 'Current Geolocation Bounds'}
                                     </p>
-                                )}
+                                    {requestData.latitude && requestData.longitude && (
+                                        <p className="font-mono text-[11px] text-navy-400 mt-1">
+                                            GPS: {Number(requestData.latitude).toFixed(4)}, {Number(requestData.longitude).toFixed(4)}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        {locationSharedSuccess && (
-                            <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold text-center">
-                                ✓ Your live location was shared with the Pillar!
+                            {locationSharedSuccess && (
+                                <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold text-center">
+                                    ✓ Your live location was shared with the Pillar!
+                                </div>
+                            )}
+
+                            <div className="pt-1">
+                                <button
+                                    onClick={handleShareCustomerLocation}
+                                    disabled={sharingLocation}
+                                    className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold transition-all text-center shadow-xs"
+                                >
+                                    <MapPin size={14} />
+                                    <span>{sharingLocation ? "Locating..." : "📍 Re-Share Current Location Coordinates"}</span>
+                                </button>
                             </div>
-                        )}
-
-                        <div className="pt-1">
-                            <button
-                                onClick={handleShareCustomerLocation}
-                                disabled={sharingLocation}
-                                className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold transition-all text-center shadow-xs"
-                            >
-                                <MapPin size={14} />
-                                <span>{sharingLocation ? "Locating..." : "📍 Re-Share Current Location Coordinates"}</span>
-                            </button>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* ─── EXTRA CHARGE REQUEST CARD ─── */}
                 {requestData.extra_charge_status === 'pending' && Number(requestData.extra_charge_amount) > 0 && (
@@ -711,7 +869,12 @@ export default function RequestDetails() {
 
                     <div className="grid grid-cols-2 gap-4 text-xs">
                         <div>
-                            <p className="text-navy-400 font-medium mb-1">Service Type</p>
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <p className="text-navy-400 font-medium">Service Type</p>
+                                <span className="font-mono text-[10px] font-bold text-navy-600 bg-navy-50 px-1.5 py-0.5 rounded border border-navy-100">
+                                    Service ID: {requestData.service_id ? (requestData.service_id.length > 12 ? 'SRV-' + requestData.service_id.slice(0, 8).toUpperCase() : requestData.service_id) : 'SRV-ELEC-101'}
+                                </span>
+                            </div>
                             <p className="font-bold text-navy-800 text-sm">{serviceName}</p>
                             {subServiceName && <p className="text-navy-600 mt-0.5">{subServiceName}</p>}
                         </div>
@@ -898,6 +1061,9 @@ export default function RequestDetails() {
                     </div>
                 )}
 
+                    </div>
+                )}
+
             </div>
 
             {/* ─── RAZORPAY / GATEWAY CHECKOUT MODAL ─── */}
@@ -939,7 +1105,7 @@ export default function RequestDetails() {
                     order={{
                         ...requestData,
                         id: id,
-                        booking_code: requestData?.order_code || `REQ-${id?.slice(0, 6)?.toUpperCase()}`,
+                        booking_code: requestData?.booking_code || requestData?.order_code || (String(id).startsWith('REQ-') || String(id).startsWith('ORD-') ? id : `REQ-${String(id).slice(0, 6).toUpperCase()}`),
                         service_name: requestData?.service?.name || requestData?.service_name || 'Home Service',
                         sub_service_name: requestData?.sub_service?.name || requestData?.sub_service_name || '',
                         customer_name: requestData?.customer_name || 'Coop Customer',

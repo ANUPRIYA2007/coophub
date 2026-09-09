@@ -747,7 +747,7 @@ export default function ChatAgent({ contextData }) {
                             aria-label="Open CoopBot AI Assistant"
                         >
                             <Sparkles size={15} color="#FF7900" />
-                            <span>Ask CoopBot AI</span>
+                            <span>{t("Ask CoopBot AI")}</span>
                         </div>
 
                         <button

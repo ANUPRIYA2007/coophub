@@ -94,6 +94,7 @@ export default function Hero3D({
       <Hero3DCanvas
         mode={mode}
         interactive={interactive}
+        onClick={onClick}
       />
     </div>
   );

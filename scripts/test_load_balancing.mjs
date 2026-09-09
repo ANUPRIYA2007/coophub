@@ -18,51 +18,92 @@ const instances = [
     { id: 'api-3', port: 5003, proc: null }
 ];
 
-function spawnInstance(config) {
-    return new Promise((resolve) => {
-        const proc = spawn('node', [serverPath], {
-            env: {
-                ...process.env,
-                PORT: config.port,
-                INSTANCE_ID: config.id,
-                NODE_ENV: 'test'
-            },
-            stdio: ['ignore', 'pipe', 'pipe']
-        });
+async function spawnInstance(config) {
+    if (config.proc) {
+        await killInstance(config);
+    }
 
-        config.proc = proc;
-
-        proc.stdout.on('data', (data) => {
-            const str = data.toString();
-            if (str.includes('Backend AI Relay Server running') || str.includes('running on port')) {
-                resolve(proc);
-            }
-        });
-
-        proc.on('error', (err) => {
-            console.error(`Failed to start ${config.id}:`, err);
-        });
-
-        // Fallback resolve after 1500ms
-        setTimeout(() => resolve(proc), 1500);
+    const proc = spawn('node', [serverPath], {
+        env: {
+            ...process.env,
+            PORT: config.port.toString(),
+            INSTANCE_ID: config.id,
+            NODE_ENV: 'test'
+        },
+        stdio: ['ignore', 'pipe', 'pipe']
     });
+
+    config.proc = proc;
+
+    let isReady = false;
+    proc.stdout.on('data', (data) => {
+        const str = data.toString();
+        if (str.includes('Backend AI Relay Server running') || str.includes('running on port')) {
+            isReady = true;
+        }
+    });
+
+    proc.on('error', (err) => {
+        console.error(`Failed to start ${config.id}:`, err);
+    });
+
+    // Poll health endpoint until instance is ready (up to 8s)
+    const startTime = Date.now();
+    while (Date.now() - startTime < 8000) {
+        try {
+            const res = await fetch(`http://127.0.0.1:${config.port}/api/health`, {
+                signal: AbortSignal.timeout(1000)
+            });
+            if (res.ok) {
+                isReady = true;
+                break;
+            }
+        } catch (e) {
+            // Pending startup
+        }
+        await new Promise(r => setTimeout(r, 150));
+    }
+
+    if (!isReady) {
+        throw new Error(`Instance ${config.id} failed to respond on port ${config.port} within 8s`);
+    }
+
+    return proc;
 }
 
-function killInstance(config) {
+async function killInstance(config) {
     if (config.proc) {
-        try {
-            config.proc.kill('SIGTERM');
-        } catch (e) {
-            // Already dead
-        }
+        const proc = config.proc;
         config.proc = null;
+        await new Promise((resolve) => {
+            const timer = setTimeout(resolve, 1500);
+            proc.once('exit', () => {
+                clearTimeout(timer);
+                resolve();
+            });
+            try {
+                proc.kill('SIGTERM');
+            } catch (e) {
+                clearTimeout(timer);
+                resolve();
+            }
+        });
+        // Settle time for OS TCP socket release
+        await new Promise(r => setTimeout(r, 200));
     }
 }
 
-async function fetchHealth(url = 'http://127.0.0.1:5000/api/health') {
-    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+async function fetchHealth(url = 'http://127.0.0.1:5000/api/health', retries = 2) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        } catch (err) {
+            if (attempt === retries) throw err;
+            await new Promise(r => setTimeout(r, 200));
+        }
+    }
 }
 
 async function runDemo() {
@@ -125,7 +166,7 @@ async function runDemo() {
 
         // 4. Test Fault Tolerance / Node Failure
         console.log('[Step 4] Simulating outage: Force-stopping api-2 (port 5002)...');
-        killInstance(instances[1]);
+        await killInstance(instances[1]);
         console.log('  ❌ api-2 is now DOWN.\n');
 
         console.log('[Step 5] Sending 6 requests through Load Balancer during api-2 outage...');
@@ -184,7 +225,7 @@ async function runDemo() {
     } finally {
         // Cleanup all child processes & load balancer
         for (const inst of instances) {
-            killInstance(inst);
+            await killInstance(inst);
         }
         if (lb) {
             await lb.close();

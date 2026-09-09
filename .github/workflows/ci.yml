@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   # ============================================================================
   # Stage 1-22: Quality, Security, Tests, KYC Architecture & Production Build
@@ -174,7 +178,7 @@ jobs:
 
       - name: Test Container Startup & Health Check Endpoint
         run: |
-          docker run -d --name test-api -p 5000:5000 -e INSTANCE_ID=api-ci-check coop-hub-api:ci-test
+          docker run -d --name test-api -p 5000:5000 -e INSTANCE_ID=api-ci-check -e NODE_ENV=test -e SUPABASE_URL=http://localhost:54321 -e SUPABASE_ANON_KEY=ci-mock-key coop-hub-api:ci-test
           echo "Verifying container /api/health endpoint responsiveness..."
           READY=0
           for i in $(seq 1 25); do

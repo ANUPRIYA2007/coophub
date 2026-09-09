@@ -3,7 +3,9 @@ import { supabase } from "../../lib/supabase";
 const DEMO_ORDERS = [
   {
     id: "ORD-9842",
+    order_id: "ORD-9842",
     booking_code: "ORD-9842",
+    service_id: "SRV-ELEC-101",
     service_name: "Ceiling Fan & Switchboard Wiring",
     sub_service_name: "Fan installation & speed regulator wiring",
     customer_name: "Meenakshi Sundaram",
@@ -17,7 +19,7 @@ const DEMO_ORDERS = [
     arrival_otp: "489201",
     status: "inProgress",
     customer: { id: "c-1", full_name: "Meenakshi Sundaram", mobile: "+91 98401 23456" },
-    service: { id: "s-1", name: "Ceiling Fan Installation", category: "Electrician", price: 450 },
+    service: { id: "SRV-ELEC-101", name: "Ceiling Fan Installation", category: "Electrician", price: 450 },
     attachments: [
       {
         id: "att-1",
@@ -39,7 +41,9 @@ const DEMO_ORDERS = [
   },
   {
     id: "ORD-9843",
+    order_id: "ORD-9843",
     booking_code: "ORD-9843",
+    service_id: "SRV-ELEC-102",
     service_name: "Main Power MCB Tripping Inspection",
     sub_service_name: "Short circuit & distribution board check",
     customer_name: "Karthik Rajan",
@@ -53,7 +57,7 @@ const DEMO_ORDERS = [
     arrival_otp: "612840",
     status: "pending",
     customer: { id: "c-2", full_name: "Karthik Rajan", mobile: "+91 94440 98765" },
-    service: { id: "s-2", name: "Wiring Inspection", category: "Electrician", price: 650 },
+    service: { id: "SRV-ELEC-102", name: "Wiring Inspection", category: "Electrician", price: 650 },
     attachments: [
       {
         id: "att-3",
@@ -67,7 +71,9 @@ const DEMO_ORDERS = [
   },
   {
     id: "ORD-9801",
+    order_id: "ORD-9801",
     booking_code: "ORD-9801",
+    service_id: "SRV-ELEC-103",
     service_name: "AC Power Point & 16A Socket",
     sub_service_name: "Heavy appliance line installation",
     customer_name: "Deepak S.",
@@ -81,11 +87,13 @@ const DEMO_ORDERS = [
     arrival_otp: "740192",
     status: "completed",
     customer: { id: "c-3", full_name: "Deepak S.", mobile: "+91 98840 11223" },
-    service: { id: "s-3", name: "AC Point Installation", category: "Electrician", price: 850 }
+    service: { id: "SRV-ELEC-103", name: "AC Point Installation", category: "Electrician", price: 850 }
   },
   {
     id: "ORD-9788",
+    order_id: "ORD-9788",
     booking_code: "ORD-9788",
+    service_id: "SRV-ELEC-104",
     service_name: "Inverter Battery Rewiring",
     sub_service_name: "Battery terminal & bypass switch",
     customer_name: "Lakshmi Narayanan",
@@ -99,11 +107,13 @@ const DEMO_ORDERS = [
     arrival_otp: "392018",
     status: "completed",
     customer: { id: "c-4", full_name: "Lakshmi Narayanan", mobile: "+91 97910 44556" },
-    service: { id: "s-4", name: "Inverter Wiring", category: "Electrician", price: 550 }
+    service: { id: "SRV-ELEC-104", name: "Inverter Wiring", category: "Electrician", price: 550 }
   },
   {
     id: "ORD-9750",
+    order_id: "ORD-9750",
     booking_code: "ORD-9750",
+    service_id: "SRV-ELEC-105",
     service_name: "Kitchen Exhaust Fan Fixing",
     sub_service_name: "Wall mount & plug connection",
     customer_name: "Radhika R.",
@@ -117,7 +127,7 @@ const DEMO_ORDERS = [
     arrival_otp: "819203",
     status: "completed",
     customer: { id: "c-5", full_name: "Radhika R.", mobile: "+91 91760 33221" },
-    service: { id: "s-5", name: "Exhaust Fan Installation", category: "Electrician", price: 350 }
+    service: { id: "SRV-ELEC-105", name: "Exhaust Fan Installation", category: "Electrician", price: 350 }
   }
 ];
 
@@ -253,7 +263,10 @@ export const pillarOrderService = {
 
           combinedOrders.push({
             id: r.id,
+            order_id: r.id,
             booking_code: "REQ-" + r.id.substring(0, 6).toUpperCase(),
+            service_id: r.service_id,
+            sub_service_id: r.sub_service_id,
             status: uiStatus,
             db_status: r.status,
             customer_name: custName,
@@ -280,7 +293,11 @@ export const pillarOrderService = {
             landmark: r.landmark || "",
             pincode: r.pincode || "",
             description: r.customer_description || r.description || r.problem_description || "Standard service request.",
-            photo_urls: r.photo_urls || r.photos || [],
+            photo_urls: (() => {
+              const raw = r.attachments || r.photo_urls || r.photos || [];
+              const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+              return list.map(a => typeof a === 'object' ? (a.url || a.previewUrl) : a).filter(Boolean);
+            })(),
             attachments: (() => {
               const raw = r.attachments || r.photo_urls || r.photos || [];
               const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
@@ -288,17 +305,30 @@ export const pillarOrderService = {
                 return [];
               }
               return list.map((att, idx) => {
-                if (typeof att === "object" && att !== null) return att;
+                if (typeof att === "object" && att !== null) {
+                  const resolvedUrl = att.url || att.previewUrl || att.dataUrl || (att.path ? `https://aqzkzaswckfoazpqeeti.supabase.co/storage/v1/object/public/request_attachments/${att.path}` : "");
+                  return {
+                    ...att,
+                    id: att.id || `att-${idx}`,
+                    name: att.name || `Attachment_${idx + 1}`,
+                    url: resolvedUrl,
+                    previewUrl: att.previewUrl || resolvedUrl,
+                    type: att.type || ((att.name || resolvedUrl).toLowerCase().includes(".pdf") ? "pdf" : "image"),
+                    size: att.size || "Customer File",
+                    uploaded_at: att.uploaded_at || (r.created_at ? new Date(r.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Uploaded")
+                  };
+                }
                 const str = String(att);
                 const isPdf = str.toLowerCase().endsWith(".pdf") || str.includes("application/pdf");
                 const url = (str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:"))
                   ? str
                   : `https://aqzkzaswckfoazpqeeti.supabase.co/storage/v1/object/public/request_attachments/${str}`;
-                const name = str.split("/").pop() || `Attachment_${idx + 1}`;
+                const name = str.startsWith("data:") ? `Customer_Photo_${idx + 1}.jpg` : (str.split("/").pop() || `Attachment_${idx + 1}`);
                 return {
                   id: `att-${idx}`,
                   name,
                   url,
+                  previewUrl: url,
                   type: isPdf ? "pdf" : "image",
                   size: isPdf ? "PDF Document" : "Photo",
                   uploaded_at: r.created_at ? new Date(r.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Uploaded"
@@ -402,10 +432,44 @@ export const pillarOrderService = {
             order_time_formatted: formatOrderTime(loc.created_at || new Date().toISOString()),
             landmark: loc.landmark || "",
             pincode: loc.postal_code || loc.pincode || "",
-            description: loc.customer_description || "Standard customer service request.",
-            photo_urls: loc.attachments || [],
-            attachments: [],
-            scheduled_date: loc.preferred_date || loc.scheduled_date || "Today",
+            photo_urls: (() => {
+              const raw = loc.photo_urls || loc.attachments || loc.photos || [];
+              const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+              return list.map(a => typeof a === 'object' ? (a.url || a.previewUrl) : a).filter(Boolean);
+            })(),
+            attachments: (() => {
+              const raw = loc.attachments || loc.photo_urls || loc.photos || [];
+              const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+              return list.map((att, idx) => {
+                if (typeof att === "object" && att !== null) {
+                  const resolvedUrl = att.url || att.previewUrl || att.dataUrl || (att.path ? `https://aqzkzaswckfoazpqeeti.supabase.co/storage/v1/object/public/request_attachments/${att.path}` : "");
+                  return {
+                    ...att,
+                    id: att.id || `att-loc-${idx}`,
+                    name: att.name || `Customer_Attachment_${idx + 1}`,
+                    url: resolvedUrl,
+                    previewUrl: att.previewUrl || resolvedUrl,
+                    type: att.type || ((att.name || resolvedUrl).toLowerCase().includes(".pdf") ? "pdf" : "image"),
+                    size: att.size || "Customer Upload",
+                    uploaded_at: att.uploaded_at || "Attached"
+                  };
+                }
+                const str = String(att);
+                const isPdf = str.toLowerCase().endsWith(".pdf") || str.includes("application/pdf");
+                const url = (str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:"))
+                  ? str
+                  : `https://aqzkzaswckfoazpqeeti.supabase.co/storage/v1/object/public/request_attachments/${str}`;
+                return {
+                  id: `att-loc-${idx}`,
+                  name: str.startsWith("data:") ? `Customer_Photo_${idx + 1}.jpg` : (str.split("/").pop() || `Attachment_${idx + 1}`),
+                  url,
+                  previewUrl: url,
+                  type: isPdf ? "pdf" : "image",
+                  size: isPdf ? "PDF Document" : "Photo",
+                  uploaded_at: "Uploaded"
+                };
+              });
+            })(),
             scheduled_time: loc.preferred_time || loc.scheduled_time || "Flexible Time Slot",
             payment_method: "Cash on Service / UPI",
             payment_status: loc.payment_status || "Pending Completion",

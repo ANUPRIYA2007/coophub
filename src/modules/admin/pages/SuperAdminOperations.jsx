@@ -281,8 +281,14 @@ export default function SuperAdminOperations() {
                         <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{sName}</span>
                         {req.is_emergency && <Zap size={14} color="#EF4444" />}
                       </div>
-                      <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontFamily: "monospace", marginTop: "2px" }}>
-                        #{req.id?.slice(0, 14)}... • {req.address_line || req.area || req.city || "Chennai"}
+                      <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontFamily: "monospace", marginTop: "2px", display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ color: "var(--color-primary)", fontWeight: "700" }}>Order #{req.booking_code || req.id?.slice(0, 8)}</span>
+                        <span>•</span>
+                        <span style={{ background: "rgba(100, 116, 139, 0.1)", padding: "1px 6px", borderRadius: "4px" }}>
+                          SRV: {req.service_id ? (req.service_id.length > 12 ? 'SRV-' + req.service_id.slice(0, 6).toUpperCase() : req.service_id) : 'SRV-GEN-101'}
+                        </span>
+                        <span>•</span>
+                        <span>{req.address_line || req.area || req.city || "Chennai"}</span>
                       </div>
                       <div style={{ fontSize: "0.78rem", color: "var(--color-text-secondary)", marginTop: "2px" }}>
                         {req.created_at ? new Date(req.created_at).toLocaleString() : "N/A"}
@@ -437,9 +443,15 @@ export default function SuperAdminOperations() {
                       }}
                       title="Click to copy full Request ID"
                     >
-                      <span>#{selectedRequest.id}</span>
+                      <span>Order #{selectedRequest.booking_code || selectedRequest.id?.slice(0, 8)}</span>
                       {copiedId ? <Check size={12} color="#10B981" /> : <Copy size={12} />}
                     </button>
+                    <span style={{
+                      fontSize: "0.7rem", fontWeight: "700", padding: "2px 8px", borderRadius: "10px",
+                      background: "rgba(100, 116, 139, 0.12)", color: "#475569", fontFamily: "monospace"
+                    }}>
+                      Service ID: {selectedRequest.service_id ? (selectedRequest.service_id.length > 12 ? 'SRV-' + selectedRequest.service_id.slice(0, 8).toUpperCase() : selectedRequest.service_id) : 'SRV-ELEC-101'}
+                    </span>
                     <span style={{
                       fontSize: "0.7rem", fontWeight: "700", padding: "2px 8px", borderRadius: "10px",
                       background: getStatusBadge(selectedRequest.status).bg,

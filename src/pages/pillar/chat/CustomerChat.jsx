@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { pillarChatService } from "../../../services/pillar/chatService";
-import { jobCommunicationService } from "../../../services/communication/jobCommunicationService";
+import { jobCommunicationService, subscribeToMessages } from "../../../services/communication/jobCommunicationService";
 import { Send, Phone, User, CheckCircle2, ArrowLeft, MapPin, Package, Radio } from "lucide-react";
 
 export default function CustomerChat() {
@@ -70,35 +70,78 @@ export default function CustomerChat() {
           id: m.id,
           sender: m.sender_type,
           text: m.content || m.message,
+          message_type: m.message_type || 'TEXT',
+          is_read: m.is_read || m.read || false,
           time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         }));
         setMessages((prev) => ({ ...prev, [activeChat]: formatted }));
+
+        // Mark incoming messages as read by pillar
+        jobCommunicationService.markAsRead(activeChat, 'pillar');
       }
     }
 
     loadActiveMessages();
 
-    // Subscribe to live messages
-    const channel = pillarChatService.subscribeToChat(activeChat, (newMsg) => {
-      const formattedMsg = {
-        id: newMsg.id,
-        sender: newMsg.sender_type,
-        text: newMsg.content || newMsg.message,
-        time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-      setMessages((prev) => {
-        const currentList = prev[activeChat] || [];
-        if (currentList.some(m => m.id === newMsg.id)) return prev;
-        return {
-          ...prev,
-          [activeChat]: [...currentList, formattedMsg],
+    // Subscribe to live messages via Supabase Realtime WebSockets
+    const unsubscribe = subscribeToMessages(activeChat, {
+      onInsert: (newMsg) => {
+        const formattedMsg = {
+          id: newMsg.id,
+          sender: newMsg.sender_type,
+          text: newMsg.content || newMsg.message,
+          message_type: newMsg.message_type || 'TEXT',
+          is_read: newMsg.is_read || false,
+          time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
-      });
+        setMessages((prev) => {
+          const currentList = prev[activeChat] || [];
+          if (currentList.some(m => m.id === newMsg.id)) return prev;
+          return {
+            ...prev,
+            [activeChat]: [...currentList, formattedMsg],
+          };
+        });
+
+        // Update conversation preview snippet
+        setConversations(prev => prev.map(c => {
+          if (c.id === activeChat) {
+            return {
+              ...c,
+              lastMessage: formattedMsg.text,
+              time: formattedMsg.time
+            };
+          }
+          return c;
+        }));
+
+        // If from customer, mark as read
+        if (newMsg.sender_type === 'customer') {
+          jobCommunicationService.markAsRead(activeChat, 'pillar');
+        }
+      },
+      onUpdate: (updatedMsg) => {
+        setMessages((prev) => {
+          const currentList = prev[activeChat] || [];
+          const idx = currentList.findIndex(m => m.id === updatedMsg.id);
+          if (idx === -1) return prev;
+          const clone = [...currentList];
+          clone[idx] = {
+            ...clone[idx],
+            text: updatedMsg.content || updatedMsg.message || clone[idx].text,
+            is_read: updatedMsg.is_read || false
+          };
+          return {
+            ...prev,
+            [activeChat]: clone,
+          };
+        });
+      }
     });
 
     return () => {
       isMounted = false;
-      if (channel) channel.unsubscribe();
+      unsubscribe();
     };
   }, [activeChat]);
 

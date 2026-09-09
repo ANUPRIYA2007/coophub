@@ -12,10 +12,12 @@ import TypewriterEffect from '../../components/ui/TypewriterEffect';
 import ServiceCategoryIcon from '../../components/ui/ServiceCategoryIcon';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 
+import { notificationSyncService } from '../../services/notifications/notificationSyncService';
+
 export default function Home() {
     const { t } = useTranslation();
     const { language } = useLanguage();
-    const { profile, signOut } = useAuth();
+    const { profile, user, signOut } = useAuth();
     const { services, loading: servicesLoading, error: servicesError } = useServices();
     const navigate = useNavigate();
 
@@ -34,15 +36,8 @@ export default function Home() {
                 const active = (reqs || []).filter(r => r.status !== 'completed' && r.status !== 'cancelled').slice(0, 3);
                 setActiveRequests(active);
 
-                if (localStorage.getItem('coophub_demo_customer') === 'true') {
-                    setUnreadCount(2);
-                } else if (profile?.user_id) {
-                    const { count } = await supabase
-                        .from('notifications')
-                        .select('id', { count: 'exact', head: true })
-                        .eq('is_read', false);
-                    setUnreadCount(count || 0);
-                }
+                const count = await notificationSyncService.getCustomerUnreadCount(profile, user);
+                setUnreadCount(count);
             } catch (err) {
                 console.error('Dashboard fetch error:', err);
             } finally {
@@ -50,7 +45,7 @@ export default function Home() {
             }
         };
         fetchDashboardData();
-    }, [profile]);
+    }, [profile, user]);
 
     // 3D GSAP Stagger Entrance for Customer Home Dashboard Cards
     useEffect(() => {
