@@ -612,9 +612,10 @@ export default function GlobalHeroAgent({ inline = false }) {
                         {/* Quick Action Chips */}
                         <div className="flex gap-1 overflow-x-auto py-1 no-scrollbar border-t border-slate-700/50">
                             {[
-                                { label: '⚡ Electrician', q: 'I need an electrician' },
-                                { label: '💧 Plumbing', q: 'I need plumbing repair' },
-                                { label: '📦 Orders', q: 'Show my bookings' },
+                                { label: '⚡ Fan Wiring (₹350)', q: 'I want to book Ceiling Fan & Switchboard Wiring' },
+                                { label: '💧 Pipe Leak (₹299)', q: 'I need Pipe Leakage Repair' },
+                                { label: '❄️ AC Service (₹499)', q: 'I want to book AC General Service' },
+                                { label: '📦 My Bookings', q: 'Show my bookings' },
                                 { label: '🆘 Support', q: 'Help with service' },
                             ].map(chip => (
                                 <button

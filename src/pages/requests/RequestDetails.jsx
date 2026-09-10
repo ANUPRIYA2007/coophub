@@ -9,7 +9,8 @@ import LiveTrackingMap from '../../components/maps/LiveTrackingMap';
 import { 
     Phone, MessageSquare, MapPin, Navigation, Clock, ShieldCheck, 
     CheckCircle2, AlertTriangle, FileText, Star, UserCheck, ChevronRight,
-    CreditCard, ArrowLeft, Sparkles, Banknote, Printer, Mail, Loader2, Check
+    CreditCard, ArrowLeft, Sparkles, Banknote, Printer, Mail, Loader2, Check,
+    XCircle, AlertOctagon
 } from 'lucide-react';
 import OrderReceiptModal from '../../components/common/OrderReceiptModal';
 import CoopHubServiceReceipt from '../../components/common/CoopHubServiceReceipt';
@@ -45,6 +46,13 @@ export default function RequestDetails() {
     const [activeView, setActiveView] = useState('receipt');
     const [emailSending, setEmailSending] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
+
+    // Cancel Request State
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelDetails, setCancelDetails] = useState('');
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [cancelError, setCancelError] = useState('');
 
     useEffect(() => {
         if (requestData?.status === 'completed') {
@@ -405,6 +413,48 @@ export default function RequestDetails() {
         }
     };
 
+    // ─── CANCEL REQUEST HANDLER ───
+    const CANCEL_REASONS = [
+        'Found another service provider',
+        'Issue resolved on its own',
+        'Booked by mistake',
+        'Need to reschedule to a different date',
+        'Pillar is taking too long to arrive',
+        'Change of plans / No longer needed',
+        'Other reason'
+    ];
+
+    const CANCELLABLE_STATUSES = ['pending', 'assigned', 'accepted', 'on_the_way', 'arrived'];
+    const canCancel = CANCELLABLE_STATUSES.includes(requestData?.status);
+
+    const handleCancelRequest = async () => {
+        if (!cancelReason) {
+            setCancelError('Please select a reason for cancellation.');
+            return;
+        }
+        if (cancelReason === 'Other reason' && !cancelDetails.trim()) {
+            setCancelError('Please describe your reason for cancellation.');
+            return;
+        }
+        setCancelError('');
+        setIsCancelling(true);
+        try {
+            const result = await serviceRequestService.cancelRequest(id, cancelReason, cancelDetails);
+            if (result.success) {
+                setRequestData(prev => prev ? ({ ...prev, status: 'cancelled', cancel_reason: cancelDetails ? `${cancelReason}: ${cancelDetails}` : cancelReason }) : prev);
+                setShowCancelModal(false);
+                setCancelReason('');
+                setCancelDetails('');
+            } else {
+                setCancelError(result.error || 'Failed to cancel request.');
+            }
+        } catch (err) {
+            setCancelError(err.message || 'Something went wrong.');
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
     const statusBadge = (status) => {
         switch (status) {
             case 'pending': return { text: t('Searching for Pillar'), bg: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
@@ -417,7 +467,7 @@ export default function RequestDetails() {
                     return { text: t('Finally Completed'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-500' };
                 }
                 return { text: t('Payment Pending'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
-            case 'cancelled': return { text: t('Cancelled'), bg: 'bg-red-100 text-red-800 border-red-200' };
+            case 'cancelled': return { text: t('Cancelled'), bg: 'bg-red-100 text-red-800 border-red-300' };
             default: return { text: t(status.replace(/_/g, ' ')), bg: 'bg-navy-100 text-navy-800 border-navy-200' };
         }
     };
@@ -598,6 +648,31 @@ export default function RequestDetails() {
                             })}
                         </div>
                         <div className="h-6 sm:h-8"></div> {/* Spacing for absolute labels */}
+                    </div>
+                )}
+
+                {/* ─── CANCELLED STATUS BANNER ─── */}
+                {requestData.status === 'cancelled' && (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-6 text-center space-y-3 animate-fade-in">
+                        <div className="w-16 h-16 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto">
+                            <XCircle size={32} />
+                        </div>
+                        <h3 className="font-bold text-red-900 text-lg">Request Cancelled</h3>
+                        <p className="text-sm text-red-700 max-w-md mx-auto">
+                            This service request has been cancelled.
+                        </p>
+                        {requestData.cancel_reason && (
+                            <div className="bg-white rounded-2xl p-4 border border-red-100 text-left">
+                                <p className="text-xs text-red-400 font-bold uppercase mb-1">Cancellation Reason</p>
+                                <p className="text-sm text-red-800 font-medium">{requestData.cancel_reason}</p>
+                            </div>
+                        )}
+                        <button
+                            onClick={() => navigate('/services')}
+                            className="btn-primary py-2.5 px-6 text-xs mt-2"
+                        >
+                            Book a New Service
+                        </button>
                     </div>
                 )}
 
@@ -895,6 +970,30 @@ export default function RequestDetails() {
                     )}
                 </div>
 
+                {/* ─── CANCEL REQUEST BUTTON (Before OTP / Work Starts) ─── */}
+                {canCancel && (
+                    <div className="bg-white rounded-3xl p-5 border border-red-100 shadow-sm">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                    <AlertOctagon size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-navy-900">Need to Cancel?</p>
+                                    <p className="text-[11px] text-navy-500">Free cancellation available before service starts</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowCancelModal(true)}
+                                className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition-all flex items-center gap-1.5"
+                            >
+                                <XCircle size={14} />
+                                Cancel Request
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* ─── INVOICE & PAYMENT SUMMARY ─── */}
                 {(requestData.status === 'completed' || invoiceData) && (
                     <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
@@ -1147,6 +1246,103 @@ export default function RequestDetails() {
                     etaMins={dynamicEta} 
                     onClose={() => setShowPillarProfile(false)} 
                 />
+            )}
+
+            {/* ─── CANCEL REQUEST CONFIRMATION MODAL ─── */}
+            {showCancelModal && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setShowCancelModal(false)}>
+                    <div
+                        className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-red-100 space-y-5 animate-scale-up"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="text-center">
+                            <div className="w-14 h-14 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto shadow-inner mb-3">
+                                <AlertOctagon size={28} />
+                            </div>
+                            <h3 className="font-bold text-navy-900 text-lg">Cancel Service Request</h3>
+                            <p className="text-xs text-navy-500 mt-1 max-w-xs mx-auto">
+                                Are you sure? Cancellation is allowed only before the technician enters the arrival OTP and begins work.
+                            </p>
+                        </div>
+
+                        {/* Reason Selection */}
+                        <div className="space-y-3">
+                            <label className="block text-xs font-bold text-navy-700">Select a reason for cancellation <span className="text-red-500">*</span></label>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {CANCEL_REASONS.map(reason => (
+                                    <button
+                                        key={reason}
+                                        type="button"
+                                        onClick={() => { setCancelReason(reason); setCancelError(''); }}
+                                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-medium border transition-all ${
+                                            cancelReason === reason
+                                                ? 'bg-red-50 border-red-300 text-red-800 ring-2 ring-red-200'
+                                                : 'bg-white border-navy-100 text-navy-700 hover:bg-navy-50 hover:border-navy-200'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                                cancelReason === reason ? 'border-red-500 bg-red-500' : 'border-navy-300'
+                                            }`}>
+                                                {cancelReason === reason && <div className="w-1.5 h-1.5 rounded-full bg-white"></div>}
+                                            </div>
+                                            {reason}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Detail Text Area */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold text-navy-700">
+                                Additional details {cancelReason === 'Other reason' && <span className="text-red-500">*</span>}
+                            </label>
+                            <textarea
+                                value={cancelDetails}
+                                onChange={e => { setCancelDetails(e.target.value); setCancelError(''); }}
+                                placeholder="Tell us more about why you need to cancel..."
+                                rows={3}
+                                className="w-full px-4 py-3 rounded-xl border border-navy-200 text-sm text-navy-800 placeholder:text-navy-300 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none resize-none transition-all"
+                            />
+                        </div>
+
+                        {/* Error */}
+                        {cancelError && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700 font-medium flex items-center gap-2">
+                                <AlertTriangle size={14} className="text-red-500 shrink-0" />
+                                {cancelError}
+                            </div>
+                        )}
+
+                        {/* Warning */}
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                            <strong>Note:</strong> Once cancelled, you will need to create a new service request if you need help later.
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 pt-1">
+                            <button
+                                onClick={() => { setShowCancelModal(false); setCancelReason(''); setCancelDetails(''); setCancelError(''); }}
+                                className="flex-1 py-3 px-4 rounded-xl bg-white hover:bg-navy-50 text-navy-700 border border-navy-200 font-bold text-xs transition-all"
+                            >
+                                Go Back
+                            </button>
+                            <button
+                                onClick={handleCancelRequest}
+                                disabled={isCancelling}
+                                className="flex-1 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                            >
+                                {isCancelling ? (
+                                    <><Loader2 size={14} className="animate-spin" /> Cancelling...</>
+                                ) : (
+                                    <><XCircle size={14} /> Confirm Cancellation</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -285,33 +285,14 @@ const MASTER_SERVICES = [
     }
 ];
 
-const MASTER_SUB_SERVICES = [
-    { id: 'b0000000-0000-0000-0000-000000000004', service_id: 'a0000000-0000-0000-0000-000000000001', name: 'Ceiling Fan & Switchboard Wiring', base_price: 350 },
-    { id: 'b0000000-0000-0000-0000-000000000005', service_id: 'a0000000-0000-0000-0000-000000000002', name: 'Pipe Leak Repair & Tap Fixing', base_price: 250 },
-    { id: 'b0000000-0000-0000-0000-000000000006', service_id: 'a0000000-0000-0000-0000-000000000003', name: 'Split AC Master Service & Jet Cleaning', base_price: 600 },
-    { id: 'b0000000-0000-0000-0000-000000000007', service_id: 'a0000000-0000-0000-0000-000000000004', name: 'Washing Machine Drum & Motor Service', base_price: 650 },
-    { id: 'b0000000-0000-0000-0000-000000000008', service_id: 'a0000000-0000-0000-0000-000000000005', name: 'Single Room Wall Painting & Primer', base_price: 2400 },
-    { id: 'b0000000-0000-0000-0000-000000000010', service_id: 'a0000000-0000-0000-0000-000000000010', name: 'Daily Cooking & Meal Preparation', base_price: 350 },
-    { id: 'b0000000-0000-0000-0000-000000000011', service_id: 'a0000000-0000-0000-0000-000000000010', name: 'Household Assistance & Maid Service', base_price: 500 },
-    { id: 'b0000000-0000-0000-0000-000000000020', service_id: 'a0000000-0000-0000-0000-000000000011', name: 'Elder Care & Daily Patient Assistance', base_price: 800 },
-    { id: 'b0000000-0000-0000-0000-000000000021', service_id: 'a0000000-0000-0000-0000-000000000011', name: 'Home Nursing & Medication Support', base_price: 1200 },
-    { id: 'b0000000-0000-0000-0000-000000000030', service_id: 'a0000000-0000-0000-0000-000000000012', name: 'Garden Maintenance & Lawn Mowing', base_price: 450 },
-    { id: 'b0000000-0000-0000-0000-000000000031', service_id: 'a0000000-0000-0000-0000-000000000012', name: 'Plant Care, Pruning & Landscaping', base_price: 650 },
-    { id: 'b0000000-0000-0000-0000-000000000040', service_id: 'a0000000-0000-0000-0000-000000000013', name: 'CCTV & Security Camera Setup', base_price: 850 },
-    { id: 'b0000000-0000-0000-0000-000000000041', service_id: 'a0000000-0000-0000-0000-000000000013', name: 'Electronics & Equipment Maintenance', base_price: 550 },
-    { id: 'b0000000-0000-0000-0000-000000000050', service_id: 'a0000000-0000-0000-0000-000000000014', name: '24/7 Urgent Plumbing & Pipe Burst Fix', base_price: 600 },
-    { id: 'b0000000-0000-0000-0000-000000000051', service_id: 'a0000000-0000-0000-0000-000000000014', name: '24/7 Emergency Electrical Short Circuit', base_price: 700 },
-    { id: 'b0000000-0000-0000-0000-000000000060', service_id: 'a0000000-0000-0000-0000-000000000015', name: 'Instant 30-Min Priority Dispatch', base_price: 400 },
-    { id: 'b0000000-0000-0000-0000-000000000070', service_id: 'a0000000-0000-0000-0000-000000000016', name: 'Verified Skilled Cooperative Technician', base_price: 500 },
-    { id: 'b0000000-0000-0000-0000-000000000080', service_id: 'a0000000-0000-0000-0000-000000000017', name: 'Worker Skill Assessment & Certification', base_price: 0 },
-    { id: 'b0000000-0000-0000-0000-000000000001', service_id: 'a0000000-0000-0000-0000-000000000007', name: 'Personal City Chauffeur (Local Trip)', base_price: 450 },
-    { id: 'b0000000-0000-0000-0000-000000000002', service_id: 'a0000000-0000-0000-0000-000000000007', name: 'Outstation / Full-Day Driver', base_price: 1200 }
-];
+import { SUB_SERVICES_CATALOG, getSubServicesForCatalog } from '../utils/subServicesCatalog';
+
+const MASTER_SUB_SERVICES = SUB_SERVICES_CATALOG;
 
 export function useServices() {
     const { language } = useTranslation();
     const [services, setServices] = useState([]);
-    const [subServices, setSubServices] = useState([]);
+    const [subServices, setSubServices] = useState(SUB_SERVICES_CATALOG);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -351,14 +332,15 @@ export function useServices() {
                     combinedServices = MASTER_SERVICES.map(mapTranslations);
                 }
 
-                let combinedSubServices = [...MASTER_SUB_SERVICES];
+                // Ensure all 80 canonical sub-services are always available
+                let combinedSubServices = [...SUB_SERVICES_CATALOG];
                 if (subData && subData.length > 0) {
                     const subMapped = subData.map(mapTranslations);
                     const subDbIds = new Set(subMapped.map(s => s.id));
-                    const remainingSubMasters = MASTER_SUB_SERVICES.filter(m => !subDbIds.has(m.id)).map(mapTranslations);
+                    const remainingSubMasters = SUB_SERVICES_CATALOG.filter(m => !subDbIds.has(m.id)).map(mapTranslations);
                     combinedSubServices = [...subMapped, ...remainingSubMasters];
                 } else {
-                    combinedSubServices = MASTER_SUB_SERVICES.map(mapTranslations);
+                    combinedSubServices = SUB_SERVICES_CATALOG.map(mapTranslations);
                 }
 
                 setServices(combinedServices);
@@ -371,7 +353,7 @@ export function useServices() {
                     description: item.description_translations?.[language] || item.description_translations?.['en'] || item.description || ''
                 });
                 setServices(MASTER_SERVICES.map(mapTranslations));
-                setSubServices(MASTER_SUB_SERVICES.map(mapTranslations));
+                setSubServices(SUB_SERVICES_CATALOG.map(mapTranslations));
             } finally {
                 setLoading(false);
             }
@@ -380,9 +362,9 @@ export function useServices() {
         fetchCatalogue();
     }, [language]);
 
-    // Helpers
-    const getSubServices = (serviceId) => {
-        return subServices.filter(sub => sub.service_id === serviceId);
+    // Helper: returns the exact 5 sub-services for any service
+    const getSubServices = (serviceId, serviceObj = null) => {
+        return getSubServicesForCatalog(serviceId, serviceObj);
     };
 
     return { services, subServices, getSubServices, loading, error };

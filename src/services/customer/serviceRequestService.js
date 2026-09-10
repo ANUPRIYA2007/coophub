@@ -539,6 +539,96 @@ export const serviceRequestService = {
     },
 
     /**
+     * Cancel a service request (customer-initiated, before OTP / work starts)
+     * Allowed statuses: pending, assigned, accepted, on_the_way, arrived
+     * @param {string} requestId
+     * @param {string} cancelReason - predefined reason
+     * @param {string} cancelDetails - freeform details typed by customer
+     * @returns {{ success: boolean, error?: string }}
+     */
+    cancelRequest: async (requestId, cancelReason, cancelDetails = '') => {
+        const CANCELLABLE_STATUSES = ['pending', 'assigned', 'accepted', 'on_the_way', 'arrived'];
+
+        try {
+            // 1. Verify current status is cancellable
+            const { data: current, error: fetchErr } = await supabase
+                .from('service_requests')
+                .select('id, status, pillar_id')
+                .eq('id', requestId)
+                .maybeSingle();
+
+            if (fetchErr || !current) {
+                return { success: false, error: 'Request not found.' };
+            }
+
+            if (!CANCELLABLE_STATUSES.includes(current.status)) {
+                return { success: false, error: `Cannot cancel — service is already "${current.status}".` };
+            }
+
+            // 2. Update service_requests to cancelled
+            const fullReason = cancelDetails
+                ? `${cancelReason}: ${cancelDetails}`
+                : cancelReason;
+
+            const { error: updErr } = await supabase
+                .from('service_requests')
+                .update({
+                    status: 'cancelled',
+                    cancel_reason: fullReason,
+                    cancelled_at: new Date().toISOString(),
+                    cancelled_by: 'customer'
+                })
+                .eq('id', requestId);
+
+            if (updErr) {
+                console.warn('Cancel update error:', updErr.message);
+                return { success: false, error: updErr.message };
+            }
+
+            // 3. Also update bookings table
+            try {
+                await supabase
+                    .from('bookings')
+                    .update({
+                        status: 'cancelled',
+                        cancel_reason: fullReason,
+                        cancelled_at: new Date().toISOString()
+                    })
+                    .eq('id', requestId);
+            } catch (bErr) {
+                console.warn('Bookings cancel sync note:', bErr?.message);
+            }
+
+            // 4. Record in status history
+            try {
+                await supabase.from('request_status_history').insert([{
+                    request_id: requestId,
+                    from_status: current.status,
+                    to_status: 'cancelled',
+                    changed_by: 'customer',
+                    notes: fullReason
+                }]);
+            } catch (hErr) {
+                console.warn('Status history note:', hErr?.message);
+            }
+
+            // 5. BroadcastChannel notification
+            try {
+                if (typeof BroadcastChannel !== 'undefined') {
+                    const bc = new BroadcastChannel('coophub_orders_sync');
+                    bc.postMessage({ type: 'ORDER_CANCELLED', orderId: requestId, reason: fullReason, timestamp: Date.now() });
+                    setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
+                }
+            } catch (bcErr) {}
+
+            return { success: true };
+        } catch (err) {
+            console.error('Cancel request error:', err);
+            return { success: false, error: err.message || 'Something went wrong.' };
+        }
+    },
+
+    /**
      * Loads the customer's request history
      */
     getCustomerRequests: async () => {

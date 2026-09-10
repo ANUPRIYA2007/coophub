@@ -267,10 +267,11 @@ export default function ChatAgent({ contextData }) {
         }
     };
 
-    // Quick action chips
+    // Quick action chips connected to live sub-services
     const quickChips = [
-        { label: '⚡ Electrician', query: 'I need to book an electrician' },
-        { label: '💧 Plumbing', query: 'I need plumbing repair service' },
+        { label: '⚡ Ceiling Fan Wiring (₹350)', query: 'I want to book Ceiling Fan & Switchboard Wiring' },
+        { label: '💧 Pipe Leak Repair (₹299)', query: 'I need Pipe Leakage Repair' },
+        { label: '❄️ AC Service (₹499)', query: 'I want to book AC General Service' },
         { label: '📦 Track Request', query: 'How do I track my active booking?' },
         { label: '🏛️ Become a Pillar', query: 'How to become a verified Pillar technician?' }
     ];

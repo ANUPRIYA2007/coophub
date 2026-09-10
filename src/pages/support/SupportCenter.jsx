@@ -189,7 +189,7 @@ export default function SupportCenter() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [openFaq, setOpenFaq] = useState(null);
+    const [openFaq, setOpenFaq] = useState('faq-1');
     const [feedback, setFeedback] = useState({});
 
     useEffect(() => {
@@ -223,7 +223,7 @@ export default function SupportCenter() {
     }, []);
 
     const toggleFaq = (id) => {
-        setOpenFaq(openFaq === id ? null : id);
+        setOpenFaq(prev => prev === id ? null : id);
     };
 
     const handleFeedback = (faqId, isHelpful, e) => {
@@ -239,8 +239,9 @@ export default function SupportCenter() {
         if (faq[`${field}_translations`]?.[language]) {
             return faq[`${field}_translations`][language];
         }
-        if (faq[field]) return faq[field];
-        return faq[`${field}_translations`]?.['en'] || '';
+        const rawText = faq[field] || faq[`${field}_translations`]?.['en'] || '';
+        if (!rawText) return '';
+        return t(rawText);
     };
 
     // Filter FAQs based on search and category
@@ -284,18 +285,18 @@ export default function SupportCenter() {
                             <h1 className="text-2xl sm:text-3xl font-black text-navy-900 dark:text-white tracking-tight flex items-center gap-2">
                                 <span>{t('Help & Support')}</span>
                                 <span className="text-xs bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 font-bold px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-900">
-                                    24/7 Available
+                                    {t('24/7 Available')}
                                 </span>
                             </h1>
                             <p className="text-xs sm:text-sm text-navy-500 dark:text-slate-400 mt-0.5">
-                                Find instant answers, check service policies, or reach dedicated support officers.
+                                {t('Find instant answers, check service policies, or reach dedicated support officers.')}
                             </p>
                         </div>
                     </div>
 
                     <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-900">
                         <ShieldCheck size={16} />
-                        <span>Citizen Protection Guarantee</span>
+                        <span>{t('Citizen Protection Guarantee')}</span>
                     </div>
                 </div>
 
@@ -313,10 +314,10 @@ export default function SupportCenter() {
                                 <h3 className="font-bold text-navy-900 dark:text-white text-base group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                                     {t('Contact Support')}
                                 </h3>
-                                <span className="text-[11px] font-semibold text-orange-500 bg-orange-50 dark:bg-orange-950 px-2 py-0.5 rounded-md">New Ticket</span>
+                                <span className="text-[11px] font-semibold text-orange-500 bg-orange-50 dark:bg-orange-950 px-2 py-0.5 rounded-md">{t('New Ticket')}</span>
                             </div>
                             <p className="text-xs text-navy-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                Open a new inquiry or request resolution from a cooperative ward officer.
+                                {t('Open a new inquiry or request resolution from a cooperative ward officer.')}
                             </p>
                         </div>
                     </button>
@@ -333,10 +334,10 @@ export default function SupportCenter() {
                                 <h3 className="font-bold text-navy-900 dark:text-white text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                     {t('My Tickets')}
                                 </h3>
-                                <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md">Track Status</span>
+                                <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md">{t('Track Status')}</span>
                             </div>
                             <p className="text-xs text-navy-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                Check the real-time progress and history of your submitted support inquiries.
+                                {t('Check the real-time progress and history of your submitted support inquiries.')}
                             </p>
                         </div>
                     </button>
@@ -351,7 +352,7 @@ export default function SupportCenter() {
                                 <span>{t('Frequently Asked Questions')}</span>
                             </h2>
                             <p className="text-xs text-navy-500 dark:text-slate-400 mt-0.5">
-                                Instant answers to common questions about booking, safety OTP, tariffs, and payments.
+                                {t('Instant answers to common questions about booking, safety OTP, tariffs, and payments.')}
                             </p>
                         </div>
 
@@ -362,7 +363,7 @@ export default function SupportCenter() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search questions or keywords..."
+                                placeholder={t('Search questions or keywords...')}
                                 className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-navy-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-navy-900 dark:text-white placeholder-navy-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all shadow-2xs"
                             />
                             {searchQuery && (
@@ -390,7 +391,7 @@ export default function SupportCenter() {
                                             : 'bg-white dark:bg-slate-900 border border-navy-100 dark:border-slate-800 text-navy-600 dark:text-slate-300 hover:bg-navy-50 dark:hover:bg-slate-800'
                                     }`}
                                 >
-                                    {cat.label}
+                                    {t(cat.label)}
                                 </button>
                             );
                         })}
@@ -402,15 +403,15 @@ export default function SupportCenter() {
                             <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-950/50 text-orange-500 mx-auto flex items-center justify-center">
                                 <Search size={22} />
                             </div>
-                            <h4 className="font-bold text-navy-900 dark:text-white text-sm">No matching questions found</h4>
+                            <h4 className="font-bold text-navy-900 dark:text-white text-sm">{t('No matching questions found')}</h4>
                             <p className="text-navy-400 dark:text-slate-400 text-xs max-w-sm mx-auto">
-                                We couldn't find any questions matching "{searchQuery}". Try a different keyword or contact our support team.
+                                {t("We couldn't find any questions matching")} "{searchQuery}". {t("Try a different keyword or contact our support team.")}
                             </p>
                             <button
                                 onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
                                 className="px-4 py-2 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 text-xs font-bold rounded-xl transition-all"
                             >
-                                Reset Filters
+                                {t('Reset Filters')}
                             </button>
                         </div>
                     ) : (
@@ -418,7 +419,7 @@ export default function SupportCenter() {
                             {filteredFaqs.map((faq, index) => {
                                 const question = getFaqText(faq, 'question');
                                 const answer = getFaqText(faq, 'answer');
-                                const isOpen = openFaq === faq.id || (index === 0 && !searchQuery && selectedCategory === 'all' && openFaq === null);
+                                const isOpen = openFaq === faq.id;
                                 const currentFeedback = feedback[faq.id];
 
                                 return (
@@ -437,7 +438,7 @@ export default function SupportCenter() {
                                             <div className="space-y-1 pr-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-navy-500 dark:text-slate-400">
-                                                        {faq.categoryLabel || faq.category || 'General'}
+                                                        {t(faq.categoryLabel || faq.category || 'General')}
                                                     </span>
                                                 </div>
                                                 <span className="text-sm sm:text-base font-bold block text-navy-900 dark:text-white leading-snug">
@@ -455,7 +456,7 @@ export default function SupportCenter() {
 
                                                 {/* Micro Feedback Interaction */}
                                                 <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs text-navy-400 dark:text-slate-400">
-                                                    <span>Was this helpful?</span>
+                                                    <span>{t('Was this helpful?')}</span>
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={(e) => handleFeedback(faq.id, true, e)}
@@ -466,7 +467,7 @@ export default function SupportCenter() {
                                                             }`}
                                                         >
                                                             <ThumbsUp size={12} />
-                                                            <span>{currentFeedback === true ? 'Helpful!' : 'Yes'}</span>
+                                                            <span>{currentFeedback === true ? t('Helpful!') : t('Yes')}</span>
                                                         </button>
                                                         <button
                                                             onClick={(e) => handleFeedback(faq.id, false, e)}
@@ -477,7 +478,7 @@ export default function SupportCenter() {
                                                             }`}
                                                         >
                                                             <ThumbsDown size={12} />
-                                                            <span>{currentFeedback === false ? 'Noted' : 'No'}</span>
+                                                            <span>{currentFeedback === false ? t('Noted') : t('No')}</span>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -496,13 +497,13 @@ export default function SupportCenter() {
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                         <div className="space-y-1.5 max-w-lg">
                             <span className="inline-block bg-white/20 text-white text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-xs">
-                                Dedicated Cooperative Support
+                                {t('Dedicated Cooperative Support')}
                             </span>
                             <h3 className="text-xl sm:text-2xl font-black tracking-tight">
-                                Still can't find what you need?
+                                {t("Still can't find what you need?")}
                             </h3>
                             <p className="text-white/90 text-xs sm:text-sm leading-relaxed">
-                                Our support team and cluster grievance officers are here to help resolve any inquiry or booking dispute.
+                                {t('Our support team and cluster grievance officers are here to help resolve any inquiry or booking dispute.')}
                             </p>
                         </div>
 
@@ -512,7 +513,7 @@ export default function SupportCenter() {
                                 className="px-5 py-3 bg-white text-orange-600 hover:bg-orange-50 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
                             >
                                 <MessageSquare size={16} />
-                                <span>Create Support Ticket</span>
+                                <span>{t('Create Support Ticket')}</span>
                             </button>
                             <a
                                 href="tel:18004252667"

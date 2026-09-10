@@ -54,6 +54,7 @@ export default function OrdersList() {
   const [cancelModalOrder, setCancelModalOrder] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [markingCashId, setMarkingCashId] = useState(null);
+  const [cancelledOrderAlert, setCancelledOrderAlert] = useState(null);
 
   // Play pleasant double-chime when an incoming order arrives
   const playChime = () => {
@@ -84,7 +85,7 @@ export default function OrdersList() {
       const { data } = await pillarOrderService.getOrders(user?.id);
       const list = data || [];
 
-      // Detect if a brand new customer booking has arrived
+      // Detect if any previously known order was cancelled by the customer
       if (knownOrderIdsRef.current.size > 0) {
         const newlyArrived = list.find(o => !knownOrderIdsRef.current.has(o.id) && (o.status === "pending" || o.status === "assigned"));
         if (newlyArrived) {
@@ -92,6 +93,27 @@ export default function OrdersList() {
           setNewOrderAlert(newlyArrived);
           setActiveTab("pending");
         }
+
+        // Check for customer-initiated cancellations
+        const previousOrders = orders; // current state before update
+        for (const prevOrder of previousOrders) {
+          if (['pending', 'assigned', 'accepted', 'onTheWay', 'on_the_way', 'arrived'].includes(prevOrder.status)) {
+            const updatedOrder = list.find(o => o.id === prevOrder.id);
+            if (updatedOrder && updatedOrder.status === 'cancelled' && updatedOrder.cancelled_by === 'customer') {
+              setCancelledOrderAlert({
+                id: updatedOrder.id,
+                customer_name: updatedOrder.customer_name || updatedOrder.customer?.full_name || 'Customer',
+                service_name: updatedOrder.service_name || 'Service',
+                cancel_reason: updatedOrder.cancel_reason || 'No reason provided',
+                booking_code: updatedOrder.booking_code || updatedOrder.id
+              });
+              break;
+            }
+          }
+        }
+      } else {
+        // First load — detect new orders
+        const newlyArrived = null; // skip on first load
       }
 
       knownOrderIdsRef.current = new Set(list.map(o => o.id));
@@ -323,6 +345,65 @@ export default function OrdersList() {
               <X size={18} />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Customer-Initiated Cancellation Alert Banner */}
+      {cancelledOrderAlert && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)",
+            border: "2px solid #ef4444",
+            borderRadius: "16px",
+            padding: "14px 20px",
+            marginBottom: "18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 8px 20px -4px rgba(239, 68, 68, 0.25)",
+            animation: "fadeIn 0.3s ease-out"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "12px",
+                background: "#ef4444",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 12px rgba(239, 68, 68, 0.5)"
+              }}
+            >
+              <AlertTriangle size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: "800", color: "#991b1b", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span>⚠️ {t("Order Cancelled by Customer")}</span>
+                <span style={{ fontSize: "11px", background: "#dc2626", color: "white", padding: "1px 8px", borderRadius: "10px", fontWeight: "700" }}>
+                  {cancelledOrderAlert.booking_code}
+                </span>
+              </div>
+              <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "2px" }}>
+                <strong>{cancelledOrderAlert.customer_name}</strong> cancelled: {cancelledOrderAlert.cancel_reason}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setCancelledOrderAlert(null)}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#991b1b",
+              cursor: "pointer",
+              padding: "4px"
+            }}
+          >
+            <X size={18} />
+          </button>
         </div>
       )}
 

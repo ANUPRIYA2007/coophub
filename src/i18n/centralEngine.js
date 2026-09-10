@@ -211,6 +211,14 @@ const DIRECT_CATALOG_ALIAS = {
   "navigation.support": "nav.support",
   "admin.support": "nav.support",
   "nav.support": "nav.support",
+  "all topics": "nav.support",
+  "booking & dispatch": "nav.bookings",
+  "safety & otp": "nav.security_audit",
+  "tariffs & payments": "nav.finance",
+  "support & grievances": "nav.support",
+  "contact support": "nav.support",
+  "my tickets": "nav.support",
+  "frequently asked questions": "nav.support",
   "settings": "nav.settings",
   "settings.title": "nav.settings",
   "navigation.settings": "nav.settings",
@@ -422,15 +430,18 @@ function resolveEnglishText(key) {
   if (DIRECT_CATALOG_ALIAS[lower] && CRITICAL_CATALOG.en?.[DIRECT_CATALOG_ALIAS[lower]]) {
     return CRITICAL_CATALOG.en[DIRECT_CATALOG_ALIAS[lower]];
   }
-  if (KEY_ALIASES[normalized]) return KEY_ALIASES[normalized];
+  if (DIRECT_CATALOG_ALIAS[normalized] && CRITICAL_CATALOG.en?.[DIRECT_CATALOG_ALIAS[normalized]]) {
+    return CRITICAL_CATALOG.en[DIRECT_CATALOG_ALIAS[normalized]];
+  }
+  if (DIRECT_CATALOG_ALIAS[normalized]) return DIRECT_CATALOG_ALIAS[normalized];
   
   const nested = getNestedValue(enJson, normalized);
   if (nested) return nested;
   
   // If dot notation key that was not mapped, convert last segment (e.g. "nav.dashboard" -> "Dashboard")
-  if (normalized.includes(".")) {
+  if (/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/.test(normalized)) {
     const lastPart = normalized.split(".").pop();
-    return lastPart.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return lastPart ? lastPart.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : normalized;
   }
   return normalized;
 }

@@ -9,6 +9,8 @@ import { locationService } from '../../services/customer/locationService';
 import { workerService } from '../../services/workers/workerService';
 import LocationPickerModal from '../../components/maps/LocationPickerModal';
 import CameraCaptureModal from '../../components/common/CameraCaptureModal';
+import DatePickerDropdown from '../../components/ui/DatePickerDropdown';
+import ResponsiveTimePicker from '../../components/ui/ResponsiveTimePicker';
 import {
     MapPin, AlertTriangle, CheckCircle2, Home, ShoppingBag,
     Star, ShieldCheck, Sparkles, UserCheck, Check, Clock, Camera, X
@@ -403,12 +405,18 @@ export default function ServiceRequest() {
                                 <h2 className="font-semibold text-lg text-navy-800 border-b border-navy-100 pb-2 mb-4">{t('booking.schedule')}</h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
                                     <div>
-                                        <label className="block text-xs font-medium text-muted mb-1">{t('booking.preferred_date')}</label>
-                                        <input type="date" name="preferred_date" value={formData.preferred_date} onChange={handleFormChange} disabled={formData.flexible_timing || formData.is_emergency} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" min={new Date().toISOString().split('T')[0]} />
+                                        <DatePickerDropdown
+                                            value={formData.preferred_date}
+                                            onChange={handleFormChange}
+                                            disabled={formData.flexible_timing || formData.is_emergency}
+                                        />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-muted mb-1">{t('booking.preferred_time')}</label>
-                                        <input type="time" name="preferred_time" value={formData.preferred_time} onChange={handleFormChange} disabled={formData.flexible_timing || formData.is_emergency} className="w-full px-4 py-3 rounded-xl border border-navy-200 outline-none disabled:opacity-50 disabled:bg-navy-50" />
+                                        <ResponsiveTimePicker
+                                            value={formData.preferred_time}
+                                            onChange={handleFormChange}
+                                            disabled={formData.flexible_timing || formData.is_emergency}
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-2">

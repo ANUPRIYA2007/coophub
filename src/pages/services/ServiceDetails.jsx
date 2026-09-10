@@ -22,12 +22,12 @@ export default function ServiceDetails() {
     );
 
     const resolvedServiceId = service?.id || serviceId;
-    const subServices = service ? getSubServices(resolvedServiceId) : [];
+    const subServices = service ? getSubServices(resolvedServiceId, service) : [];
 
     if (loading) {
         return (
             <div className="min-h-screen bg-surface p-6">
-                <div className="animate-pulse flex flex-col space-y-4 max-w-3xl mx-auto">
+                <div className="animate-pulse flex flex-col space-y-4 max-w-5xl mx-auto">
                     <div className="h-40 bg-gray-200 rounded-2xl w-full"></div>
                     <div className="h-20 bg-gray-200 rounded-xl w-full"></div>
                     <div className="h-20 bg-gray-200 rounded-xl w-full"></div>
@@ -69,16 +69,16 @@ export default function ServiceDetails() {
     }
 
     return (
-        <div className="min-h-screen bg-surface pb-20">
+        <div className="min-h-screen bg-surface pb-20 w-full overflow-x-hidden">
             {/* Header Area */}
-            <div className="bg-gradient-to-r from-navy-900 via-navy-800 to-navy-900 text-white pt-8 pb-16 px-6 relative overflow-hidden">
+            <div className="bg-gradient-to-r from-navy-900 via-navy-800 to-navy-900 text-white pt-8 pb-16 px-4 sm:px-6 relative overflow-hidden">
                 {/* Ambient glow */}
                 <div className="absolute top-0 right-10 w-64 h-64 bg-orange-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                <div className="max-w-3xl mx-auto">
+                <div className="max-w-5xl mx-auto">
                     {/* Top Navigation Row */}
                     <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                             <button 
                                 type="button"
                                 onClick={() => navigate('/services')} 
@@ -111,14 +111,14 @@ export default function ServiceDetails() {
                 </div>
             </div>
 
-            <main className="max-w-3xl mx-auto px-4 -mt-10">
-                <div className="card bg-white p-6 shadow-xl shadow-navy-100 rounded-3xl border border-navy-100 mb-8">
-                    <div className="flex items-center justify-between mb-5 border-b border-navy-100 pb-3">
-                        <h2 className="font-bold text-navy-900 text-base flex items-center gap-2">
-                            <Sparkles size={18} className="text-orange-500" />
+            <main className="max-w-5xl mx-auto px-3 sm:px-6 -mt-10">
+                <div className="card bg-white p-4 sm:p-6 lg:p-7 shadow-xl shadow-navy-100 rounded-3xl border border-navy-100 mb-8">
+                    <div className="flex items-center justify-between mb-5 sm:mb-6 border-b border-navy-100 pb-3 sm:pb-3.5">
+                        <h2 className="font-bold text-navy-900 text-sm sm:text-base flex items-center gap-2">
+                            <Sparkles size={18} className="text-orange-500 shrink-0" />
                             <span>{t('Select Service Requirement')}</span>
                         </h2>
-                        <span className="text-xs text-navy-400 font-medium">
+                        <span className="text-xs text-navy-400 font-medium bg-navy-50 px-2.5 sm:px-3 py-1 rounded-full border border-navy-100 shrink-0">
                             {subServices.length} {subServices.length === 1 ? t('option') : t('options')} {t('available')}
                         </span>
                     </div>
@@ -160,30 +160,55 @@ export default function ServiceDetails() {
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-3">
+                        <div 
+                            className="grid gap-3.5 sm:gap-4 lg:gap-5"
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 250px), 1fr))',
+                            }}
+                        >
                             {subServices.map(sub => (
-                                <button
+                                <div
                                     key={sub.id}
-                                    type="button"
-                                    onClick={() => navigate(`/services/${resolvedServiceId}/request?sub=${sub.id}`)}
-                                    className="w-full flex items-center justify-between p-4 border border-navy-100 rounded-2xl hover:border-orange-500 hover:bg-orange-50/60 transition-all text-left group shadow-xs hover:shadow-md"
+                                    className="bg-white rounded-2xl border border-navy-100 p-4 sm:p-5 flex flex-col justify-between hover:border-orange-400 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group text-left relative shadow-xs"
                                 >
-                                    <div className="pr-4">
-                                        <h3 className="font-bold text-navy-900 group-hover:text-orange-600 transition-colors text-sm">{t(sub.name)}</h3>
+                                    <div>
+                                        <h3 className="font-bold text-navy-900 text-sm sm:text-base group-hover:text-orange-600 transition-colors mb-2 leading-snug">
+                                            {t(sub.name)}
+                                        </h3>
                                         {sub.description && (
-                                            <p className="text-xs text-navy-500 mt-1 line-clamp-2">{t(sub.description)}</p>
+                                            <p className="text-xs text-navy-500 leading-relaxed line-clamp-3">
+                                                {t(sub.description)}
+                                            </p>
                                         )}
-                                        {sub.base_price && (
-                                            <span className="inline-block mt-2 text-xs font-extrabold text-navy-900 bg-navy-50 group-hover:bg-orange-100 px-2.5 py-0.5 rounded-md text-orange-600 transition-colors">
-                                                ₹{sub.base_price} {t('base rate')}
+                                    </div>
+
+                                    <div className="pt-4 mt-5 border-t border-navy-50 flex items-center justify-between gap-3">
+                                        {sub.base_price !== undefined && sub.base_price !== null ? (
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-semibold text-navy-400 uppercase tracking-wider">
+                                                    {t('Base Rate')}
+                                                </span>
+                                                <span className="text-sm font-extrabold text-navy-900 group-hover:text-orange-600 transition-colors">
+                                                    ₹{sub.base_price}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs font-semibold text-navy-400 italic">
+                                                {t('Custom Quote')}
                                             </span>
                                         )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate(`/services/${resolvedServiceId}/request?sub=${sub.id}`)}
+                                            className="btn-primary py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-orange-500/20 hover:shadow-md hover:shadow-orange-500/30 transition-all shrink-0 cursor-pointer"
+                                        >
+                                            <span>{t('Book')}</span>
+                                            <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                                        </button>
                                     </div>
-                                    <div className="text-orange-500 shrink-0 flex items-center gap-1 text-xs font-bold bg-orange-100/60 group-hover:bg-orange-500 group-hover:text-white px-3 py-1.5 rounded-xl transition-all">
-                                        <span>{t('Book')}</span>
-                                        <ChevronRight size={14} />
-                                    </div>
-                                </button>
+                                </div>
                             ))}
                         </div>
                     )}
