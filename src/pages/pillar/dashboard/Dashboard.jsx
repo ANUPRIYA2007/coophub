@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import gsap from "gsap";
 import { gsap3dEngine } from "../../../services/animation/gsap3dEngine";
 import TypewriterEffect from "../../../components/ui/TypewriterEffect";
+import { openPillarChat } from "../../../components/pillar/chat/PillarChatDrawer";
 import {
   ClipboardList,
   Wallet,
@@ -379,9 +380,13 @@ export default function Dashboard() {
               <h4 style={{ fontSize: "var(--font-size-base)", fontWeight: "600" }}>{t("Quick Access")}</h4>
             </div>
             <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-              <Link to="/dashboard/chat" className="btn btn-outline btn-sm" style={{ justifyContent: "flex-start" }}>
+              <button 
+                onClick={() => openPillarChat()} 
+                className="btn btn-outline btn-sm" 
+                style={{ justifyContent: "flex-start", width: "100%", cursor: "pointer" }}
+              >
                 <MessageSquare size={16} /> {t("Customer Messages")}
-              </Link>
+              </button>
               <Link to="/dashboard/support" className="btn btn-outline btn-sm" style={{ justifyContent: "flex-start" }}>
                 <Phone size={16} /> {t("Support Tickets")}
               </Link>

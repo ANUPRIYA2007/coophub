@@ -188,12 +188,31 @@ export const notificationSyncService = {
     }
   },
 
-  /**
-   * Calculate exact dynamic unread count for Pillar, Admin, or Super Admin portal
-   */
   async getPortalNotifications(portalRole, userId) {
     const readIds = new Set(this.getReadIds());
     const dismissedIds = new Set(this.getDismissedIds());
+
+    const initialPillar = [
+      {
+        id: 'pillar-alert-1',
+        title: 'Welcome to Pillar Workspace',
+        message: 'Your service technician profile is verified and active for incoming orders.',
+        created_at: 'Just now',
+        is_read: readIds.has('pillar-alert-1') || dismissedIds.has('pillar-alert-1'),
+        type: 'system'
+      }
+    ];
+    const initialAdmin = [
+      {
+        id: 'admin-alert-1',
+        title: 'System Active & Online',
+        message: 'COOP HUB cooperative administration and live Hero AI notifications active.',
+        created_at: 'Just now',
+        is_read: readIds.has('admin-alert-1') || dismissedIds.has('admin-alert-1'),
+        type: 'system'
+      }
+    ];
+    const defaultItems = portalRole === 'pillar' ? initialPillar : initialAdmin;
 
     try {
       let query = supabase
@@ -203,47 +222,38 @@ export const notificationSyncService = {
         .limit(15);
 
       if (portalRole === 'pillar' && userId) {
-        query = query.or(`user_id.eq.${userId},type.eq.broadcast,type.eq.new_booking,type.eq.pillar`);
+        // The notifications table does not have a user_id or pillar_id column in the remote DB.
+        // To avoid a 400 Bad Request error, we will not filter by user_id here. 
+        // In a production system, we'd join on service_requests to filter by pillar_id.
       }
 
-      const { data } = await query;
+      const { data, error } = await query;
 
       let items = [];
-      if (data && data.length > 0) {
-        items = data.map(n => ({
-          id: n.id,
-          title: n.title || 'System Alert',
-          message: n.message || 'Notification update',
-          created_at: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          is_read: Boolean(n.is_read || n.read || readIds.has(n.id) || dismissedIds.has(n.id)),
-          type: n.type || 'system'
-        }));
+      if (!error && data && data.length > 0) {
+        items = data.map(n => {
+          let derivedTitle = n.title;
+          if (!derivedTitle && n.type) {
+            derivedTitle = n.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          }
+          let derivedMessage = n.message;
+          if (!derivedMessage && n.message_translations && n.message_translations.en) {
+            derivedMessage = n.message_translations.en;
+          }
+          
+          return {
+            id: n.id,
+            title: derivedTitle || 'System Alert',
+            message: derivedMessage || 'Notification update',
+            created_at: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            is_read: Boolean(n.is_read || n.read || readIds.has(n.id) || dismissedIds.has(n.id)),
+            type: n.type || 'system'
+          };
+        });
       } else {
-        // Initial baseline alerts for new sessions
-        const initialPillar = [
-          {
-            id: 'pillar-alert-1',
-            title: 'Welcome to Pillar Workspace',
-            message: 'Your service technician profile is verified and active for incoming orders.',
-            created_at: 'Just now',
-            is_read: readIds.has('pillar-alert-1') || dismissedIds.has('pillar-alert-1'),
-            type: 'system'
-          }
-        ];
-        const initialAdmin = [
-          {
-            id: 'admin-alert-1',
-            title: 'System Active & Online',
-            message: 'COOP HUB cooperative administration and live Hero AI notifications active.',
-            created_at: 'Just now',
-            is_read: readIds.has('admin-alert-1') || dismissedIds.has('admin-alert-1'),
-            type: 'system'
-          }
-        ];
-        items = portalRole === 'pillar' ? initialPillar : initialAdmin;
+        items = defaultItems;
       }
 
-      // Filter out dismissed
       const filtered = items.filter(n => !dismissedIds.has(n.id));
       const unreadCount = filtered.filter(n => !n.is_read).length;
 
@@ -253,9 +263,10 @@ export const notificationSyncService = {
       };
     } catch (e) {
       console.warn('getPortalNotifications note:', e.message);
+      const filtered = defaultItems.filter(n => !dismissedIds.has(n.id));
       return {
-        notifications: [],
-        unreadCount: 0
+        notifications: filtered,
+        unreadCount: filtered.filter(n => !n.is_read).length
       };
     }
   }

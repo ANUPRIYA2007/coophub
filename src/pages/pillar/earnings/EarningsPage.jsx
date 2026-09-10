@@ -103,44 +103,83 @@ export default function EarningsPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-4" style={{ marginBottom: "var(--space-8)" }}>
-        <div className="card">
-          <div className="card-body">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)" }}>{t("earnings.today")}</span>
-              <span style={{ background: "rgba(245, 124, 32, 0.1)", color: "var(--color-secondary)", padding: "6px", borderRadius: "var(--radius-md)" }}><TrendingUp size={18} /></span>
+      {/* Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ marginBottom: "var(--space-8)" }}>
+        {/* Today Earnings Card */}
+        <div className="relative group overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-navy-50 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-transparent dark:from-orange-950/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-100/50 dark:bg-orange-900/20 rounded-full blur-2xl group-hover:bg-orange-200/50 transition-colors duration-300"></div>
+          <div className="relative p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-sm font-semibold text-navy-500 dark:text-slate-400">{t("earnings.today")}</span>
+              <div className="p-2.5 rounded-xl bg-orange-50 dark:bg-orange-950 text-orange-500 dark:text-orange-400 group-hover:scale-110 transition-transform duration-300 shadow-inner">
+                <TrendingUp size={20} strokeWidth={2.5} />
+              </div>
             </div>
-            <h2 style={{ fontSize: "var(--font-size-3xl)", marginTop: "var(--space-2)", color: "var(--color-primary)" }}>₹{data.summary.today.toLocaleString()}</h2>
+            <div className="space-y-1">
+              <h2 className="text-3xl font-extrabold text-navy-900 dark:text-white tracking-tight">₹{data.summary.today.toLocaleString()}</h2>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 w-fit px-2 py-0.5 rounded-full">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Live Updates
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-body">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)" }}>{t("Total Net Earnings")}</span>
-              <span style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--color-success)", padding: "6px", borderRadius: "var(--radius-md)" }}><Wallet size={18} /></span>
+        {/* Total Net Earnings Card */}
+        <div className="relative group overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-navy-50 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-950/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-100/50 dark:bg-blue-900/20 rounded-full blur-2xl group-hover:bg-blue-200/50 transition-colors duration-300"></div>
+          <div className="relative p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-sm font-semibold text-navy-500 dark:text-slate-400">{t("Total Net Earnings")}</span>
+              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-500 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300 shadow-inner">
+                <Wallet size={20} strokeWidth={2.5} />
+              </div>
             </div>
-            <h2 style={{ fontSize: "var(--font-size-3xl)", marginTop: "var(--space-2)", color: "var(--color-success)" }}>₹{data.summary.total.toLocaleString()}</h2>
+            <div className="space-y-1">
+              <h2 className="text-3xl font-extrabold text-navy-900 dark:text-white tracking-tight">₹{data.summary.total.toLocaleString()}</h2>
+              <p className="text-xs font-medium text-navy-400 dark:text-slate-500">Lifetime platform earnings</p>
+            </div>
           </div>
         </div>
 
-        <div className="card" style={{ border: "1.5px solid #10B981" }}>
-          <div className="card-body">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "#059669", fontSize: "var(--font-size-sm)", fontWeight: "700" }}>{t("Withdrawable Balance")}</span>
-              <span style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10B981", padding: "6px", borderRadius: "var(--radius-md)" }}><DollarSign size={18} /></span>
+        {/* Withdrawable Balance Card (Premium Focus) */}
+        <div className="relative group overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white shadow-lg hover:shadow-emerald-500/30 transition-all duration-300 transform hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-xl -ml-8 -mb-8 pointer-events-none"></div>
+          <div className="relative p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-sm font-bold text-emerald-50 drop-shadow-sm">{t("Withdrawable Balance")}</span>
+              <div className="p-2.5 rounded-xl bg-white/20 text-white backdrop-blur-sm group-hover:scale-110 transition-transform duration-300 border border-white/10 shadow-inner">
+                <DollarSign size={20} strokeWidth={2.5} />
+              </div>
             </div>
-            <h2 style={{ fontSize: "var(--font-size-3xl)", marginTop: "var(--space-2)", color: "#10B981", fontWeight: "800" }}>₹{data.summary.withdrawable.toLocaleString()}</h2>
+            <div className="space-y-1">
+              <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">₹{data.summary.withdrawable.toLocaleString()}</h2>
+              <p className="text-xs font-medium text-emerald-100/90 drop-shadow-sm">Ready for direct payout</p>
+            </div>
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-body">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)" }}>{t("Pending / Settled Payouts")}</span>
-              <span style={{ background: "rgba(245, 158, 11, 0.1)", color: "var(--color-warning)", padding: "6px", borderRadius: "var(--radius-md)" }}><Clock size={18} /></span>
+        {/* Pending Payouts Card */}
+        <div className="relative group overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-navy-50 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-transparent dark:from-purple-950/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-100/50 dark:bg-purple-900/20 rounded-full blur-2xl group-hover:bg-purple-200/50 transition-colors duration-300"></div>
+          <div className="relative p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-sm font-semibold text-navy-500 dark:text-slate-400">{t("Pending / Settled")}</span>
+              <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-500 dark:text-purple-400 group-hover:scale-110 transition-transform duration-300 shadow-inner">
+                <Clock size={20} strokeWidth={2.5} />
+              </div>
             </div>
-            <h2 style={{ fontSize: "var(--font-size-3xl)", marginTop: "var(--space-2)", color: "var(--color-warning)" }}>₹{(data.summary.pending + data.summary.paid).toLocaleString()}</h2>
+            <div className="space-y-1">
+              <h2 className="text-3xl font-extrabold text-navy-900 dark:text-white tracking-tight">₹{(data.summary.pending + data.summary.paid).toLocaleString()}</h2>
+              <p className="text-xs font-medium text-navy-400 dark:text-slate-500">Currently processing & paid</p>
+            </div>
           </div>
         </div>
       </div>

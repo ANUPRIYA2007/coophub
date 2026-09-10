@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { paymentService } from "../../../services/customer/paymentService";
+import { openPillarChat } from "../chat/PillarChatDrawer";
 
 export default function OrderDetailsModal({
   order,
@@ -688,7 +689,7 @@ export default function OrderDetailsModal({
                     <Phone size={14} />
                   </a>
                   <button
-                    onClick={() => navigate(`/dashboard/chat?orderId=${order.id}`, { state: { orderId: order.id } })}
+                    onClick={() => openPillarChat(order)}
                     className="btn btn-outline btn-sm"
                     style={{ borderRadius: "50%", width: "34px", height: "34px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-secondary)" }}
                     title="Message Customer"
@@ -885,7 +886,7 @@ export default function OrderDetailsModal({
               <>
                 <button
                   className="btn btn-outline btn-sm"
-                  onClick={() => navigate(`/dashboard/chat?orderId=${order.id}`, { state: { orderId: order.id } })}
+                  onClick={() => openPillarChat(order)}
                 >
                   <MessageSquare size={14} /> Message Customer
                 </button>

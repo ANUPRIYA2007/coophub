@@ -19,6 +19,7 @@ import SupportPage from './pages/pillar/support/SupportPage';
 import WelfarePage from './pages/pillar/support/WelfarePage';
 import InsurancePage from './pages/pillar/support/InsurancePage';
 import CertificationsPage from './pages/pillar/dashboard/CertificationsPage';
+import AboutPage from './pages/pillar/about/AboutPage';
 
 // Layout & Global Hero AI Mascot for Pillar
 import PillarLayout from './components/pillar/layout/PillarLayout';
@@ -254,6 +255,7 @@ export default function App() {
                     <Route path="/support" element={<SupportPage />} />
                     <Route path="/welfare" element={<WelfarePage />} />
                     <Route path="/insurance" element={<InsurancePage />} />
+                    <Route path="/about" element={<AboutPage />} />
                     <Route path="*" element={<Dashboard />} />
                   </Routes>
                 </PillarLayout>

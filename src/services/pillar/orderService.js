@@ -489,16 +489,6 @@ export const pillarOrderService = {
         console.warn("Local orders merge note:", locErr);
       }
 
-      // 4. If in demo mode, append default DEMO_ORDERS for rich preview experience
-      if (isDemo) {
-        const existingIds = new Set(combinedOrders.map(o => o.id));
-        DEMO_ORDERS.forEach(demo => {
-          if (!existingIds.has(demo.id)) {
-            combinedOrders.push(demo);
-          }
-        });
-      }
-
       let finalResult = combinedOrders;
       if (status) {
         finalResult = finalResult.filter(o => o.status === status);

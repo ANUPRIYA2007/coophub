@@ -312,15 +312,17 @@ export const welfareAgent = {
   },
 };
 
-// ─── GENERAL TECHNICAL & TRADE ASSISTANT AGENT ──────────────
+// ─── GENERAL PILLAR ASSISTANT AGENT ──────────────
 export const generalPillarAssistantAgent = {
   async handle(query, { session, language = "en", route = "/dashboard" }) {
     const userName = session?.user?.user_metadata?.full_name || "Pillar";
     return getLiveAiReply({
-      prompt: `Technician question: "${query}". You are speaking with technician ${userName}. Provide a comprehensive, actionable, and structured technical answer with clear steps, tools needed, and safety recommendations.`,
+      prompt: `You are CoopBot, a friendly, dynamic AI assistant and "intern" for technician ${userName}. 
+      They just said/asked: "${query}". 
+      Provide a warm, helpful, and concise response. Guide them dynamically based on what they need, whether it's navigation, answering questions, or technical help. Keep it conversational and friendly, not overly rigid or rule-based.`,
       language,
       route,
-      fallback: "I am your 24/7 technical assistant. Please ask any question regarding tools, repairs, electrical, plumbing, AC, carpentry, or safety procedures.",
+      fallback: "I am your 24/7 assistant. How can I help you today?",
     });
   },
 };

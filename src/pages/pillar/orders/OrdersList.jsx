@@ -34,6 +34,7 @@ import { paymentService } from "../../../services/customer/paymentService";
 import FinalizeBillModal from "../../../components/pillar/orders/FinalizeBillModal";
 import OrderDetailsModal from "../../../components/pillar/orders/OrderDetailsModal";
 import OrderReceiptModal from "../../../components/common/OrderReceiptModal";
+import { openPillarChat } from "../../../components/pillar/chat/PillarChatDrawer";
 
 export default function OrdersList() {
   const { t } = useTranslation();
@@ -677,7 +678,7 @@ export default function OrdersList() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/dashboard/chat?orderId=${order.id}`, { state: { orderId: order.id } });
+                          openPillarChat(order);
                         }}
                         className="btn btn-outline btn-sm"
                         style={{

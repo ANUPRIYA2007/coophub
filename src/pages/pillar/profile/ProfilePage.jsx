@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { User, ShieldCheck, Mail, Phone, MapPin, Briefcase, Award, Save, Building2, CreditCard, CheckCircle2, Lock, FileText, UploadCloud, Loader2, ArrowLeft } from "lucide-react";
+import { SUB_SERVICES_CATALOG } from "../../../utils/subServicesCatalog";
 
 const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
   ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
@@ -206,6 +207,7 @@ export default function ProfilePage() {
       pincode: formData.pincode.trim(),
       service_area: [formData.area.trim(), formData.pincode.trim()].filter(Boolean),
       location_sharing_enabled: formData.locationSharingEnabled !== false,
+      sub_services: formData.subServices ? formData.subServices.split(',').map(s => s.trim()).filter(Boolean) : [],
     };
 
     const isDemo = localStorage.getItem("coophub_demo_user") === "true";
@@ -424,6 +426,70 @@ export default function ProfilePage() {
                         disabled
                         style={{ background: "var(--color-surface-hover)", opacity: 0.8 }}
                       />
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group" style={{ marginBottom: "var(--space-4)" }}>
+                  <label className="form-label">Sub-Services / Skills <span className="text-sm font-normal text-slate-500">(Select all that apply)</span></label>
+                  
+                  {formData.mainService === "Others" ? (
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Wiring, AC Repair, Inverter Installation"
+                      value={formData.subServices}
+                      onChange={(e) => setFormData({ ...formData, subServices: e.target.value })}
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(() => {
+                        const serviceMap = {
+                          "Electrician": "Electrical Repair",
+                          "Plumber": "Plumbing Service",
+                          "Carpenter": "Carpentry & Woodwork",
+                          "AC Repair": "AC Repair & HVAC",
+                          "Painter": "Painting & Waterproofing",
+                          "Cleaner": "Deep Home Cleaning",
+                          "Driver": "Professional Driver Services"
+                        };
+                        const targetCategoryName = serviceMap[formData.mainService];
+                        const availableSubServices = SUB_SERVICES_CATALOG.filter(s => s.service_name === targetCategoryName) || [];
+                        
+                        const selectedArray = formData.subServices ? formData.subServices.split(',').map(s => s.trim()).filter(Boolean) : [];
+                        
+                        const toggleSubService = (name) => {
+                          let newArray = [...selectedArray];
+                          if (newArray.includes(name)) {
+                            newArray = newArray.filter(n => n !== name);
+                          } else {
+                            newArray.push(name);
+                          }
+                          setFormData({ ...formData, subServices: newArray.join(', ') });
+                        };
+
+                        if (availableSubServices.length === 0) {
+                          return <span className="text-sm text-slate-400">No sub-services defined for this category.</span>;
+                        }
+
+                        return availableSubServices.map((sub, idx) => {
+                          const isSelected = selectedArray.includes(sub.name);
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => toggleSubService(sub.name)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                isSelected 
+                                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' 
+                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              {sub.name}
+                            </button>
+                          );
+                        });
+                      })()}
                     </div>
                   )}
                 </div>

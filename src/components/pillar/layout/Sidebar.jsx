@@ -132,7 +132,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
     // Build contextual query for the live AI
     const section = path.replace("/dashboard/", "").replace("/dashboard", "home") || "home";
-    const aiQuery = `The technician ${userName} just navigated to the ${section} section. Give a friendly, concise 1-2 sentence guide for this page. Be warm and use their name.`;
+    const aiQuery = `I just navigated to the ${section} section. Give a friendly, concise 1-2 sentence guide for this page. Be warm and use my name (${userName}).`;
 
     aiService.chatWithMascot({
       message: aiQuery,
@@ -143,6 +143,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
         session,
         route: path,
         language,
+        role: "pillar"
       },
     }).then((res) => {
       if (isMounted && res?.reply) {
@@ -266,6 +267,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           session,
           route: location.pathname,
           language,
+          role: "pillar"
         },
       });
 
@@ -400,14 +402,12 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { name: "Earnings", path: "/dashboard/earnings", icon: Wallet },
     { name: "History", path: "/dashboard/history", icon: Clock },
     { name: "Welfare & Insurance", path: "/dashboard/welfare", icon: HeartHandshake },
-    { name: "Chat", path: "/dashboard/chat", icon: MessageSquare },
   ];
 
   const bottomNavItems = [
-    { name: "Profile", path: "/dashboard/profile", icon: User },
     { name: "Settings", path: "/dashboard/settings", icon: Settings },
     { name: "Help & Support", path: "/dashboard/support", icon: HelpCircle },
-    { name: "Portal Hub (Home)", path: "/", icon: Layers },
+    { name: "About", path: "/dashboard/about", icon: Layers },
   ];
 
   const handleLogout = async () => {
@@ -475,53 +475,21 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
           </button>
         </div>
 
-        {/* Portal Label */}
-        <div style={{ padding: "10px var(--space-4)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ fontWeight: "bold", color: "var(--color-secondary)", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "monospace" }}>
-            PILLAR PORTAL
-          </div>
-        </div>
-
-        {/* Profile Summary with Pillar ID */}
-        <div style={{ padding: "var(--space-5) var(--space-4)", display: "flex", alignItems: "center", gap: "var(--space-3)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+        {/* Portal Badge (Customer Portal style) */}
+        <div style={{ padding: "12px var(--space-4)", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center" }}>
           <div style={{ 
-            width: "46px", height: "46px", borderRadius: "50%", 
-            background: "var(--color-secondary)", display: "flex", 
-            alignItems: "center", justifyContent: "center",
-            fontWeight: "bold", fontSize: "1.2rem", flexShrink: 0
+            display: "inline-flex", 
+            alignItems: "center", 
+            gap: "7px", 
+            padding: "4px 12px", 
+            borderRadius: "9999px", 
+            background: "rgba(249, 115, 22, 0.12)", 
+            border: "1px solid rgba(249, 115, 22, 0.25)" 
           }}>
-            {profile?.full_name?.charAt(0) || "R"}
-          </div>
-          <div style={{ overflow: "hidden" }}>
-            <div style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "14.5px" }}>
-              {profile?.full_name || "Raj Kumar"}
-            </div>
-            <div style={{ fontSize: "11px", color: "var(--color-secondary)", fontWeight: "600", letterSpacing: "0.5px", marginTop: "1px" }}>
-              ID: {profile?.pillar_code || "PIL-CHE-042"}
-            </div>
-            <div style={{ marginTop: "4px" }}>
-              <button
-                onClick={handleToggleOnline}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "3px 8px",
-                  borderRadius: "12px",
-                  border: isAvailable ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)",
-                  background: isAvailable ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
-                  color: isAvailable ? "#34D399" : "#F87171",
-                  fontSize: "11px",
-                  fontWeight: "700",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease"
-                }}
-                title="Click to toggle Online / Offline status"
-              >
-                <span className={`status-dot ${isAvailable ? 'available' : 'offline'}`} style={{ width: "6px", height: "6px" }}></span>
-                <span>{isAvailable ? t("Available (Online)") : t("Offline (Paused)")}</span>
-              </button>
-            </div>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f97316", boxShadow: "0 0 8px #FF7900" }} />
+            <span style={{ fontWeight: 700, color: "#fb923c", fontSize: "11px", letterSpacing: "1.2px", textTransform: "uppercase", fontFamily: "sans-serif" }}>
+              {t("COOP Pillar")}
+            </span>
           </div>
         </div>
 
@@ -545,9 +513,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             })}
           </ul>
 
-          <div style={{ margin: "var(--space-4) var(--space-4) var(--space-2)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.5, fontWeight: "bold", fontFamily: "Geist Mono, monospace" }}>
-            {t("Settings & Help")}
-          </div>
+          <div style={{ marginTop: "var(--space-4)" }}></div>
 
           <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-4)" }}>
             {bottomNavItems.map((item) => {

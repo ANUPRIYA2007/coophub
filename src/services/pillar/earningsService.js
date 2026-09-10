@@ -4,29 +4,6 @@ export const pillarEarningsService = {
   async getEarningsSummary(pillarId) {
     const isDemo = localStorage.getItem("coophub_demo_user") === "true";
 
-    // 🧪 DEMO MODE: Rich mock data for SIH presentation
-    if (isDemo) {
-      return {
-        summary: {
-          total: 18600,
-          today: 850,
-          pending: 2300,
-          paid: 16300,
-          withdrawable: 0
-        },
-        transactions: [
-          { id: "TXN-801", booking_id: "ORD-9842", amount: 450, status: "paid", type: "service", service_name: "Ceiling Fan Wiring", customer: "Meenakshi S.", created_at: new Date().toISOString() },
-          { id: "TXN-800", booking_id: "ORD-9801", amount: 850, status: "paid", type: "service", service_name: "AC Power Point", customer: "Deepak S.", created_at: new Date(Date.now() - 86400000).toISOString() },
-          { id: "TXN-799", booking_id: "ORD-9788", amount: 550, status: "paid", type: "service", service_name: "Inverter Rewiring", customer: "Lakshmi N.", created_at: new Date(Date.now() - 172800000).toISOString() },
-          { id: "TXN-798", booking_id: "ORD-9750", amount: 350, status: "paid", type: "service", service_name: "Exhaust Fan Fixing", customer: "Radhika R.", created_at: new Date(Date.now() - 259200000).toISOString() },
-          { id: "TXN-797", booking_id: "ORD-9710", amount: 1200, status: "paid", type: "service", service_name: "DB Box Replacement", customer: "Srinivasan K.", created_at: new Date(Date.now() - 400000000).toISOString() }
-        ],
-        payouts: [],
-        bankDetails: { bank_name: "State Bank of India", bank_account_number: "••••3456", bank_ifsc: "SBIN0000842" },
-        error: null,
-      };
-    }
-
     // 🔒 REAL USER ONLY: Derived strictly from transaction ledger
     try {
       // 1. Fetch Pillar Earnings
