@@ -263,6 +263,7 @@ export default function SuperAdminAIIntelligence() {
               {CHENNAI_LOCALITIES.map(loc => (
                 <option key={loc.area} value={loc.area}>{loc.area} ({loc.zone})</option>
               ))}
+              <option value="BROOKLYN (NYC TEST DATA)">BROOKLYN (NYC TEST DATA)</option>
             </select>
           </div>
 

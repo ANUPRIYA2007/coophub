@@ -162,82 +162,85 @@ export function calculatePillarMatchScore({ pillar, request, approvedCerts = [] 
  * Fetch available Pillars from database and rank them for a given booking request
  */
 export async function matchWorkforceForRequest(request) {
-  const isDemo = localStorage.getItem("coophub_demo_user") === "true" ||
+  const isDemo = typeof window !== 'undefined' && (
+                 localStorage.getItem("coophub_demo_user") === "true" ||
                  localStorage.getItem("coophub_demo_admin") === "true" ||
-                 localStorage.getItem("coophub_demo_customer") === "true";
+                 localStorage.getItem("coophub_demo_customer") === "true");
 
   let pillars = [];
   let approvedCerts = [];
 
-  if (isDemo) {
-    pillars = [
-      {
-        id: "7842d4fd-ac93-4014-93ed-001c0237a36c",
-        full_name: "Raj Kumar",
-        pillar_code: "PIL-CHE-042",
-        mobile: "+91 98400 11223",
-        email: "raj@coophub.in",
-        main_services: ["Electrical Repair", "AC Repair & Installation"],
-        sub_services: ["Ceiling Fan Wiring", "MCB Tripping Check", "DB Box Servicing"],
-        service_area: ["Guindy", "600032"],
-        experience_years: "6",
-        rating: 4.9,
-        is_available: true,
-        lat: 13.0067,
-        lng: 80.2025,
-        status: "verified",
-        certified_skills: ["Electrical Repair", "High Voltage Diagnostics"]
-      },
-      {
-        id: "P-DEMO-002",
-        full_name: "Murugan Selvam",
-        pillar_code: "PIL-CHE-002",
-        mobile: "+91 94440 12345",
-        main_services: ["Plumbing Service", "Deep Home Cleaning"],
-        sub_services: ["Pipe Leak Repair", "Tap Fixing", "Drain Unblocking"],
-        service_area: ["Adyar", "600020"],
-        experience_years: "4",
-        rating: 4.7,
-        is_available: true,
-        lat: 13.0012,
-        lng: 80.2565,
-        status: "verified",
-        certified_skills: ["Plumbing Service"]
-      },
-      {
-        id: "P-DEMO-003",
-        full_name: "Karthik Rajan",
-        pillar_code: "PIL-CHE-003",
-        mobile: "+91 97910 88990",
-        main_services: ["Electrical Repair", "Carpentry & Woodwork"],
-        sub_services: ["Ceiling Fan Wiring", "Switch Replacement"],
-        service_area: ["Velachery", "600042"],
-        experience_years: "3",
-        rating: 4.6,
-        is_available: true,
-        lat: 12.9815,
-        lng: 80.2180,
-        status: "verified",
-        certified_skills: []
-      }
-    ];
-    try {
-      const { data: pData } = await supabase
-        .from('pillar_profiles')
-        .select('*')
-        .eq('status', 'verified');
+  try {
+    const { data: pData, error: pErr } = await supabase
+      .from('pillar_profiles')
+      .select('*')
+      .eq('status', 'verified');
+      
+    if (pErr) throw pErr;
 
-      const { data: cData } = await supabase
-        .from('pillar_certificates')
-        .select('*')
-        .eq('verification_status', 'approved');
+    const { data: cData, error: cErr } = await supabase
+      .from('pillar_certificates')
+      .select('*')
+      .eq('verification_status', 'approved');
+      
+    if (cErr) throw cErr;
 
-      pillars = pData || [];
-      approvedCerts = cData || [];
-    } catch (err) {
-      console.warn("Could not query live pillars from Supabase:", err.message);
-      pillars = [];
-      approvedCerts = [];
+    pillars = pData || [];
+    approvedCerts = cData || [];
+  } catch (err) {
+    console.warn("Could not query live pillars from Supabase:", err.message);
+    if (isDemo) {
+      pillars = [
+        {
+          id: "7842d4fd-ac93-4014-93ed-001c0237a36c",
+          full_name: "Raj Kumar",
+          pillar_code: "PIL-CHE-042",
+          mobile: "+91 98400 11223",
+          email: "raj@coophub.in",
+          main_services: ["Electrical Repair", "AC Repair & Installation"],
+          sub_services: ["Ceiling Fan Wiring", "MCB Tripping Check", "DB Box Servicing"],
+          service_area: ["Guindy", "600032"],
+          experience_years: "6",
+          rating: 4.9,
+          is_available: true,
+          lat: 13.0067,
+          lng: 80.2025,
+          status: "verified",
+          certified_skills: ["Electrical Repair", "High Voltage Diagnostics"]
+        },
+        {
+          id: "P-DEMO-002",
+          full_name: "Murugan Selvam",
+          pillar_code: "PIL-CHE-002",
+          mobile: "+91 94440 12345",
+          main_services: ["Plumbing Service", "Deep Home Cleaning"],
+          sub_services: ["Pipe Leak Repair", "Tap Fixing", "Drain Unblocking"],
+          service_area: ["Adyar", "600020"],
+          experience_years: "4",
+          rating: 4.7,
+          is_available: true,
+          lat: 13.0012,
+          lng: 80.2565,
+          status: "verified",
+          certified_skills: ["Plumbing Service"]
+        },
+        {
+          id: "P-DEMO-003",
+          full_name: "Karthik Rajan",
+          pillar_code: "PIL-CHE-003",
+          mobile: "+91 97910 88990",
+          main_services: ["Electrical Repair", "Carpentry & Woodwork"],
+          sub_services: ["Ceiling Fan Wiring", "Switch Replacement"],
+          service_area: ["Velachery", "600042"],
+          experience_years: "3",
+          rating: 4.6,
+          is_available: true,
+          lat: 12.9815,
+          lng: 80.2180,
+          status: "verified",
+          certified_skills: []
+        }
+      ];
     }
   }
 
@@ -278,6 +281,10 @@ export async function matchWorkforceForRequest(request) {
   scored.sort((a, b) => b.matchScore - a.matchScore);
 
   // For top 3 candidates, enrich with Google Distance Matrix / Route ETA if destination coordinates are present
+  const destCoords = request.lat && request.lng 
+    ? { lat: request.lat, lng: request.lng } 
+    : CHENNAI_DEFAULT_COORDS[request.area] || { lat: 13.0067, lng: 80.2025 };
+  
   const topCandidates = scored.slice(0, 3);
   if (destCoords?.lat && destCoords?.lng && topCandidates.length > 0) {
     try {

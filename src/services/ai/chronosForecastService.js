@@ -103,18 +103,34 @@ export const chronosForecastService = {
         }
       });
 
+      let serviceUuid = null;
+      if (service && service !== "ALL") {
+        let lookupName = service;
+        if (service === "Electrician") lookupName = "Electrical Repair";
+        else if (service === "Plumber") lookupName = "Plumbing";
+        
+        const { data: svcData } = await supabase
+          .from('services')
+          .select('id')
+          .ilike('name', `%${lookupName}%`)
+          .limit(1)
+          .single();
+        if (svcData) serviceUuid = svcData.id;
+      }
+
       let filtered = allRecords;
 
-      if (area) {
+      if (area && area !== "ALL") {
         const areaLower = area.toLowerCase();
         filtered = filtered.filter(b => (b.address || '').toLowerCase().includes(areaLower));
       }
 
-      if (service) {
+      if (service && service !== "ALL") {
         const sLower = service.toLowerCase();
-        filtered = filtered.filter(b => 
-          (b.service || '').toLowerCase().includes(sLower)
-        );
+        filtered = filtered.filter(b => {
+          const s = (b.service || '').toLowerCase();
+          return s.includes(sLower) || (serviceUuid && s === serviceUuid.toLowerCase());
+        });
       }
 
       return filtered;
