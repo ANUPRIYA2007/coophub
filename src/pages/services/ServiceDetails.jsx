@@ -1,13 +1,17 @@
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import gsap from 'gsap';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useServices, MASTER_SERVICES } from '../../hooks/useServices';
 import { ArrowLeft, Home, ShoppingBag, AlertCircle, Sparkles, CheckCircle2, ChevronRight } from 'lucide-react';
+import { getSubServiceImage } from '../../utils/subServiceImageMap';
 
 export default function ServiceDetails() {
     const { id: serviceId } = useParams();
     const navigate = useNavigate();
     const { t } = useTranslation();
     const { services, getSubServices, loading, error } = useServices();
+    const cardsGridRef = useRef(null);
 
     // Match service by ID, code, category, or name with fallback to master catalog
     const service = (services || []).find(s => 
@@ -23,6 +27,39 @@ export default function ServiceDetails() {
 
     const resolvedServiceId = service?.id || serviceId;
     const subServices = service ? getSubServices(resolvedServiceId, service) : [];
+
+    // GSAP staggered entrance animation for sub-service cards
+    useEffect(() => {
+        if (loading || subServices.length === 0 || !cardsGridRef.current) return;
+
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) return;
+
+        const ctx = gsap.context(() => {
+            const cards = cardsGridRef.current.querySelectorAll('.subservice-card');
+            if (cards.length === 0) return;
+
+            gsap.fromTo(
+                cards,
+                {
+                    opacity: 0,
+                    y: 24,
+                    scale: 0.96,
+                },
+                {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.45,
+                    stagger: 0.05,
+                    ease: 'power2.out',
+                    clearProps: 'transform',
+                }
+            );
+        }, cardsGridRef);
+
+        return () => ctx.revert();
+    }, [loading, subServices.length, resolvedServiceId]);
 
     if (loading) {
         return (
@@ -161,55 +198,74 @@ export default function ServiceDetails() {
                         </div>
                     ) : (
                         <div 
-                            className="grid gap-3.5 sm:gap-4 lg:gap-5"
+                            ref={cardsGridRef}
+                            className="grid gap-4 sm:gap-5"
                             style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 250px), 1fr))',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
                             }}
                         >
-                            {subServices.map(sub => (
-                                <div
-                                    key={sub.id}
-                                    className="bg-white rounded-2xl border border-navy-100 p-4 sm:p-5 flex flex-col justify-between hover:border-orange-400 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group text-left relative shadow-xs"
-                                >
-                                    <div>
-                                        <h3 className="font-bold text-navy-900 text-sm sm:text-base group-hover:text-orange-600 transition-colors mb-2 leading-snug">
-                                            {t(sub.name)}
-                                        </h3>
-                                        {sub.description && (
-                                            <p className="text-xs text-navy-500 leading-relaxed line-clamp-3">
-                                                {t(sub.description)}
-                                            </p>
-                                        )}
-                                    </div>
+                            {subServices.map(sub => {
+                                const subImg = sub.image || getSubServiceImage(sub);
 
-                                    <div className="pt-4 mt-5 border-t border-navy-50 flex items-center justify-between gap-3">
-                                        {sub.base_price !== undefined && sub.base_price !== null ? (
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-semibold text-navy-400 uppercase tracking-wider">
-                                                    {t('Base Rate')}
-                                                </span>
-                                                <span className="text-sm font-extrabold text-navy-900 group-hover:text-orange-600 transition-colors">
-                                                    ₹{sub.base_price}
-                                                </span>
+                                return (
+                                    <div
+                                        key={sub.id}
+                                        className="subservice-card bg-white rounded-2xl border border-navy-100 overflow-hidden flex flex-col justify-between hover:border-orange-400 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group text-left relative shadow-xs"
+                                    >
+                                        {/* 1. Sub-Service Image at the TOP */}
+                                        <div className="w-full h-44 sm:h-48 overflow-hidden bg-slate-100 relative">
+                                            <img
+                                                src={subImg}
+                                                alt={sub.name}
+                                                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out pointer-events-none select-none"
+                                                loading="lazy"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-navy-950/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                                        </div>
+
+                                        {/* 2. Card Content Area */}
+                                        <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between">
+                                            <div>
+                                                <h3 className="font-bold text-navy-900 text-sm sm:text-base group-hover:text-orange-600 transition-colors mb-2 leading-snug">
+                                                    {t(sub.name)}
+                                                </h3>
+                                                {sub.description && (
+                                                    <p className="text-xs text-navy-500 leading-relaxed line-clamp-3">
+                                                        {t(sub.description)}
+                                                    </p>
+                                                )}
                                             </div>
-                                        ) : (
-                                            <span className="text-xs font-semibold text-navy-400 italic">
-                                                {t('Custom Quote')}
-                                            </span>
-                                        )}
 
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate(`/services/${resolvedServiceId}/request?sub=${sub.id}`)}
-                                            className="btn-primary py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-orange-500/20 hover:shadow-md hover:shadow-orange-500/30 transition-all shrink-0 cursor-pointer"
-                                        >
-                                            <span>{t('Book')}</span>
-                                            <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                                        </button>
+                                            <div className="pt-4 mt-5 border-t border-navy-50 flex items-center justify-between gap-3">
+                                                {sub.base_price !== undefined && sub.base_price !== null ? (
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-semibold text-navy-400 uppercase tracking-wider">
+                                                            {t('Base Rate')}
+                                                        </span>
+                                                        <span className="text-sm font-extrabold text-navy-900 group-hover:text-orange-600 transition-colors">
+                                                            ₹{sub.base_price}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs font-semibold text-navy-400 italic">
+                                                        {t('Custom Quote')}
+                                                    </span>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(`/services/${resolvedServiceId}/request?sub=${sub.id}`)}
+                                                    className="btn-primary py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-orange-500/20 hover:shadow-md hover:shadow-orange-500/30 transition-all shrink-0 cursor-pointer"
+                                                >
+                                                    <span>{t('Book')}</span>
+                                                    <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>

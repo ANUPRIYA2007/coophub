@@ -1,5 +1,6 @@
 // Complete COOP HUB Sub-Services Catalog
 // 16 Main Services x Exactly 5 Specified Sub-Services Each = 80 Sub-Services
+import { SUB_SERVICE_IMAGE_MAP } from './subServiceImageMap.js';
 
 export const SUB_SERVICES_CATALOG = [
   // --------------------------------------------------
@@ -785,6 +786,13 @@ export function resolveCanonicalServiceId(identifier, serviceObj = null) {
   return identifier;
 }
 
+// Attach corresponding sub-service images
+SUB_SERVICES_CATALOG.forEach(sub => {
+  if (!sub.image && SUB_SERVICE_IMAGE_MAP[sub.id]) {
+    sub.image = SUB_SERVICE_IMAGE_MAP[sub.id];
+  }
+});
+
 /**
  * Returns the exact 5 sub-services for a main service identifier or service object.
  */
@@ -797,3 +805,4 @@ export function getSubServicesForCatalog(serviceId, serviceObj = null) {
   // Fallback: direct service_id filter
   return SUB_SERVICES_CATALOG.filter(sub => sub.service_id === serviceId);
 }
+
