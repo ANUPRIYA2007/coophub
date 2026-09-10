@@ -13,6 +13,7 @@ import ServiceCategoryIcon from '../../components/ui/ServiceCategoryIcon';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
 
 import { notificationSyncService } from '../../services/notifications/notificationSyncService';
+import { getServiceImage, getServiceDescription } from '../../utils/serviceImageMap';
 
 export default function Home() {
     const { t } = useTranslation();
@@ -209,10 +210,13 @@ export default function Home() {
                     {servicesLoading ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                             {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                                <div key={n} className="bg-white h-44 rounded-2xl border border-navy-100 flex flex-col items-center justify-center p-5 animate-pulse">
-                                    <div className="w-14 h-14 bg-gray-200 rounded-xl mb-3"></div>
-                                    <div className="w-24 h-3.5 bg-gray-200 rounded mb-2"></div>
-                                    <div className="w-32 h-2.5 bg-gray-100 rounded"></div>
+                                <div key={n} className="bg-white rounded-2xl border border-navy-100 flex flex-col overflow-hidden animate-pulse">
+                                    <div className="w-full aspect-[16/10] bg-gray-200"></div>
+                                    <div className="p-4 flex flex-col items-center flex-1 justify-between">
+                                        <div className="w-24 h-3.5 bg-gray-200 rounded mb-2"></div>
+                                        <div className="w-32 h-2.5 bg-gray-100 rounded mb-4"></div>
+                                        <div className="w-16 h-3 bg-orange-100 rounded"></div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -234,27 +238,49 @@ export default function Home() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {filteredServices.map(service => (
-                                <button
-                                    key={service.id}
-                                    onClick={() => navigate(`/services/${service.id}`)}
-                                    className="bg-white rounded-2xl border border-navy-100 p-5 flex flex-col justify-between text-center hover:-translate-y-1 hover:shadow-lg hover:border-orange-200 transition-all group"
-                                >
-                                    <div className="flex flex-col items-center">
-                                        <div className="w-14 h-14 bg-navy-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-orange-50 transition-colors">
-                                            <ServiceCategoryIcon category={service.category} name={service.name} />
+                            {filteredServices.map(service => {
+                                const serviceImg = getServiceImage(service);
+                                const serviceDesc = getServiceDescription(service);
+
+                                return (
+                                    <button
+                                        key={service.id}
+                                        onClick={() => navigate(`/services/${service.id}`)}
+                                        className="service-card bg-white rounded-2xl border border-navy-100 overflow-hidden flex flex-col justify-between text-center hover:border-orange-300 hover:shadow-lg hover:-translate-y-1 transition-all group cursor-pointer"
+                                    >
+                                        {/* Service Image at the TOP */}
+                                        <div className="w-full aspect-[16/10] overflow-hidden bg-slate-100 relative">
+                                            {serviceImg && (
+                                                <img
+                                                    src={serviceImg}
+                                                    alt={service.name}
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out pointer-events-none select-none"
+                                                    loading="lazy"
+                                                />
+                                            )}
                                         </div>
-                                        <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">{t(service.name)}</h3>
-                                        {service.description && (
-                                            <p className="text-xs text-navy-400 mt-1 line-clamp-2">{t(service.description)}</p>
-                                        )}
-                                    </div>
-                                    <div className="text-xs font-semibold text-orange-500 mt-3.5 flex items-center justify-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                                        <span>{t('Explore')}</span>
-                                        <span>→</span>
-                                    </div>
-                                </button>
-                            ))}
+
+                                        {/* Card Content Area */}
+                                        <div className="p-4 flex flex-col flex-1 justify-between items-center w-full">
+                                            <div className="flex flex-col items-center w-full">
+                                                <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">
+                                                    {t(service.name)}
+                                                </h3>
+                                                {serviceDesc && (
+                                                    <p className="text-xs text-navy-400 mt-1 line-clamp-2">
+                                                        {t(serviceDesc)}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="text-xs font-semibold text-orange-500 mt-3.5 flex items-center justify-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                                                <span>{t('Explore')}</span>
+                                                <span>→</span>
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
                 </section>
