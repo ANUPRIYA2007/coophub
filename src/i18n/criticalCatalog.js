@@ -123,7 +123,21 @@ export const CRITICAL_CATALOG = {
     "auth.adminPortal": "Admin Portal",
     "auth.customerLogin": "Customer Login (Email / OTP)",
     "auth.pillarLogin": "Pillar Login (ID + OTP)",
-    "auth.adminLogin": "Admin Login (ID + OTP)"
+    "auth.adminLogin": "Admin Login (ID + OTP)",
+    "service.select_requirement": "Select Service Requirement",
+    "service.option": "option",
+    "service.options": "options",
+    "service.available": "available",
+    "service.base_rate": "BASE RATE",
+    "service.custom_quote": "Custom Quote",
+    "service.book": "Book",
+    "service.direct_booking": "Direct Booking Available",
+    "service.proceed_to_book": "Proceed to Book",
+    "service.browse_other": "Browse Other Services",
+    "service.browse_all": "Browse All Services",
+    "service.back_to_home": "Back to Home",
+    "service.category_notice": "Service Category Notice",
+    "service.explore": "Explore"
   },
 
 
@@ -243,7 +257,21 @@ export const CRITICAL_CATALOG = {
     "auth.adminPortal": "एडमिन पोर्टल",
     "auth.customerLogin": "ग्राहक लॉगिन (ईमेल / ओटीपी)",
     "auth.pillarLogin": "पिलर लॉगिन (आईडी + ओटीपी)",
-    "auth.adminLogin": "एडमिन लॉगिन (आईडी + ओटीपी)"
+    "auth.adminLogin": "एडमिन लॉगिन (आईडी + ओटीपी)",
+    "service.select_requirement": "सेवा आवश्यकता चुनें",
+    "service.option": "विकल्प",
+    "service.options": "विकल्प",
+    "service.available": "उपलब्ध",
+    "service.base_rate": "आधार दर",
+    "service.custom_quote": "कस्टम उद्धरण",
+    "service.book": "बुक करें",
+    "service.direct_booking": "प्रत्यक्ष बुकिंग उपलब्ध है",
+    "service.proceed_to_book": "बुकिंग के लिए आगे बढ़ें",
+    "service.browse_other": "अन्य सेवाएं देखें",
+    "service.browse_all": "सभी सेवाएं देखें",
+    "service.back_to_home": "होम पर वापस जाएं",
+    "service.category_notice": "सेवा श्रेणी सूचना",
+    "service.explore": "एक्सप्लोर करें"
   },
 
 
@@ -363,7 +391,21 @@ export const CRITICAL_CATALOG = {
     "auth.adminPortal": "நிர்வாகப் போர்ட்டல்",
     "auth.customerLogin": "வாடிக்கையாளர் உள்நுழைவு (மின்னஞ்சல் / OTP)",
     "auth.pillarLogin": "பில்லர் உள்நுழைவு (ஐடி + OTP)",
-    "auth.adminLogin": "நிர்வாக உள்நுழைவு (ஐடி + OTP)"
+    "auth.adminLogin": "நிர்வாக உள்நுழைவு (ஐடி + OTP)",
+    "service.select_requirement": "சேவைத் தேவையைத் தேர்ந்தெடுக்கவும்",
+    "service.option": "தேர்வு",
+    "service.options": "தேர்வுகள்",
+    "service.available": "உள்ளன",
+    "service.base_rate": "அடிப்படை கட்டணம்",
+    "service.custom_quote": "தனிப்பயன் விலை மதிப்பீடு",
+    "service.book": "முன்பதிவு செய்",
+    "service.direct_booking": "நேரடி முன்பதிவு கிடைக்கிறது",
+    "service.proceed_to_book": "முன்பதிவு செய்ய தொடரவும்",
+    "service.browse_other": "மற்ற சேவைகளை உலாவவும்",
+    "service.browse_all": "அனைத்து சேவைகளையும் காண்க",
+    "service.back_to_home": "முகப்பிற்குத் திரும்பு",
+    "service.category_notice": "சேவை வகை அறிவிப்பு",
+    "service.explore": "ஆராயுங்கள்"
   },
 
 
@@ -483,7 +525,21 @@ export const CRITICAL_CATALOG = {
     "auth.adminPortal": "అడ్మిన్ పోర్టల్",
     "auth.customerLogin": "కస్టమర్ లాగిన్ (ఇమెయిల్ / OTP)",
     "auth.pillarLogin": "పిల్లర్ లాగిన్ (ID + OTP)",
-    "auth.adminLogin": "అడ్మిన్ లాగిన్ (ID + OTP)"
+    "auth.adminLogin": "అడ్మిన్ లాగిన్ (ID + OTP)",
+    "service.select_requirement": "సేవ అవసరాన్ని ఎంచుకోండి",
+    "service.option": "ఎంపిక",
+    "service.options": "ఎంపికలు",
+    "service.available": "అందుబాటులో ఉన్నాయి",
+    "service.base_rate": "ప్రాథమిక ధర",
+    "service.custom_quote": "కస్టమ్ కోట్",
+    "service.book": "బుక్ చేయండి",
+    "service.direct_booking": "డైరెక్ట్ బుకింగ్ అందుబాటులో ఉంది",
+    "service.proceed_to_book": "బుక్ చేయడానికి కొనసాగండి",
+    "service.browse_other": "ఇతర సేవలను బ్రౌజ్ చేయండి",
+    "service.browse_all": "అన్ని సేవలను చూడండి",
+    "service.back_to_home": "హోమ్‌కి తిరిగి వెళ్ళండి",
+    "service.category_notice": "సేవా వర్గం నోటీసు",
+    "service.explore": "అన్వేషించండి"
   },
 
 
@@ -603,7 +659,21 @@ export const CRITICAL_CATALOG = {
     "auth.adminPortal": "ಆಡಳಿತ ಪೋರ್ಟಲ್",
     "auth.customerLogin": "ಗ್ರಾಹಕ ಲಾಗಿನ್ (ಇಮೇಲ್ / ಒಟಿಪಿ)",
     "auth.pillarLogin": "ಪಿಲ್ಲರ್ ಲಾಗಿನ್ (ಐಡಿ + ಒಟಿಪಿ)",
-    "auth.adminLogin": "ಆಡಳಿತ ಲಾಗಿನ್ (ಐಡಿ + ಒಟಿಪಿ)"
+    "auth.adminLogin": "ಆಡಳಿತ ಲಾಗಿನ್ (ಐಡಿ + ಒಟಿಪಿ)",
+    "service.select_requirement": "ಸೇವಾ ಅಗತ್ಯವನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+    "service.option": "ಆಯ್ಕೆ",
+    "service.options": "ಆಯ್ಕೆಗಳು",
+    "service.available": "ಲಭ್ಯವಿದೆ",
+    "service.base_rate": "ಮೂಲ ದರ",
+    "service.custom_quote": "ಕಸ್ಟಮ್ ಉಲ್ಲೇಖ",
+    "service.book": "ಬುಕ್ ಮಾಡಿ",
+    "service.direct_booking": "ನೇರ ಬುಕಿಂಗ್ ಲಭ್ಯವಿದೆ",
+    "service.proceed_to_book": "ಬುಕಿಂಗ್ ಮಾಡಲು ಮುಂದುವರಿಯಿರಿ",
+    "service.browse_other": "ಇತರ ಸೇವೆಗಳನ್ನು ಬ್ರೌಸ್ ಮಾಡಿ",
+    "service.browse_all": "ಎಲ್ಲಾ ಸೇವೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ",
+    "service.back_to_home": "ಮುಖಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ",
+    "service.category_notice": "ಸೇವಾ ವರ್ಗ ಸೂಚನೆ",
+    "service.explore": "ಅನ್ವೇಷಿಸಿ"
   },
 
 

@@ -15,6 +15,8 @@
 import { CRITICAL_CATALOG } from "./criticalCatalog.js";
 import { SUPPORTED_LANGUAGES, LANGUAGES_MAP, getLanguageMetadata } from "./languages.js";
 import enJson from "./en.json" with { type: "json" };
+import { SUB_SERVICES_TRANSLATIONS } from "../utils/subServicesTranslations.js";
+import { getTranslation as getUnifiedTranslation } from "./unifiedTranslations.js";
 
 // Max items stored per language in localStorage to prevent unbounded storage growth
 const MAX_PERSISTENT_CACHE_ENTRIES = 400;
@@ -398,7 +400,40 @@ const KEY_ALIASES = {
   "dashboard.todayOrders": "Today's Orders",
   "dashboard.todayEarnings": "Today's Earnings",
   "dashboard.completedOrders": "Completed Orders",
-  "dashboard.pendingPayments": "Pending Payouts"
+  "dashboard.pendingPayments": "Pending Payouts",
+
+  // Service Catalog & Requirement Terminology
+  "select service requirement": "service.select_requirement",
+  "service.select_requirement": "service.select_requirement",
+  "option": "service.option",
+  "service.option": "service.option",
+  "options": "service.options",
+  "service.options": "service.options",
+  "available": "service.available",
+  "service.available": "service.available",
+  "base rate": "service.base_rate",
+  "service.base_rate": "service.base_rate",
+  "custom quote": "service.custom_quote",
+  "service.custom_quote": "service.custom_quote",
+  "book": "service.book",
+  "service.book": "service.book",
+  "direct booking available": "service.direct_booking",
+  "service.direct_booking": "service.direct_booking",
+  "proceed to book": "service.proceed_to_book",
+  "service.proceed_to_book": "service.proceed_to_book",
+  "browse other services": "service.browse_other",
+  "service.browse_other": "service.browse_other",
+  "browse all services": "service.browse_all",
+  "service.browse_all": "service.browse_all",
+  "back to home": "service.back_to_home",
+  "service.back_to_home": "service.back_to_home",
+  "service category notice": "service.category_notice",
+  "service.category_notice": "service.category_notice",
+  "explore": "service.explore",
+  "service.explore": "service.explore",
+  "explore services": "nav.services",
+  "services": "nav.services",
+  "home": "nav.home"
 };
 
 /**
@@ -485,6 +520,36 @@ function initPersistentCache() {
 // Run initial load
 initPersistentCache();
 
+// Pre-populate memory cache with all 80 canonical sub-services across all supported languages
+if (SUB_SERVICES_TRANSLATIONS && typeof SUB_SERVICES_TRANSLATIONS === "object") {
+  for (const [subId, data] of Object.entries(SUB_SERVICES_TRANSLATIONS)) {
+    const enName = data.name?.en;
+    const enDesc = data.description?.en;
+    
+    if (data.name && typeof data.name === "object") {
+      for (const [l, trans] of Object.entries(data.name)) {
+        if (!trans) continue;
+        if (enName) {
+          translationMemoryCache.set(`${l}:${enName}`, trans);
+          translationMemoryCache.set(`${l}:${enName.trim().toLowerCase()}`, trans);
+        }
+        translationMemoryCache.set(`${l}:${subId}:name`, trans);
+      }
+    }
+    
+    if (data.description && typeof data.description === "object") {
+      for (const [l, trans] of Object.entries(data.description)) {
+        if (!trans) continue;
+        if (enDesc) {
+          translationMemoryCache.set(`${l}:${enDesc}`, trans);
+          translationMemoryCache.set(`${l}:${enDesc.trim().toLowerCase()}`, trans);
+        }
+        translationMemoryCache.set(`${l}:${subId}:desc`, trans);
+      }
+    }
+  }
+}
+
 /**
  * Save an entry to the bounded persistent cache with LRU eviction
  */
@@ -544,6 +609,12 @@ export function t(key, params = {}, currentLang = "en") {
   if (!textKey) return "";
 
   const lang = currentLang || "en";
+
+  // If already in target Indian language script (non-ASCII) and target is not English, return as-is
+  if (lang !== "en" && /[^\x00-\x7F]/.test(textKey)) {
+    return interpolate(textKey, params);
+  }
+
   const lowerKey = textKey.toLowerCase();
 
   // 1. Resolve canonical catalog key (e.g. 'nav.services', 'nav.dashboard')
@@ -577,10 +648,20 @@ export function t(key, params = {}, currentLang = "en") {
     return interpolate(translationMemoryCache.get(cacheKey), params);
   }
 
+  const lowerCacheKey = `${lang}:${lowerKey}`;
+  if (translationMemoryCache.has(lowerCacheKey)) {
+    return interpolate(translationMemoryCache.get(lowerCacheKey), params);
+  }
+
   const englishText = catalogKey && CRITICAL_CATALOG.en?.[catalogKey] ? CRITICAL_CATALOG.en[catalogKey] : resolveEnglishText(textKey);
   const englishCacheKey = `${lang}:${englishText}`;
   if (translationMemoryCache.has(englishCacheKey)) {
     return interpolate(translationMemoryCache.get(englishCacheKey), params);
+  }
+
+  const englishLowerCacheKey = `${lang}:${englishText.toLowerCase()}`;
+  if (translationMemoryCache.has(englishLowerCacheKey)) {
+    return interpolate(translationMemoryCache.get(englishLowerCacheKey), params);
   }
 
   if (catalogKey) {
@@ -590,17 +671,26 @@ export function t(key, params = {}, currentLang = "en") {
     }
   }
 
-  // 6. Slug fallback
+  // 6. Check Unified Dictionary Translations before falling back to async network
+  if (lang !== "en" && typeof getUnifiedTranslation === "function") {
+    const dictVal = getUnifiedTranslation(lang, catalogKey || textKey);
+    if (dictVal && dictVal !== (catalogKey || textKey) && dictVal !== textKey) {
+      translationMemoryCache.set(cacheKey, dictVal);
+      return interpolate(dictVal, params);
+    }
+  }
+
+  // 7. Slug fallback
   const slugKey = englishText.toLowerCase().replace(/[^a-z0-9]+/g, "_");
   const slugCacheKey = `${lang}:${slugKey}`;
   if (translationMemoryCache.has(slugCacheKey)) {
     return interpolate(translationMemoryCache.get(slugCacheKey), params);
   }
 
-  // 7. Asynchronous Background Fetch (Deduplicated)
+  // 8. Asynchronous Background Fetch (Deduplicated)
   queueBackgroundTranslation(englishText, textKey, lang);
 
-  // 8. Fallback value for current render: clean English text
+  // 9. Fallback value for current render: clean English text
   return interpolate(englishText, params);
 }
 

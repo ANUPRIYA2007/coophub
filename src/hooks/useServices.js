@@ -364,7 +364,7 @@ export function useServices() {
 
     // Helper: returns the exact 5 sub-services for any service
     const getSubServices = (serviceId, serviceObj = null) => {
-        return getSubServicesForCatalog(serviceId, serviceObj);
+        return getSubServicesForCatalog(serviceId, serviceObj, language);
     };
 
     return { services, subServices, getSubServices, loading, error };

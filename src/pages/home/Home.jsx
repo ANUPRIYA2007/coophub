@@ -264,11 +264,11 @@ export default function Home() {
                                         <div className="p-4 flex flex-col flex-1 justify-between items-center w-full">
                                             <div className="flex flex-col items-center w-full">
                                                 <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">
-                                                    {t(service.name)}
+                                                    {service.name_translations?.[language] || t(service.name)}
                                                 </h3>
                                                 {serviceDesc && (
                                                     <p className="text-xs text-navy-400 mt-1 line-clamp-2">
-                                                        {t(serviceDesc)}
+                                                        {service.description_translations?.[language] || t(serviceDesc)}
                                                     </p>
                                                 )}
                                             </div>

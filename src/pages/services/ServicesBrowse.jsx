@@ -113,7 +113,7 @@ export default function ServicesBrowse() {
             <div className="p-6 max-w-5xl mx-auto" style={{ position: 'relative', zIndex: 2 }}>
                 <div className="text-center mb-1">
                     <h1 className="text-3xl font-extrabold text-navy-900" style={{ letterSpacing: '-0.5px' }}>
-                        Explore <span className="text-orange-500">Services</span>
+                        {t('Explore')} <span className="text-orange-500">{t('Services')}</span>
                     </h1>
                 </div>
                 <p className="text-sm text-navy-400 mb-6 text-center">
@@ -204,17 +204,17 @@ export default function ServicesBrowse() {
                                     <div className="p-4 flex flex-col flex-1 justify-between items-center w-full">
                                         <div className="flex flex-col items-center w-full">
                                             <h3 className="font-semibold text-navy-800 text-sm group-hover:text-orange-600 transition-colors">
-                                                {service.name}
+                                                {service.name_translations?.[language] || t(service.name)}
                                             </h3>
                                             {serviceDesc && (
                                                 <p className="text-xs text-navy-400 mt-1 line-clamp-2">
-                                                    {serviceDesc}
+                                                    {service.description_translations?.[language] || t(serviceDesc)}
                                                 </p>
                                             )}
                                         </div>
 
                                         <div className="text-xs font-semibold text-orange-500 mt-3.5 flex items-center justify-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                                            <span>Explore</span>
+                                            <span>{t('Explore')}</span>
                                             <span>→</span>
                                         </div>
                                     </div>

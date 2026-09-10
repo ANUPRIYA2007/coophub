@@ -1,6 +1,7 @@
 // Complete COOP HUB Sub-Services Catalog
 // 16 Main Services x Exactly 5 Specified Sub-Services Each = 80 Sub-Services
 import { SUB_SERVICE_IMAGE_MAP } from './subServiceImageMap.js';
+import { SUB_SERVICES_TRANSLATIONS } from './subServicesTranslations.js';
 
 export const SUB_SERVICES_CATALOG = [
   // --------------------------------------------------
@@ -786,23 +787,35 @@ export function resolveCanonicalServiceId(identifier, serviceObj = null) {
   return identifier;
 }
 
-// Attach corresponding sub-service images
+// Attach corresponding sub-service images & complete multilingual translations
 SUB_SERVICES_CATALOG.forEach(sub => {
   if (!sub.image && SUB_SERVICE_IMAGE_MAP[sub.id]) {
     sub.image = SUB_SERVICE_IMAGE_MAP[sub.id];
+  }
+  const trans = SUB_SERVICES_TRANSLATIONS[sub.id];
+  if (trans) {
+    sub.name_translations = trans.name;
+    sub.description_translations = trans.description;
   }
 });
 
 /**
  * Returns the exact 5 sub-services for a main service identifier or service object.
+ * Optionally translates name and description according to the active language.
  */
-export function getSubServicesForCatalog(serviceId, serviceObj = null) {
+export function getSubServicesForCatalog(serviceId, serviceObj = null, lang = 'en') {
   const canonicalId = resolveCanonicalServiceId(serviceId, serviceObj);
-  const matched = SUB_SERVICES_CATALOG.filter(sub => sub.service_id === canonicalId);
-  if (matched.length > 0) {
-    return matched;
+  let matched = SUB_SERVICES_CATALOG.filter(sub => sub.service_id === canonicalId);
+  if (matched.length === 0) {
+    matched = SUB_SERVICES_CATALOG.filter(sub => sub.service_id === serviceId);
   }
-  // Fallback: direct service_id filter
-  return SUB_SERVICES_CATALOG.filter(sub => sub.service_id === serviceId);
+  if (lang && lang !== 'en') {
+    return matched.map(sub => ({
+      ...sub,
+      name: sub.name_translations?.[lang] || sub.name,
+      description: sub.description_translations?.[lang] || sub.description
+    }));
+  }
+  return matched;
 }
 

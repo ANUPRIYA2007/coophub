@@ -9,7 +9,7 @@ import { getSubServiceImage } from '../../utils/subServiceImageMap';
 export default function ServiceDetails() {
     const { id: serviceId } = useParams();
     const navigate = useNavigate();
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
     const { services, getSubServices, loading, error } = useServices();
     const cardsGridRef = useRef(null);
 
@@ -123,7 +123,7 @@ export default function ServiceDetails() {
                                 className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
                             >
                                 <ArrowLeft size={16} />
-                                <span>Services</span>
+                                <span>{t('Services')}</span>
                             </button>
                             <button 
                                 type="button"
@@ -132,18 +132,18 @@ export default function ServiceDetails() {
                                 className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
                             >
                                 <Home size={16} />
-                                <span>Home</span>
+                                <span>{t('Home')}</span>
                             </button>
                         </div>
 
                         <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                            {service.category || 'Home Service'}
+                            {service.category ? t(service.category) : t('Home Service')}
                         </span>
                     </div>
 
-                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">{t(service.name)}</h1>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">{service.name_translations?.[language] || t(service.name)}</h1>
                     {service.description && (
-                        <p className="text-navy-200 text-sm max-w-2xl leading-relaxed">{t(service.description)}</p>
+                        <p className="text-navy-200 text-sm max-w-2xl leading-relaxed">{service.description_translations?.[language] || t(service.description)}</p>
                     )}
                 </div>
             </div>
@@ -228,11 +228,11 @@ export default function ServiceDetails() {
                                         <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between">
                                             <div>
                                                 <h3 className="font-bold text-navy-900 text-sm sm:text-base group-hover:text-orange-600 transition-colors mb-2 leading-snug">
-                                                    {t(sub.name)}
+                                                    {sub.name_translations?.[language] || t(sub.name)}
                                                 </h3>
                                                 {sub.description && (
                                                     <p className="text-xs text-navy-500 leading-relaxed line-clamp-3">
-                                                        {t(sub.description)}
+                                                        {sub.description_translations?.[language] || t(sub.description)}
                                                     </p>
                                                 )}
                                             </div>
