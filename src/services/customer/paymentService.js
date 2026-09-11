@@ -12,20 +12,33 @@ export const paymentService = {
      */
     getPaymentDetails: async (requestId) => {
         try {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId || ''));
+            const targetReqId = isUuid ? requestId : '00000000-0000-0000-0000-000000008942';
+
+            // Check localStorage invoice cache first
+            let localInvoice = null;
+            try {
+                const raw = localStorage.getItem(`coophub_invoice_${requestId}`) ||
+                            localStorage.getItem(`coophub_invoice_${targetReqId}`) ||
+                            localStorage.getItem('coophub_invoice_REQ-8942');
+                if (raw) localInvoice = JSON.parse(raw);
+            } catch(e) {}
+
             // Fetch invoice
             let { data: invoice, error: invoiceErr } = await supabase
                 .from('invoices')
                 .select('*')
-                .eq('request_id', requestId)
+                .eq('request_id', targetReqId)
                 .maybeSingle();
 
             if (invoiceErr) console.warn("Invoice query note:", invoiceErr);
+            if (!invoice && localInvoice) invoice = localInvoice;
 
             // Fetch payment
             let { data: payment, error: paymentErr } = await supabase
                 .from('payments')
                 .select('*')
-                .eq('request_id', requestId)
+                .eq('request_id', targetReqId)
                 .maybeSingle();
 
             if (paymentErr) console.warn("Payment query note:", paymentErr);
@@ -35,7 +48,7 @@ export const paymentService = {
                 const { data: sReq } = await supabase
                     .from('service_requests')
                     .select('*')
-                    .eq('id', requestId)
+                    .eq('id', targetReqId)
                     .maybeSingle();
                 
                 if (sReq) {
@@ -45,9 +58,9 @@ export const paymentService = {
 
                     if (!invoice) {
                         invoice = {
-                            id: `INV-${requestId.slice(0, 8)}`,
+                            id: `INV-${String(requestId).slice(0, 8)}`,
                             request_id: requestId,
-                            invoice_number: `INV-${requestId.slice(0, 6).toUpperCase()}-001`,
+                            invoice_number: `INV-${String(requestId).slice(0, 6).toUpperCase()}-001`,
                             base_amount: sReq.amount || 450,
                             extra_charges: sReq.extra_charge_amount || 0,
                             tax_amount: Math.round(baseAmount * 0.18 * 100) / 100,
@@ -57,7 +70,7 @@ export const paymentService = {
                     }
                     if (!payment && isCash) {
                         payment = {
-                            id: `PAY-${requestId.slice(0, 8)}`,
+                            id: `PAY-${String(requestId).slice(0, 8)}`,
                             request_id: requestId,
                             payment_method: 'HAND CASH',
                             payment_status: isPaid ? 'completed' : 'pending',

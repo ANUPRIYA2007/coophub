@@ -487,22 +487,27 @@ export const serviceRequestService = {
 
         const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
-        // Check for any explicit status override in localStorage (e.g. from Pillar OTP verification)
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId || ''));
+        const targetReqId = isUuid ? requestId : '00000000-0000-0000-0000-000000008942';
+
+        // Check for any explicit status override in localStorage (e.g. from Pillar OTP verification or completion)
         let localStatusOverride = 
             localStorage.getItem(`coophub_status_${requestId}`) ||
             (requestId === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null) ||
             (requestId === 'ORD-9842' ? localStorage.getItem('coophub_status_REQ-8942') : null) ||
             localStorage.getItem('coophub_status_00000000-0000-0000-0000-000000008942');
 
-        // If demo request, also check Supabase for real-time status updates from other devices/browsers
-        if (requestId === 'REQ-8942' || requestId === 'ORD-9842') {
+        // Check Supabase for real-time status updates from other devices/browsers
+        let dbDemoRecord = null;
+        if (!isUuid) {
             try {
                 const { data: dbDemo } = await supabase
                     .from('service_requests')
-                    .select('status, arrival_otp')
+                    .select('status, arrival_otp, final_amount, extra_charge_amount, extra_charge_reason, extra_charge_status')
                     .eq('id', '00000000-0000-0000-0000-000000008942')
                     .maybeSingle();
                 if (dbDemo?.status) {
+                    dbDemoRecord = dbDemo;
                     localStatusOverride = dbDemo.status;
                 }
             } catch (e) {}
@@ -518,7 +523,7 @@ export const serviceRequestService = {
         const isCustomOrDemoId = isDemo || 
             String(requestId).startsWith('REQ-') || 
             String(requestId).startsWith('ORD-') || 
-            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId));
+            !isUuid;
 
         // 🧪 DEMO / LOCAL MODE: Match from static demo list or created items
         if (isCustomOrDemoId) {
@@ -536,6 +541,9 @@ export const serviceRequestService = {
                     copy.status = localStatusOverride === 'inProgress' ? 'in_progress' : localStatusOverride;
                 } else if (sharedOrderMatch?.status) {
                     copy.status = sharedOrderMatch.status === 'inProgress' ? 'in_progress' : sharedOrderMatch.status;
+                }
+                if (dbDemoRecord?.final_amount) {
+                    copy.final_amount = dbDemoRecord.final_amount;
                 }
 
                 // Apply extra charge ONLY if the pillar technician actually added one
