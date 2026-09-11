@@ -3,7 +3,7 @@ import { googleMapsService } from "../../services/maps/googleMapsService";
 import { GOOGLE_MAPS_CONFIG } from "../../config/maps";
 import {
   Navigation, MapPin, Clock, ExternalLink, ShieldCheck,
-  Compass, Radio, AlertCircle
+  Compass, Radio, AlertCircle, RefreshCw
 } from "lucide-react";
 
 export default function LiveTrackingMap({
@@ -23,6 +23,7 @@ export default function LiveTrackingMap({
 
   const [routeInfo, setRouteInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [useOsmFallback, setUseOsmFallback] = useState(false);
 
   const hasCustCoords = customerLocation?.lat != null && customerLocation?.lng != null;
   const custLat = hasCustCoords ? Number(customerLocation.lat) : Number(customerLocation?.latitude || 13.0067);
@@ -37,18 +38,42 @@ export default function LiveTrackingMap({
     let isMounted = true;
 
     async function initLiveMap() {
+      // Calculate immediate baseline route info (distance & ETA)
+      if (hasPillarCoords && pilLat != null && pilLng != null) {
+        const dist = googleMapsService.calculateHaversineDistance(pilLat, pilLng, custLat, custLng);
+        const mins = Math.ceil((dist / 25) * 60) + 5;
+        setRouteInfo({
+          distanceKm: dist,
+          durationMins: mins,
+          distanceText: `${dist} km`,
+          durationText: `~${mins} mins`,
+          isFallback: true
+        });
+      }
+
+      // If Google Maps API key is missing or prototype, default directly to OpenStreetMap embed
+      if (GOOGLE_MAPS_CONFIG.isPrototypeKey || !GOOGLE_MAPS_CONFIG.apiKey) {
+        setUseOsmFallback(true);
+        setLoading(false);
+        return;
+      }
+
       if (!containerRef.current) return;
 
       try {
-        await googleMapsService.loadGoogleMaps();
-        if (!window.google || !window.google.maps) return;
+        await googleMapsService.loadGoogleMapsSdk();
+        if (!window.google || !window.google.maps) {
+          if (isMounted) setUseOsmFallback(true);
+          setLoading(false);
+          return;
+        }
 
         // Base center point (Customer destination)
         const center = { lat: custLat, lng: custLng };
 
         const map = new window.google.maps.Map(containerRef.current, {
           center,
-          zoom: 13,
+          zoom: 14,
           mapTypeId: "roadmap",
           disableDefaultUI: false,
           zoomControl: true
@@ -57,7 +82,7 @@ export default function LiveTrackingMap({
         if (!isMounted) return;
         mapInstanceRef.current = map;
 
-        // 1. Customer Marker (Red/Orange Pin)
+        // 1. Customer Marker (Red Pin)
         customerMarkerRef.current = new window.google.maps.Marker({
           position: { lat: custLat, lng: custLng },
           map,
@@ -94,8 +119,11 @@ export default function LiveTrackingMap({
 
         setLoading(false);
       } catch (err) {
-        console.warn("LiveTrackingMap initialization notice:", err);
-        setLoading(false);
+        console.warn("Google Maps load notice, using OpenStreetMap fallback:", err);
+        if (isMounted) {
+          setUseOsmFallback(true);
+          setLoading(false);
+        }
       }
     }
 
@@ -107,7 +135,7 @@ export default function LiveTrackingMap({
       if (pillarMarkerRef.current) pillarMarkerRef.current.setMap(null);
       if (polylineRef.current) polylineRef.current.setMap(null);
     };
-  }, []);
+  }, [custLat, custLng, pilLat, pilLng]);
 
   // Update Route and Polyline helper
   const updateRoute = async (map, origin, destination) => {
@@ -174,36 +202,77 @@ export default function LiveTrackingMap({
     }
   }, [pilLat, pilLng, hasPillarCoords]);
 
+  // Dynamic OpenStreetMap Bounding Box
+  const deltaLat = 0.012;
+  const deltaLng = 0.015;
+  const bboxMinLat = Math.min(custLat, pilLat || custLat) - deltaLat;
+  const bboxMaxLat = Math.max(custLat, pilLat || custLat) + deltaLat;
+  const bboxMinLng = Math.min(custLng, pilLng || custLng) - deltaLng;
+  const bboxMaxLng = Math.max(custLng, pilLng || custLng) + deltaLng;
+  const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bboxMinLng}%2C${bboxMinLat}%2C${bboxMaxLng}%2C${bboxMaxLat}&layer=mapnik&marker=${custLat}%2C${custLng}`;
+
   return (
-    <div className={`relative rounded-3xl overflow-hidden border border-navy-100 shadow-sm ${className}`} style={{ height }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+    <div
+      className={`relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm ${className}`}
+      style={{ height, width: "100%", background: "#E2E8F0", position: "relative" }}
+    >
+      {/* 1. OpenStreetMap Interactive Embed Fallback when Google Maps SDK is not loaded */}
+      {useOsmFallback ? (
+        <iframe
+          src={osmUrl}
+          style={{ width: "100%", height: "100%", border: 0, display: "block" }}
+          title="Customer Transit Live Route"
+          loading="lazy"
+        />
+      ) : (
+        /* 2. Google Maps Canvas */
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      )}
 
       {/* Floating Live Telemetry Badge */}
-      <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-md border border-navy-100/80 flex items-center gap-3 z-10">
-        <div className="flex items-center gap-1.5">
-          <span className={`w-2.5 h-2.5 rounded-full ${hasPillarCoords ? "bg-emerald-500 animate-ping" : "bg-amber-500"}`}></span>
-          <span className="text-[11px] font-bold text-navy-800">
-            {hasPillarCoords ? "Live Telemetry Active" : "Service Location"}
+      <div
+        style={{
+          position: "absolute",
+          top: "10px",
+          left: "10px",
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(6px)",
+          padding: "6px 12px",
+          borderRadius: "12px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+          border: "1px solid rgba(0,0,0,0.08)",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          zIndex: 10,
+          fontSize: "12px"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: hasPillarCoords ? "#10B981" : "#F59E0B",
+              display: "inline-block"
+            }}
+          />
+          <span style={{ fontWeight: "700", color: "#1E293B" }}>
+            {hasPillarCoords ? "Live Telemetry" : "Customer Location"}
           </span>
         </div>
-        {routeInfo ? (
+        {routeInfo && (
           <>
-            <span className="text-navy-300">|</span>
-            <div className="flex items-center gap-1 text-xs font-bold text-orange-600">
+            <span style={{ color: "#94A3B8" }}>|</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontWeight: "700", color: "#EA580C" }}>
               <Clock size={13} />
-              <span>ETA ~{routeInfo.durationMins} mins</span>
+              <span>ETA {routeInfo.durationMins}m</span>
             </div>
-            <div className="text-[11px] font-medium text-navy-500">
+            <span style={{ color: "#64748B", fontSize: "11px" }}>
               ({routeInfo.distanceKm} km)
-            </div>
+            </span>
           </>
-        ) : (
-          !hasPillarCoords && (
-            <>
-              <span className="text-navy-300">|</span>
-              <span className="text-[11px] text-navy-500">Awaiting Technician GPS</span>
-            </>
-          )
         )}
       </div>
 
@@ -212,15 +281,48 @@ export default function LiveTrackingMap({
         href={`https://www.google.com/maps/dir/?api=1&destination=${custLat},${custLng}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-3 right-3 bg-white/95 hover:bg-white text-navy-800 text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-md border border-navy-200/80 flex items-center gap-1.5 transition-all z-10"
+        style={{
+          position: "absolute",
+          bottom: "10px",
+          right: "10px",
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(6px)",
+          color: "#0F172A",
+          fontSize: "11.5px",
+          fontWeight: "700",
+          padding: "6px 12px",
+          borderRadius: "10px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          border: "1px solid rgba(0,0,0,0.1)",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          textDecoration: "none",
+          zIndex: 10
+        }}
+        title="Open turn-by-turn navigation in Google Maps app"
       >
-        <ExternalLink size={12} className="text-orange-500" />
-        <span>Open in Google Maps</span>
+        <Navigation size={13} color="#FF7900" />
+        <span>Open Navigation</span>
+        <ExternalLink size={11} color="#64748B" />
       </a>
 
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-surface/75 backdrop-blur-xs z-20">
-          <div className="spinner spinner-sm"></div>
+      {loading && !useOsmFallback && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(248, 250, 252, 0.85)",
+            backdropFilter: "blur(4px)",
+            zIndex: 20
+          }}
+        >
+          <div className="spinner spinner-sm" style={{ marginBottom: "8px" }} />
+          <span style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Loading route map...</span>
         </div>
       )}
     </div>

@@ -785,8 +785,8 @@ export default function OrdersList() {
                       <div style={{ marginTop: "10px" }}>
                         <LiveTrackingMap
                           customerLocation={{
-                            lat: order.latitude || order.lat,
-                            lng: order.longitude || order.lng
+                            lat: Number(order.customer_latitude || order.latitude || order.lat || 13.0067),
+                            lng: Number(order.customer_longitude || order.longitude || order.lng || 80.2025)
                           }}
                           customerName={resolveCustomerName(order)}
                           pillarLocation={(user?.current_lat != null && user?.current_lng != null) ? {

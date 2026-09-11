@@ -99,6 +99,14 @@ class GoogleMapsService {
   }
 
   /**
+   * Alias for loadGoogleMapsSdk
+   * @returns {Promise<typeof google.maps>}
+   */
+  async loadGoogleMaps() {
+    return this.loadGoogleMapsSdk();
+  }
+
+  /**
    * Internal helper to instantiate shared services once SDK is loaded
    * @private
    */

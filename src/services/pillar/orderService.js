@@ -361,6 +361,10 @@ export const pillarOrderService = {
             order_time_formatted: formatOrderTime(r.created_at),
             landmark: r.landmark || "",
             pincode: r.pincode || "",
+            latitude: Number(r.latitude || r.lat || 13.0067),
+            longitude: Number(r.longitude || r.lng || 80.2025),
+            customer_latitude: Number(r.latitude || r.lat || 13.0067),
+            customer_longitude: Number(r.longitude || r.lng || 80.2025),
             description: r.customer_description || r.description || r.problem_description || "Standard service request.",
             photo_urls: (() => {
               const raw = r.attachments || r.photo_urls || r.photos || [];
@@ -549,6 +553,10 @@ export const pillarOrderService = {
             order_time_formatted: formatOrderTime(loc.created_at || new Date().toISOString()),
             landmark: loc.landmark || "",
             pincode: loc.postal_code || loc.pincode || "",
+            latitude: Number(loc.latitude || loc.lat || 13.0067),
+            longitude: Number(loc.longitude || loc.lng || 80.2025),
+            customer_latitude: Number(loc.latitude || loc.lat || 13.0067),
+            customer_longitude: Number(loc.longitude || loc.lng || 80.2025),
             photo_urls: (() => {
               const raw = loc.photo_urls || loc.attachments || loc.photos || [];
               const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
