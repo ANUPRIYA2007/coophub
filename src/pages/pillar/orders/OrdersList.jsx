@@ -35,6 +35,7 @@ import FinalizeBillModal from "../../../components/pillar/orders/FinalizeBillMod
 import OrderDetailsModal from "../../../components/pillar/orders/OrderDetailsModal";
 import OrderReceiptModal from "../../../components/common/OrderReceiptModal";
 import { openPillarChat } from "../../../components/pillar/chat/PillarChatDrawer";
+import ErrorBoundary from "../../../components/common/ErrorBoundary";
 
 function resolveCustomerName(order) {
   const name = order?.customer_name || order?.customer?.full_name;
@@ -503,22 +504,7 @@ export default function OrdersList() {
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "var(--font-size-sm)", fontWeight: "bold", color: "var(--color-primary)" }}>
-                      {order.booking_code || order.id.slice(0, 8)}
-                    </span>
-                    <span 
-                      style={{ 
-                        fontSize: "11px", 
-                        fontWeight: "700", 
-                        fontFamily: "monospace", 
-                        color: "#64748B", 
-                        background: "rgba(100, 116, 139, 0.08)", 
-                        border: "1px solid rgba(100, 116, 139, 0.2)", 
-                        padding: "1px 6px", 
-                        borderRadius: "6px" 
-                      }} 
-                      title="Catalog Service ID"
-                    >
-                      {order.service_id ? (String(order.service_id).length > 12 ? 'SRV-' + String(order.service_id).slice(0, 6).toUpperCase() : order.service_id) : (order.service?.id || "SRV-ELEC-101")}
+                      {order.booking_code || String(order.id || "").slice(0, 8)}
                     </span>
                     <span
                       className={`badge ${
@@ -1038,28 +1024,30 @@ export default function OrdersList() {
         />
       )}
 
-      {/* Complete Order Details Modal */}
+      {/* Complete Order Details Modal protected by ErrorBoundary */}
       {selectedOrderForDetails && (
-        <OrderDetailsModal
-          order={selectedOrderForDetails}
-          onClose={() => setSelectedOrderForDetails(null)}
-          onStatusChange={handleStatusChange}
-          onTriggerOtp={(id) => {
-            setSelectedBookingForOtp(id);
-            setSelectedOrderForDetails(null);
-          }}
-          onTriggerExtra={(order) => {
-            setSelectedBookingForExtra(order.id);
-            setSelectedOrderForDetails(null);
-          }}
-          onTriggerComplete={(order) => {
-            setSelectedOrderForCompletion(order);
-            setSelectedOrderForDetails(null);
-          }}
-          onTriggerReceipt={(order) => {
-            setSelectedOrderForReceipt(order);
-          }}
-        />
+        <ErrorBoundary onClose={() => setSelectedOrderForDetails(null)}>
+          <OrderDetailsModal
+            order={selectedOrderForDetails}
+            onClose={() => setSelectedOrderForDetails(null)}
+            onStatusChange={handleStatusChange}
+            onTriggerOtp={(id) => {
+              setSelectedBookingForOtp(id);
+              setSelectedOrderForDetails(null);
+            }}
+            onTriggerExtra={(order) => {
+              setSelectedBookingForExtra(order.id);
+              setSelectedOrderForDetails(null);
+            }}
+            onTriggerComplete={(order) => {
+              setSelectedOrderForCompletion(order);
+              setSelectedOrderForDetails(null);
+            }}
+            onTriggerReceipt={(order) => {
+              setSelectedOrderForReceipt(order);
+            }}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Official Tax Invoice & Cash Receipt Generator Modal */}

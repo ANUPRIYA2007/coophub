@@ -36,7 +36,7 @@ export default function LiveTrackingMap({
   useEffect(() => {
     let isMounted = true;
 
-    async function init() {
+    async function initLiveMap() {
       if (!containerRef.current) return;
 
       try {

@@ -35,6 +35,26 @@ import {
 import { useNavigate } from "react-router-dom";
 import { paymentService } from "../../../services/customer/paymentService";
 import { openPillarChat } from "../chat/PillarChatDrawer";
+import ErrorBoundary from "../../common/ErrorBoundary";
+
+function resolveCleanServiceCode(order) {
+  const name = String(order?.service_name || order?.service?.name || "").toLowerCase();
+  const rawId = String(order?.service_id || order?.service?.id || "").toLowerCase();
+
+  if (rawId.includes("0001") || name.includes("elec") || name.includes("fan") || name.includes("wiring")) return "SRV-ELEC-101";
+  if (rawId.includes("0002") || name.includes("plumb") || name.includes("pipe") || name.includes("leak") || name.includes("tap")) return "SRV-PLUMB-201";
+  if (rawId.includes("0003") || name.includes("ac") || name.includes("hvac") || name.includes("cooling")) return "SRV-AC-301";
+  if (rawId.includes("0004") || name.includes("carp") || name.includes("wood") || name.includes("furniture")) return "SRV-CARP-401";
+  if (rawId.includes("0005") || name.includes("paint")) return "SRV-PAINT-501";
+  if (rawId.includes("0006") || name.includes("clean")) return "SRV-CLEAN-601";
+  if (rawId.includes("0007") || name.includes("pest")) return "SRV-PEST-701";
+  if (rawId.includes("0010") || name.includes("appliance")) return "SRV-APPL-801";
+
+  if (/0{3,}/.test(rawId)) {
+    return "SRV-ELEC-101";
+  }
+  return rawId ? `SRV-${rawId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase()}` : "SRV-ELEC-101";
+}
 
 export default function OrderDetailsModal({
   order,
@@ -117,12 +137,12 @@ export default function OrderDetailsModal({
   };
 
   const copyBookingCode = () => {
-    navigator.clipboard.writeText(order.booking_code || order.id);
+    navigator.clipboard.writeText(order.booking_code || String(order.id || ""));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const bookingCode = order.booking_code || "ORD-" + order.id.slice(0, 6).toUpperCase();
+  const bookingCode = order.booking_code || "ORD-" + String(order.id || "").slice(0, 6).toUpperCase();
   const baseAmount = Number(order.base_amount || order.total_amount || 450);
   const extraAmount = Number(order.extra_charge_amount || 0);
   const totalAmount = baseAmount + extraAmount;
@@ -243,7 +263,7 @@ export default function OrderDetailsModal({
                 </span>
               </div>
               <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--color-text-secondary)" }}>
-                {t("Order Placed")}: <strong style={{ color: "var(--color-text)" }}>{order.order_time_formatted || formatOrderTime(order.created_at)}</strong> • Ref ID: {order.id.slice(0, 12)}
+                {t("Order Placed")}: <strong style={{ color: "var(--color-text)" }}>{order.order_time_formatted || formatOrderTime(order.created_at)}</strong> • Ref ID: {String(order.booking_code || order.id || "").slice(0, 12)}
               </p>
             </div>
           </div>
@@ -349,7 +369,7 @@ export default function OrderDetailsModal({
                     padding: "2px 8px",
                     borderRadius: "6px"
                   }}>
-                    Service ID: {order.service_id ? (String(order.service_id).length > 12 ? 'SRV-' + String(order.service_id).slice(0, 8).toUpperCase() : order.service_id) : (order.service?.id || "SRV-ELEC-101")}
+                    Service Code: {resolveCleanServiceCode(order)}
                   </span>
                 </div>
                 <h3 style={{ margin: "6px 0 2px 0", fontSize: "1.15rem", fontWeight: "700", color: "var(--color-text)" }}>
@@ -818,19 +838,21 @@ export default function OrderDetailsModal({
 
             {showMap && (
               <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid var(--color-border-light)" }}>
-                <LiveTrackingMap
-                  customerLocation={{
-                    lat: Number(order.customer_latitude || order.latitude || 13.0067),
-                    lng: Number(order.customer_longitude || order.longitude || 80.2025)
-                  }}
-                  pillarLocation={(user?.current_lat != null && user?.current_lng != null) ? {
-                    lat: Number(user.current_lat),
-                    lng: Number(user.current_lng)
-                  } : { lat: 13.0827, lng: 80.2707 }}
-                  pillarName={user?.full_name || "You (Technician)"}
-                  pillarRole="Pillar Technician"
-                  height="200px"
-                />
+                <ErrorBoundary fallback={<div style={{ padding: "16px", textAlign: "center", color: "var(--color-text-secondary)", fontSize: "12px" }}>Live route map loading...</div>}>
+                  <LiveTrackingMap
+                    customerLocation={{
+                      lat: Number(order.customer_latitude || order.latitude || 13.0067),
+                      lng: Number(order.customer_longitude || order.longitude || 80.2025)
+                    }}
+                    pillarLocation={(user?.current_lat != null && user?.current_lng != null) ? {
+                      lat: Number(user.current_lat),
+                      lng: Number(user.current_lng)
+                    } : { lat: 13.0827, lng: 80.2707 }}
+                    pillarName={user?.full_name || "You (Technician)"}
+                    pillarRole="Pillar Technician"
+                    height="200px"
+                  />
+                </ErrorBoundary>
               </div>
             )}
           </div>
