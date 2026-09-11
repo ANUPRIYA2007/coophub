@@ -3,16 +3,16 @@ import { CheckCircle2, AlertCircle, X, Loader2, DollarSign, Wrench, ShieldCheck,
 import { pillarOrderService } from "../../../services/pillar/orderService";
 
 export default function FinalizeBillModal({ order, onClose, onSuccess }) {
-  // Initial state with defaults from order or standard tariff
-  const initialBase = Number(order?.service_charge || order?.base_amount || order?.amount || 800);
-  const initialMaterials = Number(order?.materials_parts || order?.extra_charge_amount || 250);
-  const initialAdditional = Number(order?.additional_charges || 100);
+  // Initial state with defaults from order or standard tariff (zero default extra charges)
+  const initialBase = Number(order?.service_charge ?? order?.base_amount ?? order?.amount ?? 350);
+  const initialMaterials = Number(order?.materials_parts ?? (order?.extra_charge_status === 'accepted' ? order?.extra_charge_amount : 0) ?? 0);
+  const initialAdditional = Number(order?.additional_charges ?? 0);
 
   const [serviceCharge, setServiceCharge] = useState(String(initialBase));
   const [materialsParts, setMaterialsParts] = useState(String(initialMaterials));
-  const [materialsDescription, setMaterialsDescription] = useState(order?.materials_parts_description || "Capacitor & 2.5mm copper wiring");
+  const [materialsDescription, setMaterialsDescription] = useState(order?.materials_parts_description || (order?.extra_charge_reason || ""));
   const [additionalCharges, setAdditionalCharges] = useState(String(initialAdditional));
-  const [additionalDescription, setAdditionalDescription] = useState(order?.additional_charges_description || "Specialist diagnostic & conduit routing");
+  const [additionalDescription, setAdditionalDescription] = useState(order?.additional_charges_description || "");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

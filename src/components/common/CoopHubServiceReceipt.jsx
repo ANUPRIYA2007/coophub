@@ -10,6 +10,8 @@ import coopHubLogo from "../../assets/branding/coop-hub-logo.png";
  */
 export default function CoopHubServiceReceipt({
   order = null,
+  isPillarView = false,
+  showCooperativeBreakdown = false,
 
   // Optional overrides (Falls back to order data or exact template placeholders)
   receiptNo,
@@ -87,19 +89,27 @@ export default function CoopHubServiceReceipt({
 
   const numService = serviceCharge !== undefined
     ? (typeof serviceCharge === "number" ? serviceCharge : parseFloat(String(serviceCharge).replace(/[^0-9.]/g, "")))
-    : (rawService !== undefined ? Number(rawService) : 800);
+    : (rawService !== undefined && rawService !== null ? Number(rawService) : 450);
 
   const numMaterials = materialsParts !== undefined
     ? (typeof materialsParts === "number" ? materialsParts : parseFloat(String(materialsParts).replace(/[^0-9.]/g, "")))
-    : (rawMaterials !== undefined ? Number(rawMaterials) : 250);
+    : (rawMaterials !== undefined && rawMaterials !== null ? Number(rawMaterials) : 0);
 
   const numAdditional = additionalCharges !== undefined
     ? (typeof additionalCharges === "number" ? additionalCharges : parseFloat(String(additionalCharges).replace(/[^0-9.]/g, "")))
-    : (rawAdditional !== undefined ? Number(rawAdditional) : 100);
+    : (rawAdditional !== undefined && rawAdditional !== null ? Number(rawAdditional) : 0);
 
-  const numSubtotal = numService + numMaterials + numAdditional;
-  const numGst = Math.round(numSubtotal * 0.18 * 100) / 100;
-  const numTotal = Math.round((numSubtotal + numGst) * 100) / 100;
+  const numSubtotal = order?.subtotal != null 
+    ? Number(order.subtotal) 
+    : (numService + numMaterials + numAdditional);
+
+  const numGst = order?.gst_amount != null 
+    ? Number(order.gst_amount) 
+    : Math.round(numSubtotal * 0.18 * 100) / 100;
+
+  const numTotal = order?.final_amount != null 
+    ? Number(order.final_amount) 
+    : (order?.total_amount != null ? Number(order.total_amount) : Math.round((numSubtotal + numGst) * 100) / 100);
 
   const numCoopCommission = Math.round(numService * 0.0805 * 100) / 100;
   const numPillarEarnings = Math.round((numSubtotal - numCoopCommission) * 100) / 100;
@@ -111,10 +121,21 @@ export default function CoopHubServiceReceipt({
   const displayGst = gst || `₹${numGst.toFixed(2)}`;
   const displayTotal = total || `₹${numTotal.toFixed(2)}`;
 
-  const displayPaymentMethod = paymentMethod || order?.payment_method || "[UPI]";
-  const displayTransactionId = transactionId || order?.payment_gateway_ref || "[TXN000123]";
-  const displayPaymentDate = paymentDate || order?.scheduled_date || "[02 Sep 2026]";
-  const displayPaymentStatus = paymentStatus || "PAID";
+  // Payment method & cash verification handling
+  const rawMethod = paymentMethod || order?.payment_method || order?.payment_gateway_ref || "";
+  const isHandCash = String(rawMethod).toLowerCase().includes("cash") ||
+                     String(rawMethod).toUpperCase().includes("HAND") ||
+                     order?.payment_gateway_ref === "HAND_CASH" ||
+                     order?.payment_method === "HAND CASH" ||
+                     !rawMethod;
+
+  const displayPaymentMethod = isHandCash ? "HAND CASH (Direct Collection)" : rawMethod;
+  const displayTransactionId = isHandCash 
+    ? (order?.payment_gateway_ref && order.payment_gateway_ref !== "HAND_CASH" ? `[${order.payment_gateway_ref}]` : "[CASH-VERIFIED]")
+    : (transactionId || order?.payment_gateway_ref || (order?.id ? `[TXN-${String(order.id).slice(0, 8).toUpperCase()}]` : "[CASH-VERIFIED]"));
+
+  const displayPaymentDate = paymentDate || order?.scheduled_date || new Date().toISOString().split('T')[0];
+  const displayPaymentStatus = paymentStatus || (order?.status === "completed" || order?.payment_status === "completed" ? "PAID" : (order?.payment_status || "PAID"));
 
   const displayPillarEarnings = pillarEarnings || `₹${numPillarEarnings.toFixed(2)}`;
   const displayCoopCommission = cooperativeCommission || `₹${numCoopCommission.toFixed(2)}`;
@@ -523,14 +544,18 @@ export default function CoopHubServiceReceipt({
                 <td>Service Charge</td>
                 <td style={{ textAlign: "right", fontWeight: "600" }}>{displayServiceCharge}</td>
               </tr>
-              <tr>
-                <td>Materials / Parts</td>
-                <td style={{ textAlign: "right", fontWeight: "600" }}>{displayMaterialsParts}</td>
-              </tr>
-              <tr>
-                <td>Additional Charges</td>
-                <td style={{ textAlign: "right", fontWeight: "600" }}>{displayAdditionalCharges}</td>
-              </tr>
+              {numMaterials > 0 && (
+                <tr>
+                  <td>Materials / Parts</td>
+                  <td style={{ textAlign: "right", fontWeight: "600" }}>{displayMaterialsParts}</td>
+                </tr>
+              )}
+              {numAdditional > 0 && (
+                <tr>
+                  <td>Additional Charges</td>
+                  <td style={{ textAlign: "right", fontWeight: "600" }}>{displayAdditionalCharges}</td>
+                </tr>
+              )}
             </tbody>
           </table>
 
@@ -620,45 +645,81 @@ export default function CoopHubServiceReceipt({
             </div>
           </div>
 
-          {/* COOPERATIVE BREAKDOWN */}
-          <div style={{ border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 18px", background: "#FFFFFF" }}>
-            <div style={{ 
-              fontSize: "12px", 
-              fontWeight: "800", 
-              textTransform: "uppercase", 
-              color: "#162238", 
-              letterSpacing: "0.5px",
-              borderBottom: "1px solid #E2E8F0",
-              paddingBottom: "8px",
-              marginBottom: "12px"
-            }}>
-              COOPERATIVE BREAKDOWN
-            </div>
+          {/* COOPERATIVE BREAKDOWN (PILLAR/ADMIN VIEW ONLY) OR COOPERATIVE ASSURANCE (CUSTOMER VIEW) */}
+          {(isPillarView || showCooperativeBreakdown) ? (
+            <div style={{ border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 18px", background: "#FFFFFF" }}>
+              <div style={{ 
+                fontSize: "12px", 
+                fontWeight: "800", 
+                textTransform: "uppercase", 
+                color: "#162238", 
+                letterSpacing: "0.5px",
+                borderBottom: "1px solid #E2E8F0",
+                paddingBottom: "8px",
+                marginBottom: "12px"
+              }}>
+                COOPERATIVE BREAKDOWN
+              </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12.5px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748B", fontWeight: "500" }}>Pillar Earnings:</span>
-                <span style={{ fontWeight: "700", color: "#059669" }}>{displayPillarEarnings}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748B", fontWeight: "500" }}>Cooperative Commission:</span>
-                <span style={{ color: "#334155", fontWeight: "600" }}>{displayCoopCommission}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed #E2E8F0", paddingTop: "6px", marginTop: "2px" }}>
-                <span style={{ color: "#64748B", fontWeight: "500" }}>Settlement Status:</span>
-                <span style={{ 
-                  color: "#162238", 
-                  fontWeight: "700",
-                  background: "#F1F5F9",
-                  padding: "1px 8px",
-                  borderRadius: "6px",
-                  fontSize: "11.5px"
-                }}>
-                  {displaySettlementStatus}
-                </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12.5px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#64748B", fontWeight: "500" }}>Pillar Earnings:</span>
+                  <span style={{ fontWeight: "700", color: "#059669" }}>{displayPillarEarnings}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#64748B", fontWeight: "500" }}>Cooperative Commission:</span>
+                  <span style={{ color: "#334155", fontWeight: "600" }}>{displayCoopCommission}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed #E2E8F0", paddingTop: "6px", marginTop: "2px" }}>
+                  <span style={{ color: "#64748B", fontWeight: "500" }}>Settlement Status:</span>
+                  <span style={{ 
+                    color: "#162238", 
+                    fontWeight: "700",
+                    background: "#F1F5F9",
+                    padding: "1px 8px",
+                    borderRadius: "6px",
+                    fontSize: "11.5px"
+                  }}>
+                    {displaySettlementStatus}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px 18px", background: "#F8FAFC" }}>
+              <div style={{ 
+                fontSize: "12px", 
+                fontWeight: "800", 
+                textTransform: "uppercase", 
+                color: "#162238", 
+                letterSpacing: "0.5px",
+                borderBottom: "1px solid #E2E8F0",
+                paddingBottom: "8px",
+                marginBottom: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px"
+              }}>
+                <span style={{ color: "#FF7900", fontSize: "14px" }}>★</span>
+                <span>COOPERATIVE ASSURANCE</span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#334155" }}>
+                  <span style={{ color: "#059669", fontWeight: "bold" }}>✓</span>
+                  <span><strong>30-Day Service Warranty</strong> on all completed work</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#334155" }}>
+                  <span style={{ color: "#059669", fontWeight: "bold" }}>✓</span>
+                  <span><strong>Verified Pillar Specialist:</strong> {displayPillarName}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#334155" }}>
+                  <span style={{ color: "#059669", fontWeight: "bold" }}>✓</span>
+                  <span><strong>100% Fair Community Pricing</strong> (No hidden markups)</span>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
 

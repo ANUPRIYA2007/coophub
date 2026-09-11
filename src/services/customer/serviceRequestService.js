@@ -545,6 +545,40 @@ export const serviceRequestService = {
                 if (dbDemoRecord?.final_amount) {
                     copy.final_amount = dbDemoRecord.final_amount;
                 }
+                if (dbDemoRecord?.payment_status) {
+                    copy.payment_status = dbDemoRecord.payment_status;
+                }
+                if (dbDemoRecord?.payment_method) {
+                    copy.payment_method = dbDemoRecord.payment_method;
+                }
+                if (dbDemoRecord?.payment_gateway_ref) {
+                    copy.payment_gateway_ref = dbDemoRecord.payment_gateway_ref;
+                }
+                if (dbDemoRecord?.materials_parts !== undefined) {
+                    copy.materials_parts = dbDemoRecord.materials_parts;
+                }
+                if (dbDemoRecord?.additional_charges !== undefined) {
+                    copy.additional_charges = dbDemoRecord.additional_charges;
+                }
+                if (dbDemoRecord?.subtotal) {
+                    copy.subtotal = dbDemoRecord.subtotal;
+                }
+                if (dbDemoRecord?.gst_amount) {
+                    copy.gst_amount = dbDemoRecord.gst_amount;
+                }
+
+                // Check local payment override
+                try {
+                    const localPayment = localStorage.getItem(`coophub_payment_status_${requestId}`) ||
+                        (requestId === 'REQ-8942' ? localStorage.getItem('coophub_payment_status_ORD-9842') : null) ||
+                        (requestId === 'ORD-9842' ? localStorage.getItem('coophub_payment_status_REQ-8942') : null);
+                    if (localPayment) copy.payment_status = localPayment;
+
+                    const localMethod = localStorage.getItem(`coophub_payment_method_${requestId}`) ||
+                        (requestId === 'REQ-8942' ? localStorage.getItem('coophub_payment_method_ORD-9842') : null) ||
+                        (requestId === 'ORD-9842' ? localStorage.getItem('coophub_payment_method_REQ-8942') : null);
+                    if (localMethod) copy.payment_method = localMethod;
+                } catch(e) {}
 
                 // Apply extra charge ONLY if the pillar technician actually added one
                 try {

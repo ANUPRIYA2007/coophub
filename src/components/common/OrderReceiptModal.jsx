@@ -9,7 +9,7 @@ import { emailService } from "../../services/email/emailService";
  * Centered modal overlay that renders the official COOP HUB Service Receipt UI Template.
  * Includes print/PDF action bar, email dispatch to customer, and clean dismissal.
  */
-export default function OrderReceiptModal({ order, onClose }) {
+export default function OrderReceiptModal({ order, onClose, isPillarView = false }) {
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -23,6 +23,13 @@ export default function OrderReceiptModal({ order, onClose }) {
     setEmailSending(true);
     try {
       const recipientEmail = order.customer_email || order.customer?.email || "customer@coophub.in";
+      const baseFee = Number(order.base_amount || order.amount || 450);
+      const matFee = Number(order.materials_parts != null ? order.materials_parts : (order.extra_charge_amount || 0));
+      const addFee = Number(order.additional_charges || 0);
+      const subTot = order.subtotal != null ? Number(order.subtotal) : (baseFee + matFee + addFee);
+      const gstVal = order.gst_amount != null ? Number(order.gst_amount) : Math.round(subTot * 0.18 * 100) / 100;
+      const totVal = order.final_amount != null ? Number(order.final_amount) : (order.total_amount != null ? Number(order.total_amount) : Math.round((subTot + gstVal) * 100) / 100);
+
       await emailService.sendServiceReceiptEmail({
         email: recipientEmail,
         customer_name: order.customer_name || "[Customer Name]",
@@ -38,14 +45,14 @@ export default function OrderReceiptModal({ order, onClose }) {
         pillar_name: order.pillar?.full_name || "[Pillar Name]",
         pillar_id: order.pillar_id || "[Pillar ID]",
         pillar_trade: order.service?.category || "[Electrician]",
-        service_charge: `₹${Number(order.base_amount || 800).toFixed(2)}`,
-        materials_parts: `₹${Number(order.extra_charge_amount || 250).toFixed(2)}`,
-        additional_charges: "₹100.00",
-        subtotal: `₹${(Number(order.base_amount || 800) + Number(order.extra_charge_amount || 250) + 100).toFixed(2)}`,
-        gst: `₹${((Number(order.base_amount || 800) + Number(order.extra_charge_amount || 250) + 100) * 0.18).toFixed(2)}`,
-        total_amount: `₹${Number(order.final_amount || order.total_amount || 1357).toFixed(2)}`,
-        payment_method: order.payment_method || "UPI",
-        transaction_id: order.payment_gateway_ref || "TXN000123"
+        service_charge: `₹${baseFee.toFixed(2)}`,
+        materials_parts: `₹${matFee.toFixed(2)}`,
+        additional_charges: `₹${addFee.toFixed(2)}`,
+        subtotal: `₹${subTot.toFixed(2)}`,
+        gst: `₹${gstVal.toFixed(2)}`,
+        total_amount: `₹${totVal.toFixed(2)}`,
+        payment_method: order.payment_method || "HAND CASH",
+        transaction_id: order.payment_gateway_ref || (order.payment_method === 'Online Payment (UPI)' ? 'TXN000123' : 'CASH-VERIFIED')
       });
 
       setEmailSent(true);
@@ -179,7 +186,7 @@ export default function OrderReceiptModal({ order, onClose }) {
         </div>
 
         {/* ─── DYNAMIC COOP HUB SERVICE RECEIPT (WITH MAINTAINED CHARGES) ─── */}
-        <CoopHubServiceReceipt order={order} serviceId={order.service_id || order.service?.id} />
+        <CoopHubServiceReceipt order={order} serviceId={order.service_id || order.service?.id} isPillarView={isPillarView} />
 
       </div>
     </div>

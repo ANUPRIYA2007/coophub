@@ -759,8 +759,10 @@ export default function RequestDetails() {
                             </div>
                         </div>
 
-                        {/* Official Receipt Card */}
+                        {/* Official Receipt Card (Customer View) */}
                         <CoopHubServiceReceipt
+                            isPillarView={false}
+                            showCooperativeBreakdown={false}
                             order={{
                                 ...requestData,
                                 id: id,
@@ -772,14 +774,18 @@ export default function RequestDetails() {
                                 customer_mobile: requestData?.customer_mobile || '+91 98401 23456',
                                 service_address: requestData?.address_line || 'Velachery, Chennai',
                                 base_amount: requestData?.amount || 450,
-                                extra_charge_amount: requestData?.extra_charge_amount || 500,
-                                extra_charge_reason: requestData?.extra_charge_reason || '',
-                                total_amount: requestData?.final_amount || 950,
-                                final_amount: requestData?.final_amount || 950,
+                                service_charge: requestData?.service_charge || requestData?.amount || 450,
+                                materials_parts: (requestData?.materials_parts != null ? requestData.materials_parts : (requestData?.extra_charge_amount != null ? requestData.extra_charge_amount : 0)),
+                                additional_charges: (requestData?.additional_charges != null ? requestData.additional_charges : 0),
+                                subtotal: requestData?.subtotal || (Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)),
+                                gst_amount: requestData?.gst_amount || Math.round((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 0.18 * 100) / 100,
+                                total_amount: requestData?.final_amount || Math.round(((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 1.18) * 100) / 100,
+                                final_amount: requestData?.final_amount || Math.round(((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 1.18) * 100) / 100,
                                 scheduled_date: requestData?.preferred_date || '09 Sep 2026',
                                 scheduled_time: requestData?.preferred_time || '02:00 PM',
-                                payment_method: 'Online Payment (UPI)',
-                                payment_status: 'PAID',
+                                payment_method: requestData?.payment_method || invoiceData?.payment_method || 'HAND CASH',
+                                payment_gateway_ref: requestData?.payment_gateway_ref || (requestData?.payment_method === 'Online Payment (UPI)' ? '[TXN000123]' : 'CASH-VERIFIED'),
+                                payment_status: (requestData?.payment_status === 'completed' || invoiceData?.invoice_status === 'paid' || requestData?.status === 'completed') ? 'PAID' : (requestData?.payment_status || 'PAID'),
                                 pillar: pillar
                             }}
                         />

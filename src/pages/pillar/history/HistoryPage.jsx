@@ -720,6 +720,7 @@ export default function HistoryPage() {
         <OrderReceiptModal
           order={selectedOrderForReceipt}
           onClose={() => setSelectedOrderForReceipt(null)}
+          isPillarView={true}
         />
       )}
     </div>

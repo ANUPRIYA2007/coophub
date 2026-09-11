@@ -1052,6 +1052,7 @@ export default function OrdersList() {
         <OrderReceiptModal
           order={selectedOrderForReceipt}
           onClose={() => setSelectedOrderForReceipt(null)}
+          isPillarView={true}
         />
       )}
     </div>
