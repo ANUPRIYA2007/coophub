@@ -71,12 +71,41 @@ export const pillarChatService = {
             booking_code: "REQ-" + r.id.substring(0, 6).toUpperCase(),
             service_name: serviceTitle,
             customer_name: cust.name || "Customer (" + (r.area || r.city || "Client") + ")",
-            customer_mobile: cust.mobile || "+91 98400 00000",
+            customer_mobile: cust.mobile || "+91 98401 23456",
             status: r.status || "in_progress",
             created_at: r.created_at
           };
         });
-        return { data: mapped, error: null };
+        
+        // Merge with local demo orders if present
+        const localItems = [];
+        try {
+          const created = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+          const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+          [...created, ...shared].forEach(item => {
+            if (item && item.id && !localItems.some(l => l.id === item.id)) {
+              localItems.push({
+                id: item.id,
+                booking_code: item.booking_code || (String(item.id).startsWith('REQ-') ? item.id : `REQ-${String(item.id).slice(0, 6).toUpperCase()}`),
+                service_name: item.service_name || item.service?.name || "Electrical Repair",
+                customer_name: item.customer_name || item.customer?.full_name || "Anupriya Murugan",
+                customer_mobile: item.customer_mobile || item.customer_phone || "+91 98401 23456",
+                status: item.status || "in_progress",
+                created_at: item.created_at || new Date().toISOString()
+              });
+            }
+          });
+        } catch(e) {}
+
+        const allList = [...mapped, ...localItems];
+        const seen = new Set();
+        const deduped = allList.filter(c => {
+          if (!c?.id || seen.has(c.id)) return false;
+          seen.add(c.id);
+          return true;
+        });
+
+        return { data: deduped, error: null };
       }
 
       // 2. Check bookings table as fallback
@@ -94,11 +123,47 @@ export const pillarChatService = {
         .order("created_at", { ascending: false })
         .limit(10);
 
-      if (bookings && bookings.length > 0) {
-        return { data: bookings, error: null };
+      // 3. Fallback to local demo conversations & created requests
+      const demoList = [];
+      try {
+        const created = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+        const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+        [...created, ...shared].forEach(item => {
+          if (item && item.id && !demoList.some(d => d.id === item.id)) {
+            demoList.push({
+              id: item.id,
+              booking_code: item.booking_code || (String(item.id).startsWith('REQ-') ? item.id : `REQ-${String(item.id).slice(0, 6).toUpperCase()}`),
+              service_name: item.service_name || item.service?.name || "Electrical Repair",
+              customer_name: item.customer_name || item.customer?.full_name || "Anupriya Murugan",
+              customer_mobile: item.customer_mobile || item.customer_phone || "+91 98401 23456",
+              status: item.status || "in_progress",
+              created_at: item.created_at || new Date().toISOString()
+            });
+          }
+        });
+      } catch (e) {}
+
+      if (!demoList.some(d => d.id === 'REQ-8942')) {
+        demoList.push({
+          id: 'REQ-8942',
+          booking_code: 'REQ-8942',
+          service_name: 'Electrical Repair',
+          customer_name: 'Anupriya Murugan',
+          customer_mobile: '+91 98401 23456',
+          status: 'in_progress',
+          created_at: new Date().toISOString()
+        });
       }
 
-      return { data: [], error: null };
+      const combined = [...(bookings || []), ...demoList];
+      const seen = new Set();
+      const deduped = combined.filter(c => {
+        if (!c?.id || seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+
+      return { data: deduped, error: null };
     } catch (error) {
       console.error("Fetch conversations error:", error);
       return { data: [], error };

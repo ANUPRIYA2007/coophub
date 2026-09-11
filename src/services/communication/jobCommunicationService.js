@@ -22,11 +22,10 @@ export function resolveRequestUuid(reqId) {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
     return str;
   }
-  if (str === 'REQ-8942' || str === 'ORD-9842') {
-    return '00000000-0000-0000-0000-000000008942';
-  }
-  const clean = str.replace(/[^0-9a-f]/gi, '').padEnd(12, '0').slice(0, 12);
-  return `00000000-0000-0000-0000-${clean}`;
+  // Any non-UUID demo/custom order in CoopHub (REQ-8942, ORD-9842, REQ-2506, etc.)
+  // routes to the shared persistent database demo UUID so chat and live collaboration
+  // stay synchronized across customer and pillar views.
+  return '00000000-0000-0000-0000-000000008942';
 }
 
 export const jobCommunicationService = {
@@ -59,9 +58,35 @@ export const jobCommunicationService = {
     let localMessages = [];
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const c1 = JSON.parse(localStorage.getItem(`coophub_messages_${targetUuid}`) || '[]');
-        const c2 = JSON.parse(localStorage.getItem(`coophub_messages_${requestId}`) || '[]');
-        localMessages = [...c1, ...c2];
+        const keysToRead = [
+          `coophub_messages_${targetUuid}`,
+          `coophub_messages_${requestId}`,
+          'coophub_messages_REQ-8942',
+          'coophub_messages_ORD-9842',
+          'coophub_messages_00000000-0000-0000-0000-000000008942'
+        ];
+
+        // Also sweep any local storage keys created for other demo requests (e.g. coophub_messages_REQ-2506)
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith('coophub_messages_REQ-') || k.startsWith('coophub_messages_ORD-')) && !keysToRead.includes(k)) {
+              keysToRead.push(k);
+            }
+          }
+        } catch(ke) {}
+
+        keysToRead.forEach(k => {
+          try {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                localMessages.push(...parsed);
+              }
+            }
+          } catch(e) {}
+        });
       }
     } catch (e) {}
 
@@ -500,7 +525,12 @@ export function subscribeToMessages(requestId, callbacks = {}) {
       bc.onmessage = (event) => {
         const { type, requestId: msgReqId, targetUuid: msgTargetUuid, message } = event.data || {};
         if (type === 'NEW_CHAT_MESSAGE' && message) {
-          if (msgTargetUuid === targetUuid || msgReqId === requestId || message.request_id === targetUuid || message.request_id === requestId) {
+          const isDemoMatch = targetUuid === '00000000-0000-0000-0000-000000008942' && 
+                             (msgTargetUuid === '00000000-0000-0000-0000-000000008942' || 
+                              String(msgReqId).startsWith('REQ-') || 
+                              String(msgReqId).startsWith('ORD-'));
+
+          if (isDemoMatch || msgTargetUuid === targetUuid || msgReqId === requestId || message.request_id === targetUuid || message.request_id === requestId) {
             if (onInsertCb) onInsertCb(formatMsg(message));
           }
         }
@@ -511,7 +541,12 @@ export function subscribeToMessages(requestId, callbacks = {}) {
   // 3. Same-window custom event listener
   const handleCustomMessage = (e) => {
     const { requestId: evReqId, targetUuid: evTargetUuid, message } = e.detail || {};
-    if (message && (evTargetUuid === targetUuid || evReqId === requestId)) {
+    const isDemoMatch = targetUuid === '00000000-0000-0000-0000-000000008942' && 
+                       (evTargetUuid === '00000000-0000-0000-0000-000000008942' || 
+                        String(evReqId).startsWith('REQ-') || 
+                        String(evReqId).startsWith('ORD-'));
+
+    if (message && (isDemoMatch || evTargetUuid === targetUuid || evReqId === requestId)) {
       if (onInsertCb) onInsertCb(formatMsg(message));
     }
   };

@@ -362,8 +362,8 @@ export default function RequestDetails() {
 
         // 5. Supabase Realtime Subscription on service_requests & bookings for immediate status transition
         const uniqueId = Math.random().toString(36).substring(2, 9);
-        const isDemoTarget = (id === 'REQ-8942' || id === 'ORD-9842');
-        const dbTargetId = isDemoTarget ? '00000000-0000-0000-0000-000000008942' : id;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''));
+        const dbTargetId = isUuid ? id : '00000000-0000-0000-0000-000000008942';
 
         const reqChannel = supabase
             .channel(`req_live_${id}_${uniqueId}`)
@@ -384,7 +384,7 @@ export default function RequestDetails() {
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'invoices', filter: `request_id=eq.${id}` },
+                { event: '*', schema: 'public', table: 'invoices', filter: `request_id=eq.${dbTargetId}` },
                 (payload) => {
                     console.log("⚡ Live Invoice update in Customer Portal:", payload.new);
                     fetchRequest(true);
@@ -392,7 +392,7 @@ export default function RequestDetails() {
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'payments', filter: `request_id=eq.${id}` },
+                { event: '*', schema: 'public', table: 'payments', filter: `request_id=eq.${dbTargetId}` },
                 (payload) => {
                     console.log("⚡ Live Payment update in Customer Portal:", payload.new);
                     fetchRequest(true);
@@ -664,6 +664,42 @@ export default function RequestDetails() {
                         {currentBadge.text}
                     </span>
                 </header>
+
+                {/* ─── ACTIVE LIVE ORDER SWITCHER (IF CUSTOMER HAS ANOTHER IN-PROGRESS BOOKING) ─── */}
+                {(() => {
+                    try {
+                        const created = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+                        const activeCreated = created.find(c => c && c.id && c.id !== id && ['pending', 'assigned', 'accepted', 'on_the_way', 'in_progress', 'arrived'].includes(c.status));
+                        if (activeCreated) {
+                            return (
+                                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-3 px-4 flex items-center justify-between shadow-xs animate-fade-in">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className="relative flex h-2.5 w-2.5 shrink-0">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500"></span>
+                                        </span>
+                                        <div className="min-w-0">
+                                            <div className="text-xs font-bold text-navy-900 truncate">
+                                                Active Live Booking: #{activeCreated.booking_code || activeCreated.id}
+                                            </div>
+                                            <div className="text-[11px] text-navy-600 truncate">
+                                                {activeCreated.service_name || 'Electrical Repair'} • In Progress
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => navigate(`/requests/${activeCreated.id}`)}
+                                        className="shrink-0 ml-3 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <span>View Live Booking</span>
+                                        <ChevronRight size={14} />
+                                    </button>
+                                </div>
+                            );
+                        }
+                    } catch(e) {}
+                    return null;
+                })()}
 
                 {/* ─── VIEW SWITCHER FOR COMPLETED BOOKINGS ─── */}
                 {requestData.status === 'completed' && (
