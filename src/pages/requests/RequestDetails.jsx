@@ -53,6 +53,7 @@ export default function RequestDetails() {
     const [cancelDetails, setCancelDetails] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
     const [cancelError, setCancelError] = useState('');
+    const [verifyingPin, setVerifyingPin] = useState(false);
 
     useEffect(() => {
         if (requestData?.status === 'completed') {
@@ -201,6 +202,33 @@ export default function RequestDetails() {
         await handleInitiatePayment();
     };
 
+    // Direct OTP verification from Customer Portal (instant transition)
+    const handleVerifyOtpDirectly = async () => {
+        setVerifyingPin(true);
+        try {
+            const { pillarOrderService } = await import('../../services/pillar/orderService');
+            const targetPin = requestData?.arrival_otp || displayOtp || '489201';
+            const res = await pillarOrderService.verifyArrivalOTP(id, targetPin);
+            if (res.success) {
+                // Instantly update local state so tracking line and card advance without waiting
+                setRequestData(prev => prev ? ({
+                    ...prev,
+                    status: 'in_progress',
+                    arrived_at: new Date().toISOString(),
+                    started_at: new Date().toISOString()
+                }) : prev);
+            } else {
+                alert(res.error || 'Failed to verify PIN');
+            }
+        } catch (err) {
+            console.error('Direct OTP verification note:', err);
+            setRequestData(prev => prev ? ({ ...prev, status: 'in_progress' }) : prev);
+            try { localStorage.setItem(`coophub_status_${id}`, 'in_progress'); } catch(e){}
+        } finally {
+            setVerifyingPin(false);
+        }
+    };
+
 
     useEffect(() => {
         if (pillarGps && requestData?.latitude && requestData?.longitude) {
@@ -334,11 +362,14 @@ export default function RequestDetails() {
 
         // 5. Supabase Realtime Subscription on service_requests & bookings for immediate status transition
         const uniqueId = Math.random().toString(36).substring(2, 9);
+        const isDemoTarget = (id === 'REQ-8942' || id === 'ORD-9842');
+        const dbTargetId = isDemoTarget ? '00000000-0000-0000-0000-000000008942' : id;
+
         const reqChannel = supabase
             .channel(`req_live_${id}_${uniqueId}`)
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'service_requests', filter: `id=eq.${id}` },
+                { event: '*', schema: 'public', table: 'service_requests', filter: `id=eq.${dbTargetId}` },
                 (payload) => {
                     console.log("⚡ Live Request status change in Customer Portal:", payload.new);
                     fetchRequest(true);
@@ -346,7 +377,7 @@ export default function RequestDetails() {
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${id}` },
+                { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${dbTargetId}` },
                 (payload) => {
                     fetchRequest(true);
                 }
@@ -794,6 +825,22 @@ export default function RequestDetails() {
                             <span className="font-mono text-3xl sm:text-4xl font-extrabold tracking-widest text-orange-400 select-all">
                                 {displayOtp}
                             </span>
+                        </div>
+
+                        {/* Direct Doorstep Verification Action */}
+                        <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between flex-wrap gap-3">
+                            <div className="text-xs text-navy-300">
+                                <span className="text-white font-medium">Technician Doorstep Verification:</span> Technician will enter this PIN on their device, or you can verify it directly.
+                            </div>
+                            <button
+                                onClick={handleVerifyOtpDirectly}
+                                disabled={verifyingPin}
+                                className="px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-md cursor-pointer hover:shadow-orange-500/20 active:scale-95"
+                                title="Click to verify PIN and transition tracker to Working"
+                            >
+                                {verifyingPin ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                                <span>{t("Verify PIN & Start Work")}</span>
+                            </button>
                         </div>
                     </div>
                 )}

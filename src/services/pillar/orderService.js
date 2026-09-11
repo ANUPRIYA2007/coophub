@@ -681,18 +681,26 @@ export const pillarOrderService = {
 
         await supabase
           .from("bookings")
-          .update(updates)
+          .update({
+            ...updates,
+            status: dbStatus === 'in_progress' ? 'inProgress' : (dbStatus === 'on_the_way' ? 'onTheWay' : dbStatus)
+          })
           .eq("id", bookingId);
       } else {
+        // For demo requests (like REQ-8942 or ORD-9842), update the shared demo record in Supabase
+        const demoUuid = '00000000-0000-0000-0000-000000008942';
         await supabase
           .from("service_requests")
           .update(updates)
-          .or(`order_code.eq.${bookingId},id.eq.${bookingId}`);
+          .eq("id", demoUuid);
 
         await supabase
           .from("bookings")
-          .update(updates)
-          .or(`booking_code.eq.${bookingId},id.eq.${bookingId}`);
+          .update({
+            ...updates,
+            status: dbStatus === 'in_progress' ? 'inProgress' : (dbStatus === 'on_the_way' ? 'onTheWay' : dbStatus)
+          })
+          .eq("booking_code", bookingId);
       }
     } catch (error) {
       console.warn("Update order status Supabase note:", error);
@@ -992,24 +1000,29 @@ export const pillarOrderService = {
         return { success: false, error: "Please enter a valid 6-digit PIN." };
       }
 
-      // Check service_requests for live arrival_otp by ID or booking_code
+      // Check service_requests for live arrival_otp by ID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(bookingId));
+      const targetReqId = isUuid ? bookingId : '00000000-0000-0000-0000-000000008942';
+
       let sData = null;
       try {
         const res = await supabase
           .from("service_requests")
-          .select("id, arrival_otp, otp_attempts, status, booking_code")
-          .or(`id.eq.${bookingId},booking_code.eq.${bookingId}`)
+          .select("id, arrival_otp, otp_attempts, status")
+          .eq("id", targetReqId)
           .maybeSingle();
         sData = res.data;
       } catch (e) {}
 
       let bData = null;
       try {
-        const res = await supabase
-          .from("bookings")
-          .select("id, arrival_otp, otp_attempts, status, booking_code")
-          .or(`id.eq.${bookingId},booking_code.eq.${bookingId}`)
-          .maybeSingle();
+        let bQuery = supabase.from("bookings").select("id, arrival_otp, otp_attempts, status, booking_code");
+        if (isUuid) {
+          bQuery = bQuery.eq("id", bookingId);
+        } else {
+          bQuery = bQuery.eq("booking_code", bookingId);
+        }
+        const res = await bQuery.maybeSingle();
         bData = res.data;
       } catch (e) {}
 
@@ -1072,7 +1085,7 @@ export const pillarOrderService = {
           } catch (e) {}
         });
 
-        // Also sync service_requests directly
+        // Also sync service_requests directly by UUID
         try {
           await supabase
             .from("service_requests")
@@ -1081,9 +1094,10 @@ export const pillarOrderService = {
               arrival_otp: cleanEntered,
               otp_attempts: 0,
               arrived_at: nowIso,
-              started_at: nowIso
+              started_at: nowIso,
+              updated_at: nowIso
             })
-            .or(`id.eq.${bookingId},booking_code.eq.${bookingId}`);
+            .eq("id", targetReqId);
         } catch (e) {}
 
         // Also update local storage if cached orders exist

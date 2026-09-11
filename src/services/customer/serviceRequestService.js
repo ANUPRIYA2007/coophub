@@ -488,10 +488,25 @@ export const serviceRequestService = {
         const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
         // Check for any explicit status override in localStorage (e.g. from Pillar OTP verification)
-        const localStatusOverride = 
+        let localStatusOverride = 
             localStorage.getItem(`coophub_status_${requestId}`) ||
             (requestId === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null) ||
-            (requestId === 'ORD-9842' ? localStorage.getItem('coophub_status_REQ-8942') : null);
+            (requestId === 'ORD-9842' ? localStorage.getItem('coophub_status_REQ-8942') : null) ||
+            localStorage.getItem('coophub_status_00000000-0000-0000-0000-000000008942');
+
+        // If demo request, also check Supabase for real-time status updates from other devices/browsers
+        if (requestId === 'REQ-8942' || requestId === 'ORD-9842') {
+            try {
+                const { data: dbDemo } = await supabase
+                    .from('service_requests')
+                    .select('status, arrival_otp')
+                    .eq('id', '00000000-0000-0000-0000-000000008942')
+                    .maybeSingle();
+                if (dbDemo?.status) {
+                    localStatusOverride = dbDemo.status;
+                }
+            } catch (e) {}
+        }
 
         // Also check coophub_shared_live_orders for any updated status
         let sharedOrderMatch = null;
