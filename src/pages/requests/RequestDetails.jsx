@@ -17,11 +17,60 @@ import CoopHubServiceReceipt from '../../components/common/CoopHubServiceReceipt
 import { emailService } from '../../services/email/emailService';
 import CustomerChatDrawer from '../../components/chat/CustomerChatDrawer';
 import PillarProfileModal from '../../components/common/PillarProfileModal';
+import { useAuth } from '../../context/AuthContext';
+
+// Central helper to resolve dynamic, standardized Service Code (e.g. SRV-ELEC-101, SRV-AC-202)
+export const resolveServiceCode = (req) => {
+    if (!req) return 'SRV-ELEC-101';
+    if (req.service_code && !req.service_code.includes('a0000') && !req.service_code.includes('000000')) return req.service_code;
+    const rawId = String(req.service_id || req.services?.id || req.service?.id || '').toLowerCase();
+    const sName = String(req.services?.name || req.service_name || req.service?.name || '').toLowerCase();
+    const cat = String(req.category || req.services?.category || req.service?.category || '').toLowerCase();
+
+    if (rawId.includes('0001') || rawId.includes('elec') || rawId === 'srv-1' || rawId.includes('a0a000') || rawId.includes('a00000') || sName.includes('electr') || cat.includes('electr') || sName.includes('fan') || sName.includes('wiring') || sName.includes('switch')) return 'SRV-ELEC-101';
+    if (rawId.includes('0002') || rawId.includes('ac') || rawId === 'srv-2' || sName.includes('ac') || sName.includes('cool') || cat.includes('ac')) return 'SRV-AC-202';
+    if (rawId.includes('0003') || rawId.includes('plumb') || rawId === 'srv-3' || sName.includes('plumb') || cat.includes('plumb') || sName.includes('leak') || sName.includes('pipe')) return 'SRV-PLUM-201';
+    if (rawId.includes('0004') || rawId.includes('carp') || rawId === 'srv-4' || sName.includes('carp') || cat.includes('carp') || sName.includes('wood')) return 'SRV-CARP-401';
+    if (rawId.includes('0005') || rawId.includes('paint') || rawId === 'srv-5' || sName.includes('paint') || cat.includes('paint')) return 'SRV-PNTG-501';
+    if (rawId.includes('0006') || rawId.includes('clean') || rawId === 'srv-6' || sName.includes('clean') || cat.includes('clean')) return 'SRV-CLEN-601';
+    if (rawId.includes('0007') || rawId.includes('appl') || rawId === 'srv-7' || sName.includes('appl') || cat.includes('appl')) return 'SRV-APPL-301';
+    if (rawId.startsWith('srv-') && !rawId.includes('a0000') && !rawId.includes('000000')) return rawId.toUpperCase();
+    return 'SRV-ELEC-101';
+};
 
 export default function RequestDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { t, language } = useTranslation();
+    const { profile, user } = useAuth();
+
+    // Dynamic Customer Details Resolution
+    const displayCustomerName = (
+        (profile?.full_name && profile.full_name !== 'Valued Customer' && profile.full_name !== 'Coop Customer' ? profile.full_name : null) ||
+        (user?.user_metadata?.full_name && user.user_metadata.full_name !== 'Valued Customer' ? user.user_metadata.full_name : null) ||
+        (() => {
+            try {
+                const d = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+                if (d.full_name && d.full_name !== 'Valued Customer') return d.full_name;
+                const c = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
+                if (c.full_name && c.full_name !== 'Valued Customer') return c.full_name;
+            } catch(e) {}
+            return 'Anupriya Sundaram';
+        })()
+    );
+
+    const displayCustomerPhone = (
+        profile?.mobile || profile?.phone ||
+        user?.user_metadata?.mobile || user?.phone ||
+        '+91 98401 23456'
+    );
+
+    const displayCustomerEmail = (
+        profile?.email ||
+        user?.email ||
+        'customer@coophub.in'
+    );
+
     const [requestData, setRequestData] = useState(null);
     const [historyData, setHistoryData] = useState([]);
     const [invoiceData, setInvoiceData] = useState(null);
@@ -70,16 +119,16 @@ export default function RequestDetails() {
     const handleSendEmail = async () => {
         setEmailSending(true);
         try {
-            const recipientEmail = requestData?.customer_email || 'customer@coophub.in';
+            const recipientEmail = requestData?.customer_email || displayCustomerEmail;
             await emailService.sendServiceReceiptEmail({
                 email: recipientEmail,
-                customer_name: requestData?.customer_name || 'Coop Customer',
+                customer_name: displayCustomerName,
                 receipt_no: `CH-2026-${id?.slice(0, 6)?.toUpperCase() || '000123'}`,
                 booking_id: requestData?.booking_code || `BK-2026-${id?.slice(0, 5)?.toUpperCase() || '00456'}`,
                 invoice_no: `INV-2026-${id?.slice(0, 6)?.toUpperCase() || '00789'}`,
                 service_date: requestData?.preferred_date || '09 Sep 2026',
                 service_time: requestData?.preferred_time || '02:00 PM',
-                service_id: requestData?.service_code || (requestData?.services?.id ? (requestData.services.id === 'srv-1' ? 'SRV-ELEC-101' : requestData.services.id === 'srv-2' ? 'SRV-AC-202' : `SRV-${String(requestData.services.id).toUpperCase()}`) : 'SRV-AC-202'),
+                service_id: resolveServiceCode(requestData),
                 service_title: serviceName,
                 service_description: subServiceName || 'Standard Service',
                 service_location: requestData?.address_line || 'Chennai',
@@ -140,7 +189,7 @@ export default function RequestDetails() {
             const orderResult = await paymentGatewayAdapter.createGatewayOrder({
                 invoiceId: invoice?.id || id,
                 currency: 'INR',
-                customer: { full_name: requestData?.customer_name },
+                customer: { full_name: displayCustomerName },
                 serviceName: requestData?.service?.name || requestData?.service_name || 'Cooperative Service',
                 fallbackAmount: invoice?.total_amount || requestData?.total_amount
             });
@@ -156,9 +205,9 @@ export default function RequestDetails() {
                 currency: orderResult.currency,
                 keyId: orderResult.keyId,
                 customer: {
-                    full_name: requestData?.customer_name,
-                    email: requestData?.customer_email || '',
-                    phone: requestData?.customer_mobile || ''
+                    full_name: displayCustomerName,
+                    email: requestData?.customer_email || displayCustomerEmail,
+                    phone: requestData?.customer_mobile || displayCustomerPhone
                 },
                 serviceName: requestData?.service?.name || requestData?.service_name || 'Cooperative Service',
                 invoiceId: invoice?.id
@@ -662,7 +711,7 @@ export default function RequestDetails() {
                                 </span>
                                 <span className="text-navy-300 text-[10px]">•</span>
                                 <span className="text-[10px] font-mono font-bold text-navy-600 bg-navy-50 px-1.5 py-0.5 rounded border border-navy-100">
-                                    Service ID: {requestData.service_code || (requestData.services?.id ? (requestData.services.id === 'srv-1' ? 'SRV-ELEC-101' : requestData.services.id === 'srv-2' ? 'SRV-AC-202' : `SRV-${String(requestData.services.id).toUpperCase()}`) : 'SRV-ELEC-101')}
+                                    Service ID: {resolveServiceCode(requestData)}
                                 </span>
                             </div>
                         </div>
@@ -777,9 +826,9 @@ export default function RequestDetails() {
                                 booking_code: requestData?.booking_code || requestData?.order_code || (String(id).startsWith('REQ-') || String(id).startsWith('ORD-') ? id : `ORD-${String(id).slice(0, 6).toUpperCase()}`),
                                 service_name: serviceName,
                                 sub_service_name: subServiceName,
-                                service_id: requestData?.service_code || (requestData?.services?.id ? (requestData.services.id === 'srv-1' ? 'SRV-ELEC-101' : requestData.services.id === 'srv-2' ? 'SRV-AC-202' : `SRV-${String(requestData.services.id).toUpperCase()}`) : 'SRV-AC-202'),
-                                customer_name: requestData?.customer_name || 'Coop Customer',
-                                customer_mobile: requestData?.customer_mobile || '+91 98401 23456',
+                                service_id: resolveServiceCode(requestData),
+                                customer_name: displayCustomerName,
+                                customer_mobile: displayCustomerPhone,
                                 service_address: requestData?.address_line || 'Velachery, Chennai',
                                 base_amount: requestData?.amount || 450,
                                 service_charge: requestData?.service_charge || requestData?.amount || 450,
@@ -1193,12 +1242,29 @@ export default function RequestDetails() {
                 <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
                     <h3 className="font-bold text-navy-900 text-base border-b border-navy-50 pb-3">Booking Details</h3>
 
+                    {/* Dynamic Customer Information Row */}
+                    <div className="bg-slate-50 border border-navy-100/80 rounded-2xl p-3.5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold text-sm">
+                                {displayCustomerName ? displayCustomerName.charAt(0).toUpperCase() : 'C'}
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase tracking-wider font-semibold text-navy-400">Customer Name</p>
+                                <p className="text-sm font-bold text-navy-900">{displayCustomerName}</p>
+                                <p className="text-[11px] text-navy-500 font-mono">{displayCustomerPhone}</p>
+                            </div>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200/60">
+                            <CheckCircle2 size={12} className="text-emerald-600" /> Verified Customer
+                        </span>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4 text-xs">
                         <div>
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <p className="text-navy-400 font-medium">Service Type</p>
                                 <span className="font-mono text-[10px] font-bold text-navy-600 bg-navy-50 px-1.5 py-0.5 rounded border border-navy-100">
-                                    Service ID: {requestData.service_id ? (requestData.service_id.length > 12 ? 'SRV-' + requestData.service_id.slice(0, 8).toUpperCase() : requestData.service_id) : 'SRV-ELEC-101'}
+                                    Service ID: {resolveServiceCode(requestData)}
                                 </span>
                             </div>
                             <p className="font-bold text-navy-800 text-sm">{serviceName}</p>
@@ -1216,7 +1282,11 @@ export default function RequestDetails() {
                     {requestData.customer_description && (
                         <div className="bg-navy-50/50 rounded-2xl p-4 text-xs">
                             <p className="text-navy-400 font-medium mb-1">Customer Problem Notes</p>
-                            <p className="text-navy-700 leading-relaxed">{requestData.customer_description}</p>
+                            <p className="text-navy-700 leading-relaxed">
+                                {requestData.customer_description
+                                    .replace(/Valued Customer/g, displayCustomerName)
+                                    .replace(/Coop Customer/g, displayCustomerName)}
+                            </p>
                         </div>
                     )}
                 </div>
@@ -1456,10 +1526,11 @@ export default function RequestDetails() {
                         ...requestData,
                         id: id,
                         booking_code: requestData?.booking_code || requestData?.order_code || (String(id).startsWith('REQ-') || String(id).startsWith('ORD-') ? id : `REQ-${String(id).slice(0, 6).toUpperCase()}`),
+                        service_id: resolveServiceCode(requestData),
                         service_name: requestData?.service?.name || requestData?.service_name || 'Home Service',
                         sub_service_name: requestData?.sub_service?.name || requestData?.sub_service_name || '',
-                        customer_name: requestData?.customer_name || 'Coop Customer',
-                        customer_mobile: requestData?.customer_mobile || '+91 98401 23456',
+                        customer_name: displayCustomerName,
+                        customer_mobile: displayCustomerPhone,
                         service_address: requestData?.address_line || requestData?.service_address || 'Service Zone, Chennai',
                         base_amount: requestData?.amount || 450,
                         extra_charge_amount: requestData?.extra_charge_amount || 0,

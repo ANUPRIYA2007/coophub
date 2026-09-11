@@ -450,7 +450,16 @@ export default function SuperAdminOperations() {
                       fontSize: "0.7rem", fontWeight: "700", padding: "2px 8px", borderRadius: "10px",
                       background: "rgba(100, 116, 139, 0.12)", color: "#475569", fontFamily: "monospace"
                     }}>
-                      Service ID: {selectedRequest.service_id ? (selectedRequest.service_id.length > 12 ? 'SRV-' + selectedRequest.service_id.slice(0, 8).toUpperCase() : selectedRequest.service_id) : 'SRV-ELEC-101'}
+                      Service ID: {(() => {
+                        if (selectedRequest.service_code && !selectedRequest.service_code.includes('a0000')) return selectedRequest.service_code;
+                        const raw = String(selectedRequest.service_id || selectedRequest.services?.id || '').toLowerCase();
+                        const name = String(selectedRequest.service_name || selectedRequest.services?.name || '').toLowerCase();
+                        if (raw.includes('0001') || raw.includes('elec') || raw === 'srv-1' || raw.includes('a0000') || name.includes('electr') || name.includes('fan')) return 'SRV-ELEC-101';
+                        if (raw.includes('0002') || raw.includes('ac') || raw === 'srv-2' || name.includes('ac')) return 'SRV-AC-202';
+                        if (raw.includes('0003') || raw.includes('plumb') || raw === 'srv-3' || name.includes('plumb')) return 'SRV-PLUM-201';
+                        if (raw.startsWith('srv-') && !raw.includes('a0000')) return raw.toUpperCase();
+                        return 'SRV-ELEC-101';
+                      })()}
                     </span>
                     <span style={{
                       fontSize: "0.7rem", fontWeight: "700", padding: "2px 8px", borderRadius: "10px",

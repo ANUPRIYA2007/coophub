@@ -64,18 +64,46 @@ export default function CoopHubServiceReceipt({
   const displayDate = date || order?.scheduled_date || "02 Sep 2026";
   const displayStatus = status || (order?.status ? (order.status === "completed" ? "PAID" : order.status.toUpperCase()) : "PAID");
 
-  const displayCustomerName = customerName || order?.customer_name || "[Customer Name]";
-  const displayCustomerPhone = customerPhone || order?.customer_mobile || "[Phone Number]";
-  const displayCustomerEmail = customerEmail || order?.customer_email || "[Email Address]";
-  const displayCustomerAddress = customerAddress || order?.service_address || order?.address_line || "[Service Address]";
+  const resolveCustomerName = () => {
+    if (customerName && customerName !== 'Valued Customer' && customerName !== 'Coop Customer' && customerName !== '[Customer Name]') return customerName;
+    if (order?.customer_name && order.customer_name !== 'Valued Customer' && order.customer_name !== 'Coop Customer') return order.customer_name;
+    if (order?.customer?.full_name && order.customer.full_name !== 'Valued Customer' && order.customer.full_name !== 'Coop Customer') return order.customer.full_name;
+    try {
+      const demo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+      if (demo.full_name && demo.full_name !== 'Valued Customer') return demo.full_name;
+      const cust = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
+      if (cust.full_name && cust.full_name !== 'Valued Customer') return cust.full_name;
+    } catch(e) {}
+    return 'Anupriya Sundaram';
+  };
+  const displayCustomerName = resolveCustomerName();
+  const displayCustomerPhone = customerPhone || order?.customer_mobile || order?.customer_phone || order?.customer?.mobile || order?.customer?.phone || "+91 98401 23456";
+  const displayCustomerEmail = customerEmail || order?.customer_email || order?.customer?.email || "customer@coophub.in";
+  const displayCustomerAddress = customerAddress || order?.service_address || order?.address_line || "Flat 4B, Shanthi Apts, Guindy, Chennai";
 
-  const displayPillarName = pillarName || order?.pillar?.full_name || order?.pillar_name || "[Pillar Name]";
-  const displayPillarId = pillarId || order?.pillar_id || "[Pillar ID]";
-  const displayPillarTrade = pillarTrade || order?.service?.category || order?.pillar_trade || "[Electrician]";
+  const displayPillarName = pillarName || order?.pillar?.full_name || order?.pillar_name || "Raj Kumar";
+  const displayPillarId = pillarId || order?.pillar_id || order?.pillar?.pillar_code || order?.pillar?.id || "PIL-CHE-042";
+  const displayPillarTrade = pillarTrade || order?.service?.category || order?.pillar_trade || "Certified Electrician";
   const displayPillarVerification = pillarVerification || "Verified";
   const displayPillarRating = pillarRating || (order?.pillar?.rating ? `★ ${order.pillar.rating}` : "★ 4.8");
 
-  const displayServiceId = serviceId || order?.service_id || (order?.service?.id ? (String(order.service.id).length > 12 ? 'SRV-' + String(order.service.id).slice(0, 8).toUpperCase() : order.service.id) : "SRV-ELEC-101");
+  const resolveReceiptServiceId = () => {
+    if (serviceId && !serviceId.includes('a0000') && !serviceId.includes('000000')) return serviceId;
+    if (order?.service_code && !order.service_code.includes('a0000') && !order.service_code.includes('000000')) return order.service_code;
+    const raw = String(order?.service_id || order?.service?.id || order?.services?.id || '').toLowerCase();
+    const name = String(order?.service_name || order?.service?.name || order?.services?.name || serviceTitle || '').toLowerCase();
+    const cat = String(order?.category || order?.service?.category || order?.services?.category || '').toLowerCase();
+    if (raw.includes('0001') || raw.includes('elec') || raw === 'srv-1' || raw.includes('a0000') || name.includes('electr') || cat.includes('electr') || name.includes('fan') || name.includes('wiring')) return 'SRV-ELEC-101';
+    if (raw.includes('0002') || raw.includes('ac') || raw === 'srv-2' || name.includes('ac') || name.includes('cool') || cat.includes('ac')) return 'SRV-AC-202';
+    if (raw.includes('0003') || raw.includes('plumb') || raw === 'srv-3' || name.includes('plumb') || cat.includes('plumb') || name.includes('leak')) return 'SRV-PLUM-201';
+    if (raw.includes('0004') || raw.includes('carp') || raw === 'srv-4' || name.includes('carp') || cat.includes('carp') || name.includes('wood')) return 'SRV-CARP-401';
+    if (raw.includes('0005') || raw.includes('paint') || raw === 'srv-5' || name.includes('paint') || cat.includes('paint')) return 'SRV-PNTG-501';
+    if (raw.includes('0006') || raw.includes('clean') || raw === 'srv-6' || name.includes('clean') || cat.includes('clean')) return 'SRV-CLEN-601';
+    if (raw.includes('0007') || raw.includes('appl') || raw === 'srv-7' || name.includes('appl') || cat.includes('appl')) return 'SRV-APPL-301';
+    if (raw.startsWith('srv-') && !raw.includes('a0000')) return raw.toUpperCase();
+    return 'SRV-ELEC-101';
+  };
+  const displayServiceId = resolveReceiptServiceId();
   const displayServiceTitle = serviceTitle || order?.service_name || order?.service?.name || "[Electrical Repair]";
   const displayServiceDesc = serviceDescription || order?.sub_service_name || order?.service_description || order?.description || "[Service Description]";
   const displayServiceDate = serviceDate || order?.scheduled_date || "[Service Date]";

@@ -5,6 +5,10 @@ import { emailService } from '../email/emailService';
 const DEMO_REQUESTS = [
     {
         id: "REQ-8942",
+        service_code: "SRV-ELEC-101",
+        customer_name: "Anupriya Sundaram",
+        customer_mobile: "+91 98401 23456",
+        customer_email: "anupriya@coophub.in",
         status: "on_the_way", // pending, assigned, accepted, on_the_way, arrived, in_progress, completed, cancelled
         created_at: new Date().toISOString(),
         preferred_date: new Date().toISOString().split("T")[0],
@@ -478,6 +482,24 @@ export const serviceRequestService = {
             }
             if (item.customer && (!item.customer.full_name || item.customer.full_name === 'Valued Customer')) {
                 item.customer.full_name = item.customer_name;
+            }
+            if (item.customer_description) {
+                item.customer_description = item.customer_description
+                    .replace(/Valued Customer/g, item.customer_name)
+                    .replace(/Coop Customer/g, item.customer_name);
+            }
+            if (!item.service_code || item.service_code.includes('a0000') || item.service_code.includes('000000')) {
+                const raw = String(item.service_id || item.services?.id || item.service?.id || '').toLowerCase();
+                const name = String(item.services?.name || item.service_name || item.service?.name || '').toLowerCase();
+                if (raw.includes('0001') || raw.includes('elec') || raw === 'srv-1' || raw.includes('a0000') || name.includes('electr') || name.includes('fan') || name.includes('wiring')) {
+                    item.service_code = 'SRV-ELEC-101';
+                } else if (raw.includes('0002') || raw.includes('ac') || raw === 'srv-2' || name.includes('ac') || name.includes('cool')) {
+                    item.service_code = 'SRV-AC-202';
+                } else if (raw.includes('0003') || raw.includes('plumb') || raw === 'srv-3' || name.includes('plumb')) {
+                    item.service_code = 'SRV-PLUM-201';
+                } else {
+                    item.service_code = 'SRV-ELEC-101';
+                }
             }
             if (item.status === 'inProgress') {
                 item.status = 'in_progress';
