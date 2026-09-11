@@ -31,6 +31,13 @@ export default function CustomerPortalLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
+    // Enforce the standard signature light color theme for Customer Portal
+    useEffect(() => {
+        if (theme === 'dark') {
+            toggleTheme();
+        }
+    }, []);
+
     // Fetch dynamic unread notification count for header badge
     useEffect(() => {
         let isMounted = true;
@@ -177,13 +184,13 @@ export default function CustomerPortalLayout() {
             {/* ─── Main Area ─── */}
             < div className="flex-1 flex flex-col min-w-0 overflow-hidden" >
                 {/* ─── Top Header ─── */}
-                <header className="bg-white dark:bg-[#0B1322] border-b border-slate-200/80 dark:border-slate-800 shadow-xs z-30 shrink-0">
+                <header className="bg-white border-b border-navy-100/60 shadow-xs z-30 shrink-0">
                     <div className="flex items-center justify-between px-4 py-3">
                         {/* Left: Mobile hamburger */}
                         <div className="flex items-center space-x-3">
                             <button
                                 onClick={() => setSidebarOpen(true)}
-                                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                                className="lg:hidden p-2 rounded-lg hover:bg-navy-50 text-navy-500 transition-colors"
                             >
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -199,7 +206,7 @@ export default function CustomerPortalLayout() {
                             {/* Dark Mode Switcher */}
                             <button
                                 onClick={toggleTheme}
-                                className="p-2 rounded-full hover:bg-navy-50 dark:hover:bg-slate-800 transition-colors text-navy-500 dark:text-slate-300"
+                                className="p-2 rounded-full hover:bg-navy-50 transition-colors text-navy-500"
                                 title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
                             >
                                 {isDark ? <Sun size={19} className="text-amber-400" /> : <Moon size={19} className="text-navy-600" />}
@@ -208,11 +215,11 @@ export default function CustomerPortalLayout() {
                             {/* Notification bell — ONLY location for notifications */}
                             <button
                                 onClick={() => navigate('/notifications')}
-                                className="relative p-2 rounded-full hover:bg-navy-50 dark:hover:bg-slate-800 transition-colors text-navy-500 dark:text-slate-300"
+                                className="relative p-2 rounded-full hover:bg-navy-50 transition-colors text-navy-500"
                                 id="customer-header-bell-btn"
                                 title="Notifications"
                             >
-                                <Bell size={20} className={unreadCount > 0 ? "text-orange-500" : "text-navy-500 dark:text-slate-300"} />
+                                <Bell size={20} className={unreadCount > 0 ? "text-orange-500" : "text-navy-500"} />
                                 {unreadCount > 0 && (
                                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs leading-none pointer-events-none">
                                         {unreadCount > 9 ? '9+' : unreadCount}
@@ -223,7 +230,7 @@ export default function CustomerPortalLayout() {
                             {/* Profile avatar */}
                             <button
                                 onClick={() => navigate('/profile')}
-                                className="w-9 h-9 bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow"
+                                className="w-9 h-9 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm hover:shadow-md transition-shadow"
                             >
                                 {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
                             </button>
@@ -232,7 +239,7 @@ export default function CustomerPortalLayout() {
                 </header >
 
                 {/* ─── Page Content (Outlet) ─── */}
-                <main className="flex-1 overflow-y-auto bg-slate-50/60 dark:bg-[#060B14]">
+                <main className="flex-1 overflow-y-auto bg-surface">
                     <Outlet />
                 </main>
             </div>
