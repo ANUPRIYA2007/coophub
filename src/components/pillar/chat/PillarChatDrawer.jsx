@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { jobCommunicationService, subscribeToMessages } from "../../../services/communication/jobCommunicationService";
+import { jobCommunicationService, subscribeToMessages, registerOrderUuid } from "../../../services/communication/jobCommunicationService";
 import { pillarChatService } from "../../../services/pillar/chatService";
 import { useAuth } from "../../../context/AuthContext";
 import { 
@@ -44,6 +44,15 @@ export default function PillarChatDrawer({
       setActiveOrder(initialOrder);
     }
   }, [initialOrder]);
+
+  // Pre-seed the code-to-UUID cache as soon as activeOrder is known
+  useEffect(() => {
+    if (activeOrder?.id) {
+      if (activeOrder.booking_code) registerOrderUuid(activeOrder.booking_code, activeOrder.id);
+      if (activeOrder.order_id) registerOrderUuid(activeOrder.order_id, activeOrder.id);
+      if (activeOrder.receipt_number) registerOrderUuid(activeOrder.receipt_number, activeOrder.id);
+    }
+  }, [activeOrder]);
 
   // If no activeOrder provided or to populate conversation switcher, fetch recent orders
   useEffect(() => {
@@ -95,7 +104,7 @@ export default function PillarChatDrawer({
 
     fetchMessages();
 
-    // Background silent polling (every 2.5s) to guarantee real-time updates across different browsers
+    // Background silent polling (every 2s) to guarantee real-time updates across different browsers
     const pollInterval = setInterval(async () => {
       try {
         const { data } = await jobCommunicationService.getMessages(requestId);
@@ -108,7 +117,7 @@ export default function PillarChatDrawer({
           });
         }
       } catch (pe) {}
-    }, 2500);
+    }, 2000);
 
     // Subscribe to realtime messages (INSERT & UPDATE)
     const unsubscribe = subscribeToMessages(requestId, {
@@ -172,7 +181,11 @@ export default function PillarChatDrawer({
       senderId: user?.id,
       senderType: 'pillar',
       content: text,
-      messageType: 'TEXT'
+      messageType: 'TEXT',
+      metadata: {
+        original_request_id: activeOrder?.booking_code || activeOrder?.order_id || requestId,
+        order_code: activeOrder?.booking_code || activeOrder?.order_id || requestId
+      }
     });
 
     if (res?.data) {

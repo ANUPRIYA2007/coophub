@@ -30,7 +30,8 @@ import OrderReceiptModal from "../../../components/common/OrderReceiptModal";
 export default function HistoryPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const activePillarId = profile?.id || user?.id || "PIL-CHE-042";
 
   const [historyItems, setHistoryItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,12 +44,8 @@ export default function HistoryPage() {
 
   // Load history records
   const loadHistory = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
     try {
-      const { data } = await pillarOrderService.getOrders(user.id);
+      const { data } = await pillarOrderService.getOrders(activePillarId, null, profile);
       const pastItems = (data || []).filter((o) =>
         ["completed", "cancelled", "rejected", "declined"].includes(o.status)
       );
@@ -66,20 +63,20 @@ export default function HistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [activePillarId, profile]);
 
   useEffect(() => {
     loadHistory();
 
     // ⚡ Realtime Live Subscription for incoming changes (Supabase Realtime, BroadcastChannel, local events)
-    const subscription = pillarOrderService.subscribeToPillarOrders(user?.id, () => {
+    const subscription = pillarOrderService.subscribeToPillarOrders(activePillarId, () => {
       loadHistory();
     });
 
     return () => {
       if (subscription?.unsubscribe) subscription.unsubscribe();
     };
-  }, [user, loadHistory]);
+  }, [activePillarId, loadHistory]);
 
   // Metrics calculation
   const metrics = useMemo(() => {

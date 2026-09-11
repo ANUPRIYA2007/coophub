@@ -78,6 +78,7 @@ export default function RequestDetails() {
     const [pillarGps, setPillarGps] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [hasCustomerReviewed, setHasCustomerReviewed] = useState(false);
     const [callModalOpen, setCallModalOpen] = useState(false);
     const [sharingLocation, setSharingLocation] = useState(false);
     const [locationSharedSuccess, setLocationSharedSuccess] = useState(false);
@@ -92,7 +93,7 @@ export default function RequestDetails() {
     const [dynamicEta, setDynamicEta] = useState(null);
     const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
     const [showPaymentSuccessAnimation, setShowPaymentSuccessAnimation] = useState(false);
-    const [activeView, setActiveView] = useState('receipt');
+    const [showReceiptInline, setShowReceiptInline] = useState(false);
     const [emailSending, setEmailSending] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
 
@@ -106,9 +107,7 @@ export default function RequestDetails() {
 
     useEffect(() => {
         if (requestData?.status === 'completed') {
-            setActiveView('receipt');
-        } else if (requestData) {
-            setActiveView('journey');
+            setShowReceiptInline(false); // start with journey visible, let user open receipt
         }
     }, [requestData?.status]);
 
@@ -330,16 +329,44 @@ export default function RequestDetails() {
         }
     };
 
+    // ─── RESET ALL STATE when navigating to a different order ───
+    useEffect(() => {
+        setRequestData(null);
+        setInvoiceData(null);
+        setPaymentData(null);
+        setHistoryData([]);
+        setPillarGps(null);
+        setError(null);
+        setLoading(true);
+        setShowReceiptInline(false);
+        setShowCompletionAnimation(false);
+        setShowPaymentSuccessAnimation(false);
+        try {
+            const savedReview = localStorage.getItem(`coophub_review_${id}`);
+            setHasCustomerReviewed(!!savedReview);
+        } catch(e) {
+            setHasCustomerReviewed(false);
+        }
+    }, [id]);
+
     useEffect(() => {
         const fetchRequest = async (silent = false) => {
             if (!silent && !requestData) setLoading(true);
             try {
                 const data = await serviceRequestService.getRequestDetails(id);
-                if (data && (data.status === 'completed' || data.status === 'in_progress')) {
+                if (data) {
                     if (data.status === 'completed') {
                         data.payment_status = 'completed';
                         if (!data.payment_method) data.payment_method = 'HAND CASH';
                         if (!data.payment_gateway_ref) data.payment_gateway_ref = 'CASH-VERIFIED';
+                    } else {
+                        // Before completing the order, payment cannot be completed
+                        data.payment_status = 'pending';
+                        try {
+                            if (localStorage.getItem(`coophub_payment_status_${id}`) === 'completed') {
+                                localStorage.removeItem(`coophub_payment_status_${id}`);
+                            }
+                        } catch(e) {}
                     }
                 }
                 setRequestData(data);
@@ -368,12 +395,22 @@ export default function RequestDetails() {
                 // Fetch Payment / Invoice securely
                 try {
                     const { invoice, payment } = await paymentService.getPaymentDetails(id);
-                    if (invoice && data?.status === 'completed') {
-                        invoice.invoice_status = 'paid';
-                        if (!invoice.payment_method) invoice.payment_method = 'HAND CASH';
+                    if (invoice) {
+                        if (data?.status === 'completed') {
+                            invoice.invoice_status = 'paid';
+                            if (!invoice.payment_method) invoice.payment_method = 'HAND CASH';
+                        } else {
+                            // Before completing order, invoice is always pending
+                            invoice.invoice_status = 'pending';
+                        }
+                        setInvoiceData(invoice);
                     }
-                    if (invoice) setInvoiceData(invoice);
-                    if (payment) setPaymentData(payment);
+                    if (payment) {
+                        if (data?.status !== 'completed') {
+                            payment.payment_status = 'pending';
+                        }
+                        setPaymentData(payment);
+                    }
                 } catch (pErr) {
                     console.warn("Payment fetch note:", pErr?.message);
                 }
@@ -393,15 +430,26 @@ export default function RequestDetails() {
             if (typeof BroadcastChannel !== 'undefined') {
                 bc = new BroadcastChannel('coophub_orders_sync');
                 bc.onmessage = (event) => {
-                    console.log("⚡ BroadcastChannel order sync received in Customer Portal:", event.data);
-                    fetchRequest(true);
+                    const msg = event.data || {};
+                    const msgOrderId = msg.orderId || msg.requestId || msg.id || msg.resolvedId || msg.targetReqId;
+                    const relIds = Array.isArray(msg.relatedIds) ? msg.relatedIds : [];
+                    const isMatch = !msgOrderId ||
+                        msgOrderId === id ||
+                        relIds.includes(id) ||
+                        (requestData?.id && (msgOrderId === requestData.id || relIds.includes(requestData.id))) ||
+                        (requestData?.booking_code && (msgOrderId === requestData.booking_code || relIds.includes(requestData.booking_code))) ||
+                        (id === 'REQ-8942' && (msgOrderId === 'ORD-9842' || relIds.includes('ORD-9842') || msgOrderId === '00000000-0000-0000-0000-000000008942'));
+                    if (isMatch) {
+                        console.log("⚡ BroadcastChannel order sync received in Customer Portal:", event.data);
+                        fetchRequest(true);
+                    }
                 };
             }
         } catch (e) {}
 
         // 2. Cross-tab localStorage storage event listener
         const handleStorageChange = (e) => {
-            if (!e.key || e.key.startsWith('coophub_status_') || e.key === 'coophub_shared_live_orders' || e.key === 'coophub_last_order_event' || e.key === 'coophub_pillar_orders') {
+            if (!e.key || e.key.startsWith('coophub_status_') || e.key.startsWith('coophub_extra_charge_') || e.key === 'coophub_shared_live_orders' || e.key === 'coophub_last_order_event' || e.key === 'coophub_pillar_orders') {
                 console.log("⚡ Storage change detected in Customer Portal:", e.key);
                 fetchRequest(true);
             }
@@ -409,8 +457,18 @@ export default function RequestDetails() {
         window.addEventListener('storage', handleStorageChange);
 
         // 3. Same-window custom events
-        const handleCustomUpdate = () => {
-            fetchRequest(true);
+        const handleCustomUpdate = (e) => {
+            const detail = e?.detail || {};
+            const relIds = Array.isArray(detail.relatedIds) ? detail.relatedIds : [];
+            const targetId = detail.id || detail.targetUuid || detail.orderId;
+            const isMatch = !targetId ||
+                targetId === id ||
+                relIds.includes(id) ||
+                (requestData?.id && (targetId === requestData.id || relIds.includes(requestData.id))) ||
+                (id === 'REQ-8942' && (targetId === 'ORD-9842' || relIds.includes('ORD-9842')));
+            if (isMatch) {
+                fetchRequest(true);
+            }
         };
         window.addEventListener('coophub_order_updated', handleCustomUpdate);
         window.addEventListener('coophub_order_status_updated', handleCustomUpdate);
@@ -423,39 +481,61 @@ export default function RequestDetails() {
         // 5. Supabase Realtime Subscription on service_requests & bookings for immediate status transition
         const uniqueId = Math.random().toString(36).substring(2, 9);
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''));
-        const dbTargetId = isUuid ? id : '00000000-0000-0000-0000-000000008942';
 
         const reqChannel = supabase
             .channel(`req_live_${id}_${uniqueId}`)
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'service_requests', filter: `id=eq.${dbTargetId}` },
+                { event: '*', schema: 'public', table: 'service_requests' },
                 (payload) => {
-                    console.log("⚡ Live Request status change in Customer Portal:", payload.new);
-                    fetchRequest(true);
+                    const row = payload.new;
+                    if (row && (
+                        row.id === id || 
+                        row.receipt_number === id || 
+                        row.payment_gateway_ref === id ||
+                        (row.customer_description && row.customer_description.includes(id)) ||
+                        (requestData?.id && row.id === requestData.id) ||
+                        (requestData?.booking_code && (row.receipt_number === requestData.booking_code || row.payment_gateway_ref === requestData.booking_code)) ||
+                        (id === 'REQ-8942' && (row.id === '00000000-0000-0000-0000-000000008942' || row.receipt_number === 'REQ-8942' || row.payment_gateway_ref === 'ORD-9842'))
+                    )) {
+                        console.log("⚡ Live Request status change in Customer Portal:", row.status);
+                        fetchRequest(true);
+                    }
                 }
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${dbTargetId}` },
+                { event: '*', schema: 'public', table: 'bookings' },
                 (payload) => {
-                    fetchRequest(true);
+                    const row = payload.new;
+                    if (row && (
+                        row.id === id || 
+                        row.booking_code === id || 
+                        (requestData?.id && row.id === requestData.id) ||
+                        (id === 'REQ-8942' && (row.booking_code === 'ORD-9842' || row.id === '00000000-0000-0000-0000-000000008942'))
+                    )) {
+                        fetchRequest(true);
+                    }
                 }
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'invoices', filter: `request_id=eq.${dbTargetId}` },
+                { event: '*', schema: 'public', table: 'invoices' },
                 (payload) => {
-                    console.log("⚡ Live Invoice update in Customer Portal:", payload.new);
-                    fetchRequest(true);
+                    const row = payload.new;
+                    if (row && (row.request_id === id || (requestData?.id && row.request_id === requestData.id))) {
+                        fetchRequest(true);
+                    }
                 }
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'payments', filter: `request_id=eq.${dbTargetId}` },
+                { event: '*', schema: 'public', table: 'payments' },
                 (payload) => {
-                    console.log("⚡ Live Payment update in Customer Portal:", payload.new);
-                    fetchRequest(true);
+                    const row = payload.new;
+                    if (row && (row.request_id === id || (requestData?.id && row.request_id === requestData.id))) {
+                        fetchRequest(true);
+                    }
                 }
             )
             .subscribe();
@@ -565,15 +645,29 @@ export default function RequestDetails() {
     const handleExtraCharge = async (decision) => {
         try {
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
-            const targetReqId = isUuid ? id : '00000000-0000-0000-0000-000000008942';
+            let targetReqId = isUuid ? id : (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestData?.id || '')) ? requestData.id : null);
 
-            try {
-                await supabase
-                    .from('service_requests')
-                    .update({ extra_charge_status: decision })
-                    .eq('id', targetReqId);
-            } catch (updErr) {
-                console.warn("Supabase extra charge decision note:", updErr);
+            if (!targetReqId) {
+                try {
+                    const { data: matched } = await supabase
+                        .from('service_requests')
+                        .select('id')
+                        .or(`receipt_number.eq.${id},payment_gateway_ref.eq.${id},customer_description.ilike.%${id}%`)
+                        .limit(1)
+                        .maybeSingle();
+                    if (matched?.id) targetReqId = matched.id;
+                } catch (e) {}
+            }
+
+            if (targetReqId) {
+                try {
+                    await supabase
+                        .from('service_requests')
+                        .update({ extra_charge_status: decision })
+                        .eq('id', targetReqId);
+                } catch (updErr) {
+                    console.warn("Supabase extra charge decision note:", updErr);
+                }
             }
 
             // Also sync in localStorage
@@ -654,7 +748,8 @@ export default function RequestDetails() {
         const s = (status || '').toLowerCase().replace(/_/g, '').trim();
         switch (s) {
             case 'pending': return { text: t('Searching for Pillar'), bg: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-            case 'accepted': case 'assigned': return { text: t('Pillar Assigned'), bg: 'bg-blue-100 text-blue-800 border-blue-200' };
+            case 'accepted': return { text: t('Pillar Accepted'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+            case 'assigned': return { text: t('Pillar Assigned'), bg: 'bg-blue-100 text-blue-800 border-blue-200' };
             case 'ontheway': case 'enroute': return { text: t('Pillar En Route'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
             case 'arrived': return { text: t('Pillar Arrived'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
             case 'inprogress': case 'working': return { text: t('Service in Progress'), bg: 'bg-purple-100 text-purple-800 border-purple-200' };
@@ -668,8 +763,13 @@ export default function RequestDetails() {
     const getStepperProgress = () => {
         if (!requestData) return -1;
         const s = (requestData.status || '').toLowerCase().replace(/_/g, '').trim();
-        if (s === 'completed') return 7; // Completed and Paid
-        if (invoiceData?.invoice_status === 'paid' || requestData.payment_status === 'completed' || requestData.payment_status === 'PAID') return 7;
+        if (s === 'completed') {
+            const isPaid = requestData.payment_status === 'completed' || requestData.payment_gateway_ref === 'HAND_CASH' || requestData.payment_gateway_ref === 'CASH-VERIFIED' || invoiceData?.invoice_status === 'paid';
+            if (isPaid && hasCustomerReviewed) return 8;
+            if (hasCustomerReviewed) return 7;
+            if (isPaid) return 8;
+            return 6;
+        }
         if (s === 'inprogress' || s === 'working') return 5;
         if (s === 'arrived') return 4;
         if (s === 'ontheway' || s === 'enroute') return 3;
@@ -686,7 +786,8 @@ export default function RequestDetails() {
         { label: 'Arrived', idx: 4 },
         { label: 'Working', idx: 5 },
         { label: 'Completed', idx: 6 },
-        { label: 'Paid', idx: 7 }
+        { label: 'Review', idx: 7 },
+        { label: 'Paid', idx: 8 }
     ];
 
     const currentBadge = statusBadge(requestData?.status || 'pending');
@@ -707,7 +808,7 @@ export default function RequestDetails() {
                             </h1>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <span className="text-[11px] font-mono font-bold text-orange-600">
-                                    Order: #{requestData.booking_code || requestData.order_code || (String(requestData.id).startsWith('REQ-') || String(requestData.id).startsWith('ORD-') ? requestData.id : `ORD-${String(requestData.id).slice(0, 8).toUpperCase()}`)}
+                                    Order: #{requestData.booking_code || requestData.receipt_number || requestData.payment_gateway_ref || (requestData.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || requestData.order_code || (String(requestData.id).startsWith('REQ-') || String(requestData.id).startsWith('ORD-') ? requestData.id : `REQ-${String(requestData.id).slice(0, 6).toUpperCase()}`)}
                                 </span>
                                 <span className="text-navy-300 text-[10px]">•</span>
                                 <span className="text-[10px] font-mono font-bold text-navy-600 bg-navy-50 px-1.5 py-0.5 rounded border border-navy-100">
@@ -722,138 +823,9 @@ export default function RequestDetails() {
                     </span>
                 </header>
 
-                {/* ─── ACTIVE LIVE ORDER SWITCHER (IF CUSTOMER HAS ANOTHER IN-PROGRESS BOOKING) ─── */}
-                {(() => {
-                    try {
-                        const created = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
-                        const activeCreated = created.find(c => c && c.id && c.id !== id && ['pending', 'assigned', 'accepted', 'on_the_way', 'in_progress', 'arrived'].includes(c.status));
-                        if (activeCreated) {
-                            return (
-                                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-3 px-4 flex items-center justify-between shadow-xs animate-fade-in">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                        <span className="relative flex h-2.5 w-2.5 shrink-0">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500"></span>
-                                        </span>
-                                        <div className="min-w-0">
-                                            <div className="text-xs font-bold text-navy-900 truncate">
-                                                Active Live Booking: #{activeCreated.booking_code || activeCreated.id}
-                                            </div>
-                                            <div className="text-[11px] text-navy-600 truncate">
-                                                {activeCreated.service_name || 'Electrical Repair'} • In Progress
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => navigate(`/requests/${activeCreated.id}`)}
-                                        className="shrink-0 ml-3 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer"
-                                    >
-                                        <span>View Live Booking</span>
-                                        <ChevronRight size={14} />
-                                    </button>
-                                </div>
-                            );
-                        }
-                    } catch(e) {}
-                    return null;
-                })()}
 
-                {/* ─── VIEW SWITCHER FOR COMPLETED BOOKINGS ─── */}
-                {requestData.status === 'completed' && (
-                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-navy-100 dark:border-slate-700 shadow-2xs">
-                        <button
-                            type="button"
-                            onClick={() => setActiveView('receipt')}
-                            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                                activeView === 'receipt'
-                                    ? 'bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-xs'
-                                    : 'text-navy-600 dark:text-slate-400 hover:text-navy-900'
-                            }`}
-                        >
-                            <FileText size={15} />
-                            <span>Official Service Receipt</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveView('journey')}
-                            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                                activeView === 'journey'
-                                    ? 'bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-xs'
-                                    : 'text-navy-600 dark:text-slate-400 hover:text-navy-900'
-                            }`}
-                        >
-                            <Navigation size={15} />
-                            <span>Service Journey History</span>
-                        </button>
-                    </div>
-                )}
-
-                {/* ─── OFFICIAL SERVICE RECEIPT (DEFAULT FOR COMPLETED REQUESTS) ─── */}
-                {requestData.status === 'completed' && activeView === 'receipt' && (
-                    <div className="space-y-4 animate-fade-in">
-                        {/* Action Bar */}
-                        <div className="flex items-center justify-between bg-navy-950 text-white p-3.5 sm:p-4 rounded-2xl shadow-sm flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                                <span className="text-xs sm:text-sm font-bold">Official Cooperative Service Receipt</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleSendEmail}
-                                    disabled={emailSending}
-                                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-all border border-white/20 cursor-pointer"
-                                >
-                                    {emailSending ? <Loader2 size={13} className="animate-spin" /> : emailSent ? <Check size={13} /> : <Mail size={13} />}
-                                    <span>{emailSent ? 'Dispatched!' : 'Email Receipt'}</span>
-                                </button>
-                                <button
-                                    onClick={handlePrint}
-                                    className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                                >
-                                    <Printer size={13} />
-                                    <span>Print / PDF</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Official Receipt Card (Customer View) */}
-                        <CoopHubServiceReceipt
-                            isPillarView={false}
-                            showCooperativeBreakdown={false}
-                            order={{
-                                ...requestData,
-                                id: id,
-                                booking_code: requestData?.booking_code || requestData?.order_code || (String(id).startsWith('REQ-') || String(id).startsWith('ORD-') ? id : `ORD-${String(id).slice(0, 6).toUpperCase()}`),
-                                service_name: serviceName,
-                                sub_service_name: subServiceName,
-                                service_id: resolveServiceCode(requestData),
-                                customer_name: displayCustomerName,
-                                customer_mobile: displayCustomerPhone,
-                                service_address: requestData?.address_line || 'Velachery, Chennai',
-                                base_amount: requestData?.amount || 450,
-                                service_charge: requestData?.service_charge || requestData?.amount || 450,
-                                materials_parts: (requestData?.materials_parts != null ? requestData.materials_parts : (requestData?.extra_charge_amount != null ? requestData.extra_charge_amount : 0)),
-                                additional_charges: (requestData?.additional_charges != null ? requestData.additional_charges : 0),
-                                subtotal: requestData?.subtotal || (Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)),
-                                gst_amount: requestData?.gst_amount || Math.round((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 0.18 * 100) / 100,
-                                total_amount: requestData?.final_amount || Math.round(((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 1.18) * 100) / 100,
-                                final_amount: requestData?.final_amount || Math.round(((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 1.18) * 100) / 100,
-                                scheduled_date: requestData?.preferred_date || '09 Sep 2026',
-                                scheduled_time: requestData?.preferred_time || '02:00 PM',
-                                payment_method: requestData?.payment_method || invoiceData?.payment_method || 'HAND CASH',
-                                payment_gateway_ref: requestData?.payment_gateway_ref || (requestData?.payment_method === 'Online Payment (UPI)' ? '[TXN000123]' : 'CASH-VERIFIED'),
-                                payment_status: (requestData?.payment_status === 'completed' || invoiceData?.invoice_status === 'paid' || requestData?.status === 'completed') ? 'PAID' : (requestData?.payment_status || 'PAID'),
-                                pillar: pillar
-                            }}
-                        />
-
-                        {/* Customer Rating & Review */}
-                        <ReviewForm requestId={id} pillarId={requestData?.pillar_id || pillar?.id} />
-                    </div>
-                )}
-
-                {/* ─── LIVE TRACKING / JOURNEY CONTENT (SHOWN WHEN ACTIVE OR JOURNEY TAB SELECTED) ─── */}
-                {(requestData.status !== 'completed' || activeView === 'journey') && (
+                {/* ─── LIVE TRACKING / JOURNEY CONTENT (ALWAYS SHOWN) ─── */}
+                {true && (
                     <div className="space-y-6 animate-fade-in">
 
                 {/* ─── LIVE STATUS JOURNEY STEPPER ─── */}
@@ -870,13 +842,21 @@ export default function RequestDetails() {
                             <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1.5 bg-navy-100 rounded-full z-0"></div>
                             <div 
                                 className="absolute left-8 top-1/2 -translate-y-1/2 h-1.5 bg-orange-500 rounded-full z-0 transition-all duration-500 shadow-xs" 
-                                style={{ width: `calc((100% - 4rem) * ${Math.max(0, Math.min(6, stepperIndex - 1)) / 6})` }}
+                                style={{ width: `calc((100% - 4rem) * ${Math.max(0, Math.min(journeySteps.length - 1, stepperIndex - 1)) / (journeySteps.length - 1)})` }}
                             ></div>
                             {journeySteps.map((step) => {
                                 const isCompleted = stepperIndex >= step.idx;
                                 const isCurrent = stepperIndex === step.idx;
                                 return (
-                                    <div key={step.idx} className="relative z-10 flex flex-col items-center group">
+                                    <div 
+                                        key={step.idx} 
+                                        onClick={() => {
+                                            if (step.idx === 7) {
+                                                document.getElementById('service-review-section')?.scrollIntoView({ behavior: 'smooth' });
+                                            }
+                                        }}
+                                        className={`relative z-10 flex flex-col items-center group ${step.idx === 7 ? 'cursor-pointer' : ''}`}
+                                    >
                                         <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 shadow-sm ${
                                             isCompleted ? 'bg-orange-500 border-orange-500 text-white font-bold' : 'bg-white border-navy-200 text-transparent'
                                         } ${isCurrent ? 'ring-4 ring-orange-500/25 scale-110 shadow-md' : ''}`}>
@@ -892,6 +872,117 @@ export default function RequestDetails() {
                             })}
                         </div>
                         <div className="h-6 sm:h-8"></div> {/* Spacing for absolute labels */}
+                    </div>
+                )}
+
+                {/* ─── COMPLETED: VIEW RECEIPT CTA & REVIEW (shown after stepper) ─── */}
+                {requestData.status === 'completed' && (
+                    <div className="space-y-4">
+                        {/* Receipt CTA Banner */}
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center border border-emerald-200 shrink-0">
+                                    <CheckCircle2 size={20} />
+                                </div>
+                                <div>
+                                    <div className="font-extrabold text-emerald-800 text-sm">Service Completed &amp; Paid ✓</div>
+                                    <div className="text-xs text-emerald-600 mt-0.5">Your official tax receipt with full itemized breakdown is ready.</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    onClick={() => setShowReceiptInline(prev => !prev)}
+                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <FileText size={14} />
+                                    <span>{showReceiptInline ? 'Hide Receipt' : 'View Receipt & Invoice'}</span>
+                                </button>
+                                <button
+                                    onClick={handlePrint}
+                                    className="px-3 py-2 rounded-xl border border-emerald-300 text-emerald-700 hover:bg-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                    <Printer size={13} />
+                                    <span>Print</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Customer Rating & Review Form (Dedicated Card) */}
+                        <div id="service-review-section" className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm animate-fade-in">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-orange-500 font-bold text-lg">★</span>
+                                <h3 className="font-bold text-navy-900 text-base">Rate &amp; Review Your Service</h3>
+                            </div>
+                            <p className="text-xs text-navy-500 mb-2">Share your experience with {pillar?.full_name || requestData?.pillar_name || 'your technician'}.</p>
+                            <ReviewForm 
+                                requestId={id} 
+                                pillarId={requestData?.pillar_id || pillar?.id} 
+                                onReviewSubmitted={() => setHasCustomerReviewed(true)}
+                            />
+                        </div>
+
+                        {/* Inline Receipt (revealed on demand) */}
+                        {showReceiptInline && (
+                            <div className="space-y-4 animate-fade-in">
+                                {/* Action Bar */}
+                                <div className="flex items-center justify-between bg-navy-950 text-white p-3.5 sm:p-4 rounded-2xl shadow-sm flex-wrap gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                                        <span className="text-xs sm:text-sm font-bold">Official Cooperative Service Receipt</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={handleSendEmail}
+                                            disabled={emailSending}
+                                            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-all border border-white/20 cursor-pointer"
+                                        >
+                                            {emailSending ? <Loader2 size={13} className="animate-spin" /> : emailSent ? <Check size={13} /> : <Mail size={13} />}
+                                            <span>{emailSent ? 'Dispatched!' : 'Email Receipt'}</span>
+                                        </button>
+                                        <button
+                                            onClick={handlePrint}
+                                            className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                                        >
+                                            <Printer size={13} />
+                                            <span>Print / PDF</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Official Receipt Card (Customer View) */}
+                                <CoopHubServiceReceipt
+                                    isPillarView={false}
+                                    showCooperativeBreakdown={false}
+                                    order={{
+                                        ...requestData,
+                                        id: id,
+                                        booking_code: requestData?.booking_code || requestData?.order_code || (String(id).startsWith('REQ-') || String(id).startsWith('ORD-') ? id : `ORD-${String(id).slice(0, 6).toUpperCase()}`),
+                                        service_name: serviceName,
+                                        sub_service_name: subServiceName,
+                                        service_id: resolveServiceCode(requestData),
+                                        customer_name: displayCustomerName,
+                                        customer_mobile: displayCustomerPhone,
+                                        service_address: requestData?.address_line || 'Velachery, Chennai',
+                                        base_amount: requestData?.amount || 450,
+                                        service_charge: requestData?.service_charge || requestData?.amount || 450,
+                                        materials_parts: (requestData?.materials_parts != null ? requestData.materials_parts : (requestData?.extra_charge_amount != null ? requestData.extra_charge_amount : 0)),
+                                        additional_charges: (requestData?.additional_charges != null ? requestData.additional_charges : 0),
+                                        subtotal: requestData?.subtotal || (Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)),
+                                        gst_amount: requestData?.gst_amount || Math.round((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 0.18 * 100) / 100,
+                                        total_amount: requestData?.final_amount || Math.round(((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 1.18) * 100) / 100,
+                                        final_amount: requestData?.final_amount || Math.round(((Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)) * 1.18) * 100) / 100,
+                                        scheduled_date: requestData?.preferred_date || '09 Sep 2026',
+                                        scheduled_time: requestData?.preferred_time || '02:00 PM',
+                                        payment_method: requestData?.payment_method || invoiceData?.payment_method || 'HAND CASH',
+                                        payment_gateway_ref: requestData?.payment_gateway_ref || (requestData?.payment_method === 'Online Payment (UPI)' ? '[TXN000123]' : 'CASH-VERIFIED'),
+                                        payment_status: (requestData?.payment_status === 'completed' || invoiceData?.invoice_status === 'paid' || requestData?.status === 'completed') ? 'PAID' : (requestData?.payment_status || 'PAID'),
+                                        pillar: pillar
+                                    }}
+                                />
+
+                                {/* Official Receipt Card (Customer View) */}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1315,8 +1406,8 @@ export default function RequestDetails() {
                     </div>
                 )}
 
-                {/* ─── INVOICE & PAYMENT SUMMARY ─── */}
-                {(requestData.status === 'completed' || invoiceData) && (
+                {/* ─── INVOICE & PAYMENT SUMMARY (ONLY SHOWN AFTER ORDER IS COMPLETED) ─── */}
+                {requestData.status === 'completed' && (
                     <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
                         {showCompletionAnimation && invoiceData?.invoice_status !== 'paid' && (
                             <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-center animate-pulse mb-4">
@@ -1331,7 +1422,8 @@ export default function RequestDetails() {
                             </div>
                         )}
                         {(() => {
-                            const isPaymentDone = invoiceData?.invoice_status === 'paid' || requestData?.payment_status === 'completed';
+                            const isOrderCompleted = requestData?.status === 'completed';
+                            const isPaymentDone = isOrderCompleted && (invoiceData?.invoice_status === 'paid' || requestData?.payment_status === 'completed');
                             const isHandCashSelected = (paymentData?.payment_method === 'HAND CASH' || requestData?.payment_gateway_ref === 'HAND_CASH');
 
                             return (
@@ -1439,10 +1531,6 @@ export default function RequestDetails() {
                     </div>
                 )}
 
-                {/* ─── OPTIONAL RATING & FEEDBACK ─── */}
-                {requestData.status === 'completed' && (
-                    <ReviewForm requestId={id} pillarId={requestData?.pillar_id || requestData?.pillar?.id} />
-                )}
 
                 {/* ─── MASKED CALL MODAL (Privacy Preserving) ─── */}
                 {callModalOpen && (
@@ -1555,6 +1643,7 @@ export default function RequestDetails() {
                 isOpen={showChatDrawer}
                 onClose={() => setShowChatDrawer(false)}
                 requestId={id}
+                order={requestData}
                 pillar={pillar || {}}
                 orderStatus={requestData?.status}
                 onChargeApproved={(newTotal) => {

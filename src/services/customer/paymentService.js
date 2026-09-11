@@ -13,71 +13,105 @@ export const paymentService = {
     getPaymentDetails: async (requestId) => {
         try {
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId || ''));
-            const targetReqId = isUuid ? requestId : '00000000-0000-0000-0000-000000008942';
+            const isHardcodedDemo = requestId === 'REQ-8942' || requestId === 'ORD-9842' || requestId === '00000000-0000-0000-0000-000000008942';
 
-            // Check localStorage invoice cache first
+            // Check localStorage invoice cache first - strictly scoped to this specific requestId
             let localInvoice = null;
             try {
                 const raw = localStorage.getItem(`coophub_invoice_${requestId}`) ||
-                            localStorage.getItem(`coophub_invoice_${targetReqId}`) ||
-                            localStorage.getItem('coophub_invoice_REQ-8942');
+                    (isHardcodedDemo ? (localStorage.getItem('coophub_invoice_REQ-8942') || localStorage.getItem('coophub_invoice_ORD-9842')) : null);
                 if (raw) localInvoice = JSON.parse(raw);
             } catch(e) {}
 
-            // Fetch invoice
-            let { data: invoice, error: invoiceErr } = await supabase
-                .from('invoices')
-                .select('*')
-                .eq('request_id', targetReqId)
-                .maybeSingle();
+            let invoice = null;
+            let payment = null;
 
-            if (invoiceErr) console.warn("Invoice query note:", invoiceErr);
+            // Dynamically query Supabase by UUID or lookup via human booking code
+            let queryId = isUuid ? requestId : null;
+            if (!queryId) {
+                try {
+                    const { data: matched } = await supabase
+                        .from('service_requests')
+                        .select('id')
+                        .or(`receipt_number.eq.${requestId},payment_gateway_ref.eq.${requestId},customer_description.ilike.%${requestId}%`)
+                        .limit(1)
+                        .maybeSingle();
+                    if (matched?.id) queryId = matched.id;
+                } catch (e) {}
+            }
+            if (!queryId && isHardcodedDemo) {
+                queryId = '00000000-0000-0000-0000-000000008942';
+            }
+
+            if (queryId) {
+                // Fetch invoice from Supabase
+                const { data: invData, error: invoiceErr } = await supabase
+                    .from('invoices')
+                    .select('*')
+                    .eq('request_id', queryId)
+                    .maybeSingle();
+
+                if (invoiceErr) console.warn("Invoice query note:", invoiceErr);
+                if (invData) invoice = invData;
+
+                // Fetch payment from Supabase
+                const { data: payData, error: paymentErr } = await supabase
+                    .from('payments')
+                    .select('*')
+                    .eq('request_id', queryId)
+                    .maybeSingle();
+
+                if (paymentErr) console.warn("Payment query note:", paymentErr);
+                if (payData) payment = payData;
+            }
+
             if (!invoice && localInvoice) invoice = localInvoice;
 
-            // Fetch payment
-            let { data: payment, error: paymentErr } = await supabase
-                .from('payments')
-                .select('*')
-                .eq('request_id', targetReqId)
-                .maybeSingle();
+            // Check if there's a local payment status override for THIS request
+            const localPaymentStatus = localStorage.getItem(`coophub_payment_status_${requestId}`);
+            const localPaymentMethod = localStorage.getItem(`coophub_payment_method_${requestId}`);
 
-            if (paymentErr) console.warn("Payment query note:", paymentErr);
+            // If we don't have an invoice yet, look up the order in local created requests or shared live orders
+            if (!invoice) {
+                let orderItem = null;
+                try {
+                    const custCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+                    const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+                    orderItem = [...custCreated, ...sharedOrders].find(o => o && (o.id === requestId || o.booking_code === requestId));
+                } catch(e) {}
 
-            // Resilient fallback from service_requests
-            if (!invoice || !payment) {
-                const { data: sReq } = await supabase
-                    .from('service_requests')
-                    .select('*')
-                    .eq('id', targetReqId)
-                    .maybeSingle();
-                
-                if (sReq) {
-                    const baseAmount = Number(sReq.final_amount || sReq.total_amount || sReq.amount || 450);
-                    const isPaid = sReq.payment_status === 'completed' || sReq.status === 'completed';
-                    const isCash = sReq.payment_gateway_ref === 'HAND_CASH' || sReq.payment_method === 'HAND CASH' || sReq.status === 'completed';
-
-                    if (!invoice) {
-                        invoice = {
-                            id: `INV-${String(requestId).slice(0, 8)}`,
-                            request_id: requestId,
-                            invoice_number: `INV-${String(requestId).slice(0, 6).toUpperCase()}-001`,
-                            base_amount: sReq.amount || 450,
-                            extra_charges: sReq.extra_charge_amount || 0,
-                            tax_amount: Math.round(baseAmount * 0.18 * 100) / 100,
-                            total_amount: baseAmount,
-                            invoice_status: isPaid ? 'paid' : 'pending'
-                        };
-                    }
-                    if (!payment && isCash) {
+                if (orderItem) {
+                    const baseAmount = Number(orderItem.final_amount || orderItem.total_amount || orderItem.amount || 450);
+                    const isOrderCompleted = orderItem.status === 'completed';
+                    const isPaid = isOrderCompleted && (localPaymentStatus === 'completed' || orderItem.payment_status === 'completed');
+                    invoice = {
+                        id: `INV-${String(requestId).slice(0, 8)}`,
+                        request_id: requestId,
+                        invoice_number: `INV-${String(requestId).replace(/[^0-9a-zA-Z]/g, '').slice(0, 6).toUpperCase()}-001`,
+                        base_amount: orderItem.amount || 450,
+                        extra_charges: orderItem.extra_charge_amount || 0,
+                        tax_amount: Math.round(baseAmount * 0.18 * 100) / 100,
+                        total_amount: baseAmount,
+                        invoice_status: isPaid ? 'paid' : 'pending',
+                        payment_method: localPaymentMethod || orderItem.payment_method || (isPaid ? 'HAND CASH' : null)
+                    };
+                    if (isPaid && !payment) {
                         payment = {
                             id: `PAY-${String(requestId).slice(0, 8)}`,
                             request_id: requestId,
-                            payment_method: 'HAND CASH',
-                            payment_status: isPaid ? 'completed' : 'pending',
+                            payment_method: localPaymentMethod || orderItem.payment_method || 'HAND CASH',
+                            payment_status: 'completed',
                             amount: baseAmount
                         };
                     }
                 }
+            }
+
+            if (invoice && localPaymentStatus) {
+                invoice.invoice_status = localPaymentStatus === 'completed' ? (invoice.invoice_status === 'paid' ? 'paid' : 'pending') : localPaymentStatus;
+            }
+            if (invoice && localPaymentMethod) {
+                invoice.payment_method = localPaymentMethod;
             }
 
             return { invoice, payment };
@@ -228,15 +262,25 @@ export const paymentService = {
                 // Backend server unreachable in local dev mode; proceed with resilient fallback
             }
 
-            const targetUuid = (typeof requestId === 'string' && requestId.length < 15 && /^\d+$/.test(requestId))
-                ? `00000000-0000-0000-0000-${requestId.padStart(12, '0')}`
-                : (requestId === 'REQ-8942' || requestId === 'ORD-9842' ? '00000000-0000-0000-0000-000000008942' : requestId);
+            let targetUuid = (typeof requestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) ? requestId : null;
+
+            if (!targetUuid) {
+                try {
+                    const { data: matched } = await supabase
+                        .from('service_requests')
+                        .select('id')
+                        .or(`receipt_number.eq.${requestId},payment_gateway_ref.eq.${requestId},customer_description.ilike.%${requestId}%`)
+                        .limit(1)
+                        .maybeSingle();
+                    if (matched?.id) targetUuid = matched.id;
+                } catch (e) {}
+            }
 
             try {
                 localStorage.setItem(`coophub_payment_method_${requestId}`, 'HAND CASH');
-                localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'HAND CASH');
+                if (targetUuid) localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'HAND CASH');
                 localStorage.setItem(`coophub_payment_status_${requestId}`, 'pending');
-                localStorage.setItem(`coophub_payment_status_${targetUuid}`, 'pending');
+                if (targetUuid) localStorage.setItem(`coophub_payment_status_${targetUuid}`, 'pending');
             } catch (e) {}
 
             return { success: true, method: 'HAND CASH' };
@@ -267,11 +311,21 @@ export const paymentService = {
                 // Backend server offline in dev mode; proceed with direct Supabase & local sync
             }
 
-            const targetUuid = (typeof requestId === 'string' && requestId.length < 15 && /^\d+$/.test(requestId))
-                ? `00000000-0000-0000-0000-${requestId.padStart(12, '0')}`
-                : (requestId === 'REQ-8942' || requestId === 'ORD-9842' ? '00000000-0000-0000-0000-000000008942' : requestId);
+            let targetUuid = (typeof requestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) ? requestId : null;
 
-            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(targetUuid || ''));
+            if (!targetUuid) {
+                try {
+                    const { data: matched } = await supabase
+                        .from('service_requests')
+                        .select('id')
+                        .or(`receipt_number.eq.${requestId},payment_gateway_ref.eq.${requestId},customer_description.ilike.%${requestId}%`)
+                        .limit(1)
+                        .maybeSingle();
+                    if (matched?.id) targetUuid = matched.id;
+                } catch (e) {}
+            }
+
+            const isUuid = !!targetUuid;
 
             // 1. Direct Supabase update
             if (isUuid) {
@@ -301,8 +355,10 @@ export const paymentService = {
             // 2. Synchronize all local storage keys for instantaneous cross-component reflection
             try {
                 localStorage.setItem(`coophub_payment_status_${requestId}`, 'completed');
-                localStorage.setItem(`coophub_payment_status_${targetUuid}`, 'completed');
+                if (targetUuid) localStorage.setItem(`coophub_payment_status_${targetUuid}`, 'completed');
                 localStorage.setItem(`coophub_payment_method_${requestId}`, 'HAND CASH');
+                if (targetUuid) localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'HAND CASH');
+
                 localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'HAND CASH');
                 localStorage.setItem(`coophub_status_${requestId}`, 'completed');
                 localStorage.setItem(`coophub_status_${targetUuid}`, 'completed');

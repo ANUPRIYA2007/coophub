@@ -1118,11 +1118,11 @@ export const adminService = {
       if (sReqs && sReqs.length > 0) {
         const mappedReqs = sReqs.map(r => ({
           id: r.id,
-          order_code: r.order_code || 'REQ-' + r.id.substring(0, 6).toUpperCase(),
+          order_code: r.receipt_number || r.payment_gateway_ref || (r.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || r.order_code || 'REQ-' + r.id.substring(0, 6).toUpperCase(),
           service_name: r.service?.name || r.category || r.service_name || 'Electrical / Home Service',
           category: r.service?.category || r.category || 'Service',
-          customer_name: r.customer_name || 'Verified Customer',
-          customer_phone: r.customer_phone || '+91 98401 23456',
+          customer_name: r.customer_name || (r.customer_description?.match(/Customer:\s*([^|\]]+)/i)?.[1]?.trim()) || 'Verified Customer',
+          customer_phone: r.customer_phone || (r.customer_description?.match(/Phone:\s*([^|\]]+)/i)?.[1]?.trim()) || '+91 98401 23456',
           customer_address: [r.address_line, r.area, r.city].filter(Boolean).join(', ') || 'Chennai Central Hub',
           status: r.status || 'pending',
           amount: r.amount || r.final_amount || 450,

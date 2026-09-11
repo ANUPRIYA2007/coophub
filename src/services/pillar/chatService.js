@@ -1,4 +1,5 @@
 import { supabase } from "../../lib/supabase";
+import { jobCommunicationService } from "../communication/jobCommunicationService";
 
 export const pillarChatService = {
   // Fetch active conversations/orders for a pillar
@@ -9,6 +10,9 @@ export const pillarChatService = {
         .from("service_requests")
         .select(`
           id,
+          receipt_number,
+          payment_gateway_ref,
+          customer_description,
           status,
           created_at,
           address_line,
@@ -22,7 +26,11 @@ export const pillarChatService = {
         .order("created_at", { ascending: false });
 
       if (pillarId && pillarId !== "00000000-0000-0000-0000-000000000000") {
-        sReqQuery = sReqQuery.or(`pillar_id.eq.${pillarId},and(pillar_id.is.null,status.in.(pending,accepted,on_the_way,in_progress,arrived))`);
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pillarId)) {
+          sReqQuery = sReqQuery.or(`pillar_id.eq.${pillarId},and(pillar_id.is.null,status.in.(pending,accepted,on_the_way,in_progress,arrived))`);
+        } else {
+          sReqQuery = sReqQuery.or(`status.in.(pending,accepted,on_the_way,in_progress,arrived)`);
+        }
       }
 
       const { data: serviceReqs } = await sReqQuery.limit(20);
@@ -66,9 +74,10 @@ export const pillarChatService = {
         const mapped = serviceReqs.map(r => {
           const cust = customerMap[r.customer_id] || {};
           const serviceTitle = r.services?.name || r.sub_services?.name || "Home Repair Service";
+          const orderCode = r.receipt_number || r.payment_gateway_ref || (r.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || (String(r.id).startsWith("REQ-") || String(r.id).startsWith("ORD-") ? r.id : "REQ-" + r.id.substring(0, 6).toUpperCase());
           return {
             id: r.id,
-            booking_code: "REQ-" + r.id.substring(0, 6).toUpperCase(),
+            booking_code: orderCode,
             service_name: serviceTitle,
             customer_name: cust.name || "Customer (" + (r.area || r.city || "Client") + ")",
             customer_mobile: cust.mobile || "+91 98401 23456",
@@ -143,18 +152,6 @@ export const pillarChatService = {
         });
       } catch (e) {}
 
-      if (!demoList.some(d => d.id === 'REQ-8942')) {
-        demoList.push({
-          id: 'REQ-8942',
-          booking_code: 'REQ-8942',
-          service_name: 'Electrical Repair',
-          customer_name: 'Anupriya Murugan',
-          customer_mobile: '+91 98401 23456',
-          status: 'in_progress',
-          created_at: new Date().toISOString()
-        });
-      }
-
       const combined = [...(bookings || []), ...demoList];
       const seen = new Set();
       const deduped = combined.filter(c => {
@@ -172,82 +169,18 @@ export const pillarChatService = {
 
   // Fetch messages for a specific booking / request
   async getMessages(bookingId) {
-    try {
-      if (!bookingId) return { data: [], error: null };
-
-      let query = supabase
-        .from("messages")
-        .select("*")
-        .order("created_at", { ascending: true });
-
-      query = query.or(`request_id.eq.${bookingId},booking_id.eq.${bookingId}`);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return { 
-        data: (data || []).map(m => ({ 
-          ...m, 
-          content: m.content || m.message || '',
-          message: m.message || m.content || '',
-          text: m.content || m.message || ''
-        })), 
-        error: null 
-      };
-    } catch (error) {
-      console.error("Chat fetch error:", error);
-      return { data: [], error };
-    }
+    return jobCommunicationService.getMessages(bookingId);
   },
 
   // Send a message
   async sendMessage(bookingId, senderId, senderType, messageText) {
-    try {
-      const cleanText = (messageText || '').trim();
-      if (!cleanText) return { data: null, error: 'Empty message' };
-
-      // Crucial: Set request_id to bookingId (since orders are in service_requests).
-      // Leave booking_id as null to prevent foreign key violation messages_booking_id_fkey.
-      const payload = {
-        request_id: bookingId,
-        booking_id: null,
-        sender_type: senderType || 'pillar',
-        content: cleanText,
-        message: cleanText,
-        message_type: 'TEXT',
-        is_read: false,
-        read: false,
-        created_at: new Date().toISOString()
-      };
-
-      if (senderId && typeof senderId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(senderId)) {
-        payload.sender_id = senderId;
-      }
-
-      const { data, error } = await supabase
-        .from("messages")
-        .insert([payload])
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Send message error from Supabase:", error);
-        throw error;
-      }
-
-      return { 
-        data: {
-          ...data,
-          content: data.content || data.message,
-          message: data.message || data.content,
-          text: data.content || data.message
-        }, 
-        error: null 
-      };
-    } catch (error) {
-      console.error("Send message error:", error);
-      return { data: null, error };
-    }
+    return jobCommunicationService.sendMessage({
+      requestId: bookingId,
+      senderId,
+      senderType: senderType || 'pillar',
+      content: messageText,
+      messageType: 'TEXT'
+    });
   },
 
   // Subscribe to live messages for a specific booking / request

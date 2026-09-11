@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { jobCommunicationService, subscribeToMessages } from "../../services/communication/jobCommunicationService";
+import { jobCommunicationService, subscribeToMessages, registerOrderUuid } from "../../services/communication/jobCommunicationService";
 import { useAuth } from "../../context/AuthContext";
 import { 
   Send, X, Phone, AlertTriangle, ShieldCheck, Check, CheckCheck, 
@@ -10,6 +10,7 @@ export default function CustomerChatDrawer({
   isOpen, 
   onClose, 
   requestId, 
+  order = null,
   pillar = {},
   orderStatus = "assigned",
   onChargeApproved = () => {}
@@ -25,24 +26,36 @@ export default function CustomerChatDrawer({
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
   const messagesEndRef = useRef(null);
 
+  const effectiveId = order?.id || requestId;
+
+  // Pre-seed the code-to-UUID cache as soon as order is known
+  useEffect(() => {
+    if (order?.id) {
+      if (requestId) registerOrderUuid(requestId, order.id);
+      if (order.order_id) registerOrderUuid(order.order_id, order.id);
+      if (order.receipt_number) registerOrderUuid(order.receipt_number, order.id);
+      if (order.booking_code) registerOrderUuid(order.booking_code, order.id);
+    }
+  }, [order, requestId]);
+
   const fetchChatMessages = async () => {
-    if (!requestId) return;
+    if (!effectiveId) return;
     setLoading(true);
-    const { data } = await jobCommunicationService.getMessages(requestId);
+    const { data } = await jobCommunicationService.getMessages(effectiveId);
     setMessages(data || []);
     setLoading(false);
     // Mark messages as read by customer
-    jobCommunicationService.markAsRead(requestId, 'customer');
+    jobCommunicationService.markAsRead(effectiveId, 'customer');
   };
 
   useEffect(() => {
-    if (!isOpen || !requestId) return;
+    if (!isOpen || !effectiveId) return;
     fetchChatMessages();
 
-    // Background silent polling (every 2.5s) to guarantee real-time updates across different browsers
+    // Background silent polling (every 2s) to guarantee real-time updates across different browsers
     const pollInterval = setInterval(async () => {
       try {
-        const { data } = await jobCommunicationService.getMessages(requestId);
+        const { data } = await jobCommunicationService.getMessages(effectiveId);
         if (data && Array.isArray(data)) {
           setMessages(prev => {
             if (data.length !== prev.length || (data.length > 0 && prev.length > 0 && data[data.length - 1].id !== prev[prev.length - 1].id)) {
@@ -52,10 +65,10 @@ export default function CustomerChatDrawer({
           });
         }
       } catch (pe) {}
-    }, 2500);
+    }, 2000);
 
     // Subscribe to realtime messages (INSERT & UPDATE)
-    const unsubscribe = subscribeToMessages(requestId, {
+    const unsubscribe = subscribeToMessages(effectiveId, {
       onInsert: (newMsg) => {
         setMessages(prev => {
           if (prev.some(m => m.id === newMsg.id)) return prev;
@@ -63,7 +76,7 @@ export default function CustomerChatDrawer({
         });
         // Mark incoming messages from pillar as read
         if (newMsg.sender_type !== 'customer') {
-          jobCommunicationService.markAsRead(requestId, 'customer');
+          jobCommunicationService.markAsRead(effectiveId, 'customer');
         }
       },
       onUpdate: (updatedMsg) => {
@@ -83,7 +96,7 @@ export default function CustomerChatDrawer({
         unsubscribe();
       }
     };
-  }, [isOpen, requestId]);
+  }, [isOpen, effectiveId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -100,7 +113,7 @@ export default function CustomerChatDrawer({
     const optimisticId = 'temp-' + Date.now();
     const optimisticMsg = {
       id: optimisticId,
-      request_id: requestId,
+      request_id: effectiveId,
       sender_type: 'customer',
       content: text,
       message: text,
@@ -112,11 +125,15 @@ export default function CustomerChatDrawer({
     setMessages(prev => [...prev, optimisticMsg]);
 
     const res = await jobCommunicationService.sendMessage({
-      requestId,
+      requestId: effectiveId,
       senderId: user?.id,
       senderType: 'customer',
       content: text,
-      messageType: 'TEXT'
+      messageType: 'TEXT',
+      metadata: {
+        original_request_id: requestId,
+        order_code: order?.order_id || order?.booking_code || requestId
+      }
     });
 
     if (res?.data) {
@@ -129,7 +146,7 @@ export default function CustomerChatDrawer({
   const handleRespondToExtraCharge = async (action) => {
     try {
       const res = await jobCommunicationService.respondToExtraCharge({
-        requestId,
+        requestId: effectiveId,
         customerId: user?.id,
         action
       });
@@ -148,7 +165,7 @@ export default function CustomerChatDrawer({
     setIsSubmittingIssue(true);
     try {
       await jobCommunicationService.reportCustomerIssue({
-        requestId,
+        requestId: effectiveId,
         customerId: user?.id,
         category: issueCategory,
         description: issueDescription.trim()

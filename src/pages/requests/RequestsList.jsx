@@ -45,17 +45,46 @@ export default function RequestsList() {
     const [selectedReceiptOrder, setSelectedReceiptOrder] = useState(null);
 
     useEffect(() => {
-        const fetchRequests = async () => {
+        const fetchRequests = async (silent = false) => {
             try {
                 const data = await serviceRequestService.getCustomerRequests();
                 setRequests(data || []);
             } catch (err) {
-                setError(err.message);
+                if (!silent) setError(err.message);
             } finally {
                 setLoading(false);
             }
         };
+
         fetchRequests();
+
+        // Live BroadcastChannel: update list instantly when pillar marks any order complete/paid
+        let bc = null;
+        try {
+            if (typeof BroadcastChannel !== 'undefined') {
+                bc = new BroadcastChannel('coophub_orders_sync');
+                bc.onmessage = () => fetchRequests(true);
+            }
+        } catch (e) {}
+
+        // Storage event for cross-tab updates
+        const onStorage = (e) => {
+            if (!e.key || e.key.startsWith('coophub_status_') || e.key === 'coophub_last_order_event') {
+                fetchRequests(true);
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        window.addEventListener('coophub_order_updated', () => fetchRequests(true));
+        window.addEventListener('coophub_order_status_updated', () => fetchRequests(true));
+
+        // Background poll every 5s to keep statuses current
+        const poll = setInterval(() => fetchRequests(true), 5000);
+
+        return () => {
+            if (bc) { try { bc.close(); } catch(e){} }
+            window.removeEventListener('storage', onStorage);
+            clearInterval(poll);
+        };
     }, [profile]);
 
     const activeStatuses = [...new Set(requests.map(r => r.status))].filter(Boolean);
@@ -250,11 +279,14 @@ export default function RequestsList() {
                                 const statusConfig = getStatusConfig(req.status);
                                 const StatusIcon = statusConfig.icon;
 
-                                const orderCode = req.booking_code || req.order_code || (
-                                    String(req.id).startsWith('REQ-') || String(req.id).startsWith('ORD-') 
-                                        ? req.id 
-                                        : `ORD-${String(req.id).substring(0, 8).toUpperCase()}`
-                                );
+                                const orderCode = req.booking_code || 
+                                                  req.receipt_number || 
+                                                  req.payment_gateway_ref || 
+                                                  req.order_code || 
+                                                  (req.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || 
+                                                  (String(req.id).startsWith('REQ-') || String(req.id).startsWith('ORD-') 
+                                                      ? req.id 
+                                                      : `REQ-${String(req.id).substring(0, 6).toUpperCase()}`);
 
                                 const serviceCode = resolveServiceCode(req);
                                 const pillarName = req.pillar?.full_name || req.pillar_name || null;
@@ -268,7 +300,7 @@ export default function RequestsList() {
                                             if (isCompleted) {
                                                 setSelectedReceiptOrder(req);
                                             } else {
-                                                navigate(`/requests/${req.id}`);
+                                                navigate(`/requests/${orderCode || req.id}`);
                                             }
                                         }} 
                                         className="bg-white rounded-2xl p-5 sm:p-6 border border-navy-100/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-navy-200 transition-all duration-200 cursor-pointer relative overflow-hidden group"

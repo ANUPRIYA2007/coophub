@@ -1,5 +1,6 @@
-import { supabase } from '../../lib/supabase';
-import { emailService } from '../email/emailService';
+import { supabase } from '../../lib/supabase.js';
+import { emailService } from '../email/emailService.js';
+import { idGenerator } from '../../utils/idGenerator.js';
 
 // Rich Demo Requests for Customer Demo Login mode
 const DEMO_REQUESTS = [
@@ -249,7 +250,7 @@ export const serviceRequestService = {
         let assignedPillarCode = requestData.pillar_code || null;
 
         try {
-            const { matchingService } = await import('../ai/matchingService');
+            const { matchingService } = await import('../ai/matchingService.js');
             const matchRes = await matchingService.matchWorkforceForRequest({
                 service_id: validServiceId,
                 service_name: requestData.service_name,
@@ -274,17 +275,26 @@ export const serviceRequestService = {
         }
 
         // 6. Format customer contact details inside description so Pillar always sees it
+        const humanOrderId = requestData.order_id || requestData.booking_code || (await idGenerator.generateRequestCode());
         const customNotes = requestData.customer_description || requestData.description || 'Standard service request';
-        const formattedDescription = `[Customer: ${customerName} | Phone: ${customerPhone}] ${customNotes}`;
+        const formattedDescription = `[Order: ${humanOrderId} | Customer: ${customerName} | Phone: ${customerPhone}] ${customNotes}`;
+
+        // Ensure customer_id is a valid registered auth UUID or null to prevent foreign key errors
+        let safeCustomerId = validCustomerId;
+        if (safeCustomerId === '11111111-1111-1111-1111-111111111111' || safeCustomerId === '00000000-0000-0000-0000-000000000000') {
+            safeCustomerId = null;
+        }
 
         // 7. Construct payload for Supabase database insertion
         const payload = {
-            customer_id: validCustomerId,
+            customer_id: safeCustomerId,
             service_id: validServiceId,
             sub_service_id: validSubServiceId,
             pillar_id: assignedPillarId,
             status: assignedPillarId ? 'assigned' : 'pending',
             arrival_otp: arrivalOtp,
+            receipt_number: humanOrderId,
+            payment_gateway_ref: humanOrderId,
             location_type: requestData.location_type || 'manual',
             address_line: requestData.address_line || null,
             area: requestData.area || 'Guindy',
@@ -307,23 +317,36 @@ export const serviceRequestService = {
 
         // Try inserting into Supabase database (triggers Supabase Realtime across all browsers)
         try {
-            const { data, error } = await supabase
+            let { data, error } = await supabase
                 .from('service_requests')
                 .insert([payload])
                 .select('*')
                 .single();
 
+            // If foreign key constraint failed on customer_id, retry immediately with null
+            if (error && (error.code === '23503' || error.message?.includes('foreign key constraint'))) {
+                console.warn("Retrying insert with customer_id: null...");
+                payload.customer_id = null;
+                const retryRes = await supabase
+                    .from('service_requests')
+                    .insert([payload])
+                    .select('*')
+                    .single();
+                data = retryRes.data;
+                error = retryRes.error;
+            }
+
             if (!error && data) {
-                createdId = data.id;
+                createdId = humanOrderId; // Primary identifier returned for routing and display
                 createdRecord = data;
-                console.log("⚡ Live Supabase order created successfully:", createdId);
+                console.log("⚡ Live Supabase order created successfully:", data.id, humanOrderId);
 
                 // Mirror to bookings table with service_id for unified order tracking
                 try {
                     await supabase.from('bookings').insert([{
                         id: data.id,
-                        booking_code: 'ORD-' + String(data.id).substring(0, 6).toUpperCase(),
-                        customer_id: validCustomerId,
+                        booking_code: humanOrderId,
+                        customer_id: payload.customer_id,
                         pillar_id: assignedPillarId,
                         service_id: validServiceId,
                         sub_service_id: validSubServiceId,
@@ -349,16 +372,16 @@ export const serviceRequestService = {
             console.warn("Database insert catch:", dbErr);
         }
 
-        // Fallback ID if offline / constraint
         if (!createdId) {
-            createdId = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
+            createdId = humanOrderId;
         }
 
         // 8. Construct rich standard order object
         const fullOrderObj = {
             id: createdId,
             order_id: createdId,
-            booking_code: String(createdId).startsWith('REQ-') ? createdId : 'REQ-' + String(createdId).substring(0, 6).toUpperCase(),
+            booking_code: createdId,
+            db_id: createdRecord?.id || createdId,
             status: assignedPillarId ? 'assigned' : 'pending',
             created_at: new Date().toISOString(),
             customer_id: validCustomerId,
@@ -402,10 +425,16 @@ export const serviceRequestService = {
             pillar_name: assignedPillarName,
             pillar_code: assignedPillarCode,
             pillar: requestData.pillar || (assignedPillarId ? { id: assignedPillarId, full_name: assignedPillarName, pillar_code: assignedPillarCode } : null),
-            attachments: requestData.attachments || [],
-            photo_urls: (requestData.attachments || []).map(a => typeof a === 'object' ? (a.url || a.previewUrl) : a).filter(Boolean),
             ...(createdRecord || {})
         };
+
+        // Guarantee humanOrderId is the primary identifier across all local and shared stores
+        fullOrderObj.id = createdId;
+        fullOrderObj.order_id = createdId;
+        fullOrderObj.booking_code = createdId;
+        fullOrderObj.receipt_number = createdId;
+        fullOrderObj.payment_gateway_ref = createdId;
+        fullOrderObj.db_id = createdRecord?.id || createdId;
 
         // Guarantee attachments is not overwritten by null createdRecord property
         if (!fullOrderObj.attachments || fullOrderObj.attachments.length === 0) {
@@ -431,17 +460,55 @@ export const serviceRequestService = {
             localStorage.setItem('coophub_last_order_event', JSON.stringify({ id: createdId, time: Date.now() }));
         } catch (sErr) {}
 
-        // 10. Multi-channel instant broadcast across all tabs and windows
+        // 10. Record Pillar Notification
+        const pillarNotification = {
+            id: `notif-booking-${createdId}`,
+            title: `New Booking Request: ${requestData.service_name || 'Home Service'}`,
+            message: `New booking #${fullOrderObj.booking_code} received from ${customerName} at ${fullOrderObj.service_address}. Amount: ₹${fullOrderObj.total_amount}`,
+            type: 'booking_new',
+            role: 'pillar',
+            pillar_id: assignedPillarId || 'PIL-CHE-042',
+            pillar_code: assignedPillarCode || 'PIL-CHE-042',
+            order_id: createdId,
+            order: fullOrderObj,
+            created_at: new Date().toISOString(),
+            is_read: false
+        };
+
+        try {
+            // A. Save to localStorage pillar notifications
+            const pillarNotifs = JSON.parse(localStorage.getItem('coophub_pillar_notifications') || '[]');
+            pillarNotifs.unshift(pillarNotification);
+            localStorage.setItem('coophub_pillar_notifications', JSON.stringify(pillarNotifs.slice(0, 30)));
+            localStorage.setItem('coophub_latest_pillar_notification', JSON.stringify(pillarNotification));
+
+            // B. Also attempt insert into remote Supabase notifications table
+            supabase.from('notifications').insert([{
+                title: pillarNotification.title,
+                message: pillarNotification.message,
+                type: 'booking_new',
+                created_at: new Date().toISOString(),
+                is_read: false
+            }]).then(() => {}).catch(() => {});
+        } catch (nErr) {}
+
+        // 11. Multi-channel instant broadcast across all tabs and windows
         try {
             if (typeof BroadcastChannel !== 'undefined') {
                 const bc = new BroadcastChannel('coophub_orders_sync');
-                bc.postMessage({ type: 'NEW_ORDER', order: fullOrderObj, timestamp: Date.now() });
+                bc.postMessage({ 
+                    type: 'NEW_ORDER', 
+                    order: fullOrderObj, 
+                    notification: pillarNotification,
+                    timestamp: Date.now() 
+                });
                 setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
             }
         } catch (bcErr) {}
 
         try {
             window.dispatchEvent(new CustomEvent('coophub_order_created', { detail: fullOrderObj }));
+            window.dispatchEvent(new CustomEvent('coophub_notifications_updated', { detail: pillarNotification }));
         } catch (we) {}
 
         // 11. Send Confirmation Email (async)
@@ -501,6 +568,12 @@ export const serviceRequestService = {
                     item.service_code = 'SRV-ELEC-101';
                 }
             }
+            if (!item.booking_code) {
+                item.booking_code = item.receipt_number || item.payment_gateway_ref || (item.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || (String(item.id).startsWith('REQ-') || String(item.id).startsWith('ORD-') ? item.id : 'REQ-' + String(item.id).slice(0, 6).toUpperCase());
+            }
+            if (!item.order_id) {
+                item.order_id = item.booking_code;
+            }
             if (item.status === 'inProgress') {
                 item.status = 'in_progress';
             }
@@ -512,170 +585,99 @@ export const serviceRequestService = {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId || ''));
         const targetReqId = isUuid ? requestId : '00000000-0000-0000-0000-000000008942';
 
-        // Check for any explicit status override in localStorage (e.g. from Pillar OTP verification or completion)
-        let localStatusOverride = 
-            localStorage.getItem(`coophub_status_${requestId}`) ||
-            (requestId === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null) ||
-            (requestId === 'ORD-9842' ? localStorage.getItem('coophub_status_REQ-8942') : null) ||
-            localStorage.getItem('coophub_status_00000000-0000-0000-0000-000000008942');
+        const normReqId = String(requestId || '').trim();
+        const altReqId = normReqId.replace(/^RFQ-/i, 'REQ-');
+        const altRfqId = normReqId.replace(/^REQ-/i, 'RFQ-');
+        const isDemoHardcodedId = normReqId === 'REQ-8942' || normReqId === 'RFQ-8942' || normReqId === 'ORD-9842' || normReqId === '00000000-0000-0000-0000-000000008942' || normReqId.includes('8942');
 
-        // Check Supabase for real-time status updates from other devices/browsers
-        let dbDemoRecord = null;
-        if (!isUuid) {
+        // Check for any explicit status override in localStorage (scoped strictly to THIS requestId or its aliases)
+        const localStatusOverride =
+            localStorage.getItem(`coophub_status_${normReqId}`) ||
+            localStorage.getItem(`coophub_status_${altReqId}`) ||
+            localStorage.getItem(`coophub_status_${altRfqId}`) ||
+            (isDemoHardcodedId ? (
+                localStorage.getItem('coophub_status_RFQ-8942') ||
+                localStorage.getItem('coophub_status_REQ-8942') ||
+                localStorage.getItem('coophub_status_ORD-9842') ||
+                localStorage.getItem('coophub_status_00000000-0000-0000-0000-000000008942')
+            ) : null);
+
+        const localCancelReason =
+            localStorage.getItem(`coophub_cancel_reason_${normReqId}`) ||
+            localStorage.getItem(`coophub_cancel_reason_${altReqId}`) ||
+            (isDemoHardcodedId ? (
+                localStorage.getItem('coophub_cancel_reason_RFQ-8942') ||
+                localStorage.getItem('coophub_cancel_reason_REQ-8942') ||
+                localStorage.getItem('coophub_cancel_reason_ORD-9842') ||
+                localStorage.getItem('coophub_cancel_reason_00000000-0000-0000-0000-000000008942')
+            ) : null);
+
+        // Check shared live orders
+        let sharedOrderMatch = null;
+        try {
+            const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+            sharedOrderMatch = shared.find(o => 
+                o && (
+                    o.id === normReqId || 
+                    o.id === altReqId || 
+                    o.booking_code === normReqId || 
+                    o.booking_code === altReqId ||
+                    (o.db_id && o.db_id === normReqId) ||
+                    (isDemoHardcodedId && (o.id === 'ORD-9842' || o.id === 'REQ-8942'))
+                )
+            );
+        } catch (e) {}
+
+        // 1. LIVE SUPABASE DATABASE QUERY (Authoritative Source of Truth)
+        let data = null;
+        try {
+            let sReqQuery = supabase
+                .from('service_requests')
+                .select(`
+                    *,
+                    services (id, name, name_translations),
+                    sub_services (id, name, name_translations)
+                `);
+
+            if (isUuid) {
+                sReqQuery = sReqQuery.eq('id', requestId);
+            } else {
+                sReqQuery = sReqQuery.or(`receipt_number.eq.${requestId},payment_gateway_ref.eq.${requestId},customer_description.ilike.%${requestId}%,id.eq.${isDemoHardcodedId ? '00000000-0000-0000-0000-000000008942' : '00000000-0000-0000-0000-000000000000'}`);
+            }
+
+            const { data: fullData } = await sReqQuery.maybeSingle();
+            if (fullData) {
+                data = fullData;
+            }
+        } catch (e) {
+            console.warn("Live Supabase join fetch note:", e);
+        }
+
+        if (!data) {
             try {
-                const { data: dbDemo } = await supabase
-                    .from('service_requests')
-                    .select('status, arrival_otp, final_amount, extra_charge_amount, extra_charge_reason, extra_charge_status')
-                    .eq('id', '00000000-0000-0000-0000-000000008942')
-                    .maybeSingle();
-                if (dbDemo?.status) {
-                    dbDemoRecord = dbDemo;
-                    localStatusOverride = dbDemo.status;
+                let simpleQuery = supabase.from('service_requests').select('*');
+                if (isUuid) {
+                    simpleQuery = simpleQuery.eq('id', requestId);
+                } else {
+                    simpleQuery = simpleQuery.or(`receipt_number.eq.${requestId},payment_gateway_ref.eq.${requestId},customer_description.ilike.%${requestId}%,id.eq.${isDemoHardcodedId ? '00000000-0000-0000-0000-000000008942' : '00000000-0000-0000-0000-000000000000'}`);
+                }
+                const { data: simpleData } = await simpleQuery.maybeSingle();
+                if (simpleData) {
+                    data = simpleData;
                 }
             } catch (e) {}
         }
 
-        // Also check coophub_shared_live_orders for any updated status
-        let sharedOrderMatch = null;
-        try {
-            const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
-            sharedOrderMatch = shared.find(o => o.id === requestId || o.booking_code === requestId || (requestId === 'REQ-8942' && o.id === 'ORD-9842'));
-        } catch(e) {}
-
-        const isCustomOrDemoId = isDemo || 
-            String(requestId).startsWith('REQ-') || 
-            String(requestId).startsWith('ORD-') || 
-            !isUuid;
-
-        // 🧪 DEMO / LOCAL MODE: Match from static demo list or created items
-        if (isCustomOrDemoId) {
-            const userCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
-            const allDemo = [...userCreated, ...DEMO_REQUESTS];
-            let found = allDemo.find(r => r.id === requestId || r.booking_code === requestId);
-            if (!found && (requestId === 'REQ-8942' || requestId === 'ORD-9842')) {
-                found = DEMO_REQUESTS[0];
-            }
-            if (!found) found = allDemo[0];
-
-            if (found) {
-                const copy = { ...found };
-                if (localStatusOverride) {
-                    copy.status = localStatusOverride === 'inProgress' ? 'in_progress' : localStatusOverride;
-                } else if (sharedOrderMatch?.status) {
-                    copy.status = sharedOrderMatch.status === 'inProgress' ? 'in_progress' : sharedOrderMatch.status;
-                }
-                if (dbDemoRecord?.final_amount) {
-                    copy.final_amount = dbDemoRecord.final_amount;
-                }
-                if (dbDemoRecord?.payment_status) {
-                    copy.payment_status = dbDemoRecord.payment_status;
-                }
-                if (dbDemoRecord?.payment_method) {
-                    copy.payment_method = dbDemoRecord.payment_method;
-                }
-                if (dbDemoRecord?.payment_gateway_ref) {
-                    copy.payment_gateway_ref = dbDemoRecord.payment_gateway_ref;
-                }
-                if (dbDemoRecord?.materials_parts !== undefined) {
-                    copy.materials_parts = dbDemoRecord.materials_parts;
-                }
-                if (dbDemoRecord?.additional_charges !== undefined) {
-                    copy.additional_charges = dbDemoRecord.additional_charges;
-                }
-                if (dbDemoRecord?.subtotal) {
-                    copy.subtotal = dbDemoRecord.subtotal;
-                }
-                if (dbDemoRecord?.gst_amount) {
-                    copy.gst_amount = dbDemoRecord.gst_amount;
-                }
-
-                // Check local payment override
-                try {
-                    const localPayment = localStorage.getItem(`coophub_payment_status_${requestId}`) ||
-                        (requestId === 'REQ-8942' ? localStorage.getItem('coophub_payment_status_ORD-9842') : null) ||
-                        (requestId === 'ORD-9842' ? localStorage.getItem('coophub_payment_status_REQ-8942') : null);
-                    if (localPayment) copy.payment_status = localPayment;
-
-                    const localMethod = localStorage.getItem(`coophub_payment_method_${requestId}`) ||
-                        (requestId === 'REQ-8942' ? localStorage.getItem('coophub_payment_method_ORD-9842') : null) ||
-                        (requestId === 'ORD-9842' ? localStorage.getItem('coophub_payment_method_REQ-8942') : null);
-                    if (localMethod) copy.payment_method = localMethod;
-                } catch(e) {}
-
-                // Apply extra charge ONLY if the pillar technician actually added one
-                try {
-                    const extraKey = localStorage.getItem(`coophub_extra_charge_${requestId}`) ||
-                        (requestId === 'REQ-8942' ? localStorage.getItem('coophub_extra_charge_ORD-9842') : null) ||
-                        (requestId === 'ORD-9842' ? localStorage.getItem('coophub_extra_charge_REQ-8942') : null);
-                    if (extraKey) {
-                        const parsedExtra = JSON.parse(extraKey);
-                        if (parsedExtra?.extra_charge_amount) {
-                            copy.extra_charge_amount = parsedExtra.extra_charge_amount;
-                            copy.extra_charge_reason = parsedExtra.extra_charge_reason;
-                            copy.extra_charge_status = parsedExtra.extra_charge_status || 'pending';
-                        }
-                    } else if (sharedOrderMatch?.extra_charge_amount) {
-                        copy.extra_charge_amount = sharedOrderMatch.extra_charge_amount;
-                        copy.extra_charge_reason = sharedOrderMatch.extra_charge_reason;
-                        copy.extra_charge_status = sharedOrderMatch.extra_charge_status || 'pending';
-                    }
-                } catch(e) {}
-
-                if (copy.status === 'completed') {
-                    copy.payment_status = 'completed';
-                    if (!copy.payment_method) copy.payment_method = 'HAND CASH';
-                    if (!copy.payment_gateway_ref) copy.payment_gateway_ref = 'CASH-VERIFIED';
-                }
-
-                return sanitizeRequest(copy);
-            }
-        }
-
-        // 🔒 REAL SUPABASE: Live database query
-        let data = null;
-        try {
-            const { data: fullData, error: fullError } = await supabase
-                .from('service_requests')
-                .select(`
-                    *,
-                    services (id, name_translations),
-                    sub_services (id, name_translations)
-                `)
-                .eq('id', requestId)
-                .maybeSingle();
-
-            if (fullData) {
-                data = fullData;
-            } else if (fullError) {
-                console.warn("Full join query failed, falling back to simple select:", fullError.message);
-            }
-        } catch (e) {
-            console.warn("Join fetch note:", e);
-        }
-
         if (!data) {
+            // Also check bookings table in Supabase
             try {
-                const { data: simpleData } = await supabase
-                    .from('service_requests')
-                    .select('*')
-                    .eq('id', requestId)
-                    .maybeSingle();
-
-                if (simpleData) {
-                    data = simpleData;
+                let bQuery = supabase.from('bookings').select('*');
+                if (isUuid) {
+                    bQuery = bQuery.eq('id', requestId);
+                } else {
+                    bQuery = bQuery.or(`booking_code.eq.${requestId},id.eq.${requestId}`);
                 }
-            } catch(e) {}
-        }
-
-        if (!data) {
-            // Also check bookings table as fallback
-            try {
-                const { data: bData } = await supabase
-                    .from('bookings')
-                    .select('*')
-                    .eq('id', requestId)
-                    .maybeSingle();
-
+                const { data: bData } = await bQuery.maybeSingle();
                 if (bData) {
                     data = {
                         id: bData.id,
@@ -687,29 +689,75 @@ export const serviceRequestService = {
                         created_at: bData.created_at
                     };
                 }
-            } catch(e) {}
+            } catch (e) {}
         }
 
+        // 2. FALLBACK TO LOCAL CREATED OR DEMO DATA ONLY IF NOT IN SUPABASE
         if (!data) {
-            // Final fallback to demo object if not in DB
             const userCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
             const allDemo = [...userCreated, ...DEMO_REQUESTS];
-            const found = allDemo.find(r => r.id === requestId) || allDemo[0];
+            const cleanDigits = normReqId.replace(/\D/g, '');
+            let found = allDemo.find(r => 
+                r && (
+                    r.id === normReqId || 
+                    r.id === altReqId || 
+                    r.id === altRfqId || 
+                    r.booking_code === normReqId || 
+                    r.booking_code === altReqId || 
+                    r.booking_code === altRfqId ||
+                    (cleanDigits && cleanDigits.length >= 4 && (String(r.id).includes(cleanDigits) || String(r.booking_code).includes(cleanDigits)))
+                )
+            );
+            if (!found && isDemoHardcodedId) {
+                found = DEMO_REQUESTS[0];
+            }
+
             if (found) {
                 const copy = { ...found };
                 if (localStatusOverride) {
                     copy.status = localStatusOverride === 'inProgress' ? 'in_progress' : localStatusOverride;
                 }
+                if (copy.status === 'cancelled') {
+                    copy.cancel_reason = copy.cancel_reason || localCancelReason || 'Cancelled by customer';
+                    copy.cancelled_by = copy.cancelled_by || 'customer';
+                }
                 return sanitizeRequest(copy);
             }
-            throw new Error('Failed to retrieve request details, or request not found.');
+            throw new Error('Request not found.');
         }
 
-        // Apply local status override if available
-        if (localStatusOverride) {
-            data.status = localStatusOverride === 'inProgress' ? 'in_progress' : localStatusOverride;
-        } else if (sharedOrderMatch?.status) {
-            data.status = sharedOrderMatch.status === 'inProgress' ? 'in_progress' : sharedOrderMatch.status;
+        // 3. For live Supabase data, normalize and sync status with localStorage
+        if (data.status === 'inProgress') {
+            data.status = 'in_progress';
+        }
+        if (data.status === 'onTheWay') {
+            data.status = 'on_the_way';
+        }
+
+        // Always keep localStorage updated with live database truth
+        try {
+            if (typeof window !== "undefined" && window.localStorage && data.status) {
+                localStorage.setItem(`coophub_status_${normReqId}`, data.status);
+                if (altReqId && altReqId !== normReqId) localStorage.setItem(`coophub_status_${altReqId}`, data.status);
+                if (isDemoHardcodedId) {
+                    localStorage.setItem('coophub_status_REQ-8942', data.status);
+                    localStorage.setItem('coophub_status_ORD-9842', data.status);
+                    localStorage.setItem('coophub_status_00000000-0000-0000-0000-000000008942', data.status);
+                }
+                if (data.status !== 'cancelled') {
+                    localStorage.removeItem(`coophub_cancel_reason_${normReqId}`);
+                    if (isDemoHardcodedId) {
+                        localStorage.removeItem('coophub_cancel_reason_REQ-8942');
+                        localStorage.removeItem('coophub_cancel_reason_ORD-9842');
+                        localStorage.removeItem('coophub_cancel_reason_00000000-0000-0000-0000-000000008942');
+                    }
+                }
+            }
+        } catch (e) {}
+
+        if (data.status === 'cancelled') {
+            data.cancel_reason = data.cancel_reason || localCancelReason || 'Cancelled by customer';
+            data.cancelled_by = data.cancelled_by || 'customer';
         }
 
         // Fetch service name if not populated
@@ -736,10 +784,14 @@ export const serviceRequestService = {
             } catch (pe) {}
         }
 
-        if (data && data.status === 'completed') {
-            data.payment_status = 'completed';
-            if (!data.payment_method) data.payment_method = 'HAND CASH';
-            if (!data.payment_gateway_ref) data.payment_gateway_ref = 'CASH-VERIFIED';
+        if (data) {
+            const dynamicOrderCode = data.receipt_number || 
+                                     data.payment_gateway_ref || 
+                                     (data.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || 
+                                     data.booking_code || 
+                                     (String(data.id).startsWith("REQ-") || String(data.id).startsWith("ORD-") ? data.id : "REQ-" + String(data.id).substring(0, 6).toUpperCase());
+            data.booking_code = dynamicOrderCode;
+            data.order_id = dynamicOrderCode;
         }
 
         return sanitizeRequest(data);
@@ -754,180 +806,202 @@ export const serviceRequestService = {
      * @returns {{ success: boolean, error?: string }}
      */
     cancelRequest: async (requestId, cancelReason, cancelDetails = '') => {
-        const CANCELLABLE_STATUSES = ['pending', 'assigned', 'accepted', 'on_the_way', 'arrived'];
+        const CANCELLABLE_STATUSES = ['pending', 'assigned', 'accepted', 'on_the_way', 'ontheway', 'enroute', 'arrived', 'open'];
 
-        const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
-        if (isDemo) {
-            const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
-            const idx = custRequests.findIndex(r => r.id === requestId);
-            
-            if (idx !== -1) {
-                const req = custRequests[idx];
-                if (!CANCELLABLE_STATUSES.includes(req.status)) {
-                    return { success: false, error: `Cannot cancel — service is already "${req.status}".` };
-                }
-                const fullReason = cancelDetails ? `${cancelReason}: ${cancelDetails}` : cancelReason;
-                req.status = 'cancelled';
-                req.cancel_reason = fullReason;
-                req.cancelled_at = new Date().toISOString();
-                
-                custRequests[idx] = req;
-                localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
-                
-                try {
-                    const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
-                    const sharedIdx = sharedOrders.findIndex(r => r.id === requestId);
-                    if (sharedIdx !== -1) {
-                        sharedOrders[sharedIdx].status = 'cancelled';
-                        localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
-                    }
-                } catch(e) {}
-                
-                // Mirror cancellation directly to Supabase so database is updated live
-                try {
-                    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId));
-                    const cancelPayload = {
-                        status: 'cancelled',
-                        cancel_reason: fullReason,
-                        cancelled_at: new Date().toISOString(),
-                        cancelled_by: 'customer'
-                    };
-                    if (isUuid) {
-                        await supabase.from('service_requests').update(cancelPayload).eq('id', requestId);
-                        await supabase.from('bookings').update(cancelPayload).eq('id', requestId);
-                    } else {
-                        await supabase.from('service_requests').update(cancelPayload).or(`order_code.eq.${requestId},id.eq.${requestId}`);
-                        await supabase.from('bookings').update(cancelPayload).or(`booking_code.eq.${requestId},id.eq.${requestId}`);
-                    }
-                } catch (dbSyncErr) {
-                    console.warn("Supabase cancelRequest sync note:", dbSyncErr);
-                }
+        const normReqId = String(requestId || '').trim();
+        const altReqId = normReqId.replace(/^RFQ-/i, 'REQ-');
+        const altRfqId = normReqId.replace(/^REQ-/i, 'RFQ-');
+        const is8942 = normReqId === 'REQ-8942' || normReqId === 'RFQ-8942' || normReqId === 'ORD-9842' || normReqId.includes('8942') || normReqId === '00000000-0000-0000-0000-000000008942';
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normReqId);
 
-                try {
-                    if (typeof BroadcastChannel !== 'undefined') {
-                        const bc = new BroadcastChannel('coophub_orders_sync');
-                        bc.postMessage({ type: 'ORDER_CANCELLED', orderId: requestId, reason: fullReason, timestamp: Date.now() });
-                        setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
-                    }
-                } catch(e) {}
+        const fullReason = cancelDetails ? `${cancelReason}: ${cancelDetails}` : cancelReason;
+        const nowIso = new Date().toISOString();
 
-                return { success: true };
-            }
-
-            const foundInStatic = DEMO_REQUESTS.find(r => r.id === requestId);
-            if (foundInStatic) {
-                return { success: false, error: 'Cannot cancel static demo requests.' };
-            }
-
-            return { success: false, error: 'Request not found.' };
-        }
-
-        try {
-            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId));
-            const fullReason = cancelDetails
-                ? `${cancelReason}: ${cancelDetails}`
-                : cancelReason;
-            const nowIso = new Date().toISOString();
-
-            // 1. Verify current status is cancellable if UUID
-            if (isUuid) {
-                const { data: current, error: fetchErr } = await supabase
+        // 1. If real UUID in Supabase, verify current status is cancellable
+        if (isUuid) {
+            try {
+                const { data: current } = await supabase
                     .from('service_requests')
-                    .select('id, status, pillar_id')
-                    .eq('id', requestId)
+                    .select('id, status')
+                    .eq('id', normReqId)
                     .maybeSingle();
 
                 if (current && !CANCELLABLE_STATUSES.includes(current.status)) {
                     return { success: false, error: `Cannot cancel — service is already "${current.status}".` };
                 }
-            }
+            } catch (e) {}
+        }
 
-            // 2. Update service_requests to cancelled
-            const updates = {
+        // 2. Set LocalStorage status overrides so all portals immediately reflect the cancellation
+        try {
+            localStorage.setItem(`coophub_status_${normReqId}`, 'cancelled');
+            localStorage.setItem(`coophub_status_${altReqId}`, 'cancelled');
+            localStorage.setItem(`coophub_status_${altRfqId}`, 'cancelled');
+            localStorage.setItem(`coophub_cancel_reason_${normReqId}`, fullReason);
+            localStorage.setItem(`coophub_cancel_reason_${altReqId}`, fullReason);
+
+            if (is8942) {
+                localStorage.setItem('coophub_status_REQ-8942', 'cancelled');
+                localStorage.setItem('coophub_status_RFQ-8942', 'cancelled');
+                localStorage.setItem('coophub_status_ORD-9842', 'cancelled');
+                localStorage.setItem('coophub_status_00000000-0000-0000-0000-000000008942', 'cancelled');
+                localStorage.setItem('coophub_cancel_reason_REQ-8942', fullReason);
+                localStorage.setItem('coophub_cancel_reason_RFQ-8942', fullReason);
+                localStorage.setItem('coophub_cancel_reason_ORD-9842', fullReason);
+                localStorage.setItem('coophub_cancel_reason_00000000-0000-0000-0000-000000008942', fullReason);
+            }
+        } catch (e) {}
+
+        // 3. Update in-memory static DEMO_REQUESTS if matched
+        const staticMatch = DEMO_REQUESTS.find(r => 
+            r.id === normReqId || 
+            r.id === altReqId || 
+            r.id === altRfqId || 
+            (is8942 && (r.id === 'REQ-8942' || r.id === 'ORD-9842'))
+        );
+        if (staticMatch) {
+            staticMatch.status = 'cancelled';
+            staticMatch.cancel_reason = fullReason;
+            staticMatch.cancelled_at = nowIso;
+            staticMatch.cancelled_by = 'customer';
+        }
+
+        // 4. Update or add into coophub_demo_customer_created_requests
+        try {
+            const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+            const idx = custRequests.findIndex(r => 
+                r && (
+                    r.id === normReqId || 
+                    r.id === altReqId || 
+                    r.id === altRfqId || 
+                    r.booking_code === normReqId || 
+                    r.booking_code === altReqId ||
+                    (is8942 && (r.id === 'REQ-8942' || r.id === 'ORD-9842'))
+                )
+            );
+            if (idx !== -1) {
+                custRequests[idx].status = 'cancelled';
+                custRequests[idx].cancel_reason = fullReason;
+                custRequests[idx].cancelled_at = nowIso;
+                custRequests[idx].cancelled_by = 'customer';
+            } else {
+                const base = staticMatch || DEMO_REQUESTS[0];
+                custRequests.unshift({
+                    ...base,
+                    id: normReqId,
+                    booking_code: normReqId,
+                    status: 'cancelled',
+                    cancel_reason: fullReason,
+                    cancelled_at: nowIso,
+                    cancelled_by: 'customer'
+                });
+            }
+            localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
+        } catch (e) {}
+
+        // 5. Update or add into coophub_shared_live_orders
+        try {
+            const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+            const sharedIdx = sharedOrders.findIndex(r => 
+                r && (
+                    r.id === normReqId || 
+                    r.id === altReqId || 
+                    r.id === altRfqId || 
+                    r.booking_code === normReqId || 
+                    r.booking_code === altReqId ||
+                    (is8942 && (r.id === 'REQ-8942' || r.id === 'ORD-9842'))
+                )
+            );
+            if (sharedIdx !== -1) {
+                sharedOrders[sharedIdx].status = 'cancelled';
+                sharedOrders[sharedIdx].cancel_reason = fullReason;
+                sharedOrders[sharedIdx].cancelled_at = nowIso;
+                sharedOrders[sharedIdx].cancelled_by = 'customer';
+            } else {
+                sharedOrders.unshift({
+                    id: normReqId,
+                    booking_code: normReqId,
+                    status: 'cancelled',
+                    cancel_reason: fullReason,
+                    cancelled_at: nowIso,
+                    cancelled_by: 'customer'
+                });
+            }
+            localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
+        } catch (e) {}
+
+        // 6. Record last order event
+        try {
+            localStorage.setItem('coophub_last_order_event', JSON.stringify({
+                id: normReqId,
+                action: 'cancelled',
+                cancelled_by: 'customer',
+                reason: fullReason,
+                time: Date.now()
+            }));
+        } catch (e) {}
+
+        // 7. Mirror cancellation directly to Supabase
+        try {
+            const cancelPayload = {
                 status: 'cancelled',
                 cancel_reason: fullReason,
                 cancelled_at: nowIso,
                 cancelled_by: 'customer'
             };
 
-            try {
-                if (isUuid) {
-                    await supabase.from('service_requests').update(updates).eq('id', requestId);
-                    await supabase.from('bookings').update(updates).eq('id', requestId);
-                } else {
-                    await supabase.from('service_requests').update(updates).or(`order_code.eq.${requestId},id.eq.${requestId}`);
-                    await supabase.from('bookings').update(updates).or(`booking_code.eq.${requestId},id.eq.${requestId}`);
-                }
-            } catch (bErr) {
-                console.warn('Bookings cancel sync note:', bErr?.message);
+            let resolvedUuid = isUuid ? normReqId : null;
+            if (!resolvedUuid) {
+                try {
+                    const { data: matched } = await supabase
+                        .from('service_requests')
+                        .select('id')
+                        .or(`receipt_number.eq.${normReqId},payment_gateway_ref.eq.${normReqId},customer_description.ilike.%${normReqId}%`)
+                        .limit(1)
+                        .maybeSingle();
+                    if (matched?.id) resolvedUuid = matched.id;
+                } catch (e) {}
             }
 
-            // 4. Record in status history
-            try {
-                await supabase.from('request_status_history').insert([{
-                    request_id: requestId,
-                    from_status: current.status,
-                    to_status: 'cancelled',
-                    changed_by: 'customer',
-                    notes: fullReason
-                }]);
-            } catch (hErr) {
-                console.warn('Status history note:', hErr?.message);
+            if (resolvedUuid) {
+                await supabase.from('service_requests').update(cancelPayload).eq('id', resolvedUuid);
+                await supabase.from('bookings').update(cancelPayload).eq('id', resolvedUuid);
+            } else {
+                await supabase.from('bookings').update(cancelPayload).eq('booking_code', normReqId);
             }
 
-            // 5. Update localStorage feeds for live cross-portal reflection
-            try {
-                if (typeof window !== 'undefined' && window.localStorage) {
-                    const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
-                    const sharedIdx = sharedOrders.findIndex(r => r.id === requestId);
-                    if (sharedIdx !== -1) {
-                        sharedOrders[sharedIdx].status = 'cancelled';
-                        sharedOrders[sharedIdx].cancel_reason = fullReason;
-                        sharedOrders[sharedIdx].cancelled_by = 'customer';
-                        sharedOrders[sharedIdx].cancelled_at = new Date().toISOString();
-                        localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
-                    }
-
-                    const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
-                    const custIdx = custRequests.findIndex(r => r.id === requestId);
-                    if (custIdx !== -1) {
-                        custRequests[custIdx].status = 'cancelled';
-                        custRequests[custIdx].cancel_reason = fullReason;
-                        custRequests[custIdx].cancelled_by = 'customer';
-                        custRequests[custIdx].cancelled_at = new Date().toISOString();
-                        localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
-                    }
-
-                    localStorage.setItem('coophub_last_order_event', JSON.stringify({
-                        id: requestId,
-                        action: 'cancelled',
-                        cancelled_by: 'customer',
-                        reason: fullReason,
-                        time: Date.now()
-                    }));
-                }
-            } catch (lsErr) {}
-
-            // 6. Multi-channel notifications
-            try {
-                if (typeof BroadcastChannel !== 'undefined') {
-                    const bc = new BroadcastChannel('coophub_orders_sync');
-                    bc.postMessage({ type: 'ORDER_CANCELLED', orderId: requestId, reason: fullReason, cancelled_by: 'customer', timestamp: Date.now() });
-                    setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
-                }
-            } catch (bcErr) {}
-
-            try {
-                window.dispatchEvent(new CustomEvent('coophub_order_cancelled', {
-                    detail: { id: requestId, reason: fullReason, cancelled_by: 'customer' }
-                }));
-            } catch (we) {}
-
-            return { success: true };
-        } catch (err) {
-            console.error('Cancel request error:', err);
-            return { success: false, error: err.message || 'Something went wrong.' };
+            // 8. Log into request_status_history
+            if (resolvedUuid) {
+                try {
+                    await supabase.from('request_status_history').insert([{
+                        request_id: resolvedUuid,
+                        from_status: 'on_the_way',
+                        to_status: 'cancelled',
+                        changed_by: 'customer',
+                        notes: fullReason
+                    }]);
+                } catch (hErr) {}
+            }
+        } catch (dbSyncErr) {
+            console.warn("Supabase cancelRequest sync note:", dbSyncErr);
         }
+
+        // 9. Multi-channel broadcast
+        try {
+            if (typeof BroadcastChannel !== 'undefined') {
+                const bc = new BroadcastChannel('coophub_orders_sync');
+                bc.postMessage({ type: 'ORDER_CANCELLED', orderId: normReqId, altId: altReqId, reason: fullReason, cancelled_by: 'customer', timestamp: Date.now() });
+                setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
+            }
+        } catch (bcErr) {}
+
+        try {
+            window.dispatchEvent(new CustomEvent('coophub_order_cancelled', {
+                detail: { id: normReqId, reason: fullReason, cancelled_by: 'customer' }
+            }));
+        } catch (we) {}
+
+        return { success: true };
     },
 
     /**
@@ -942,8 +1016,15 @@ export const serviceRequestService = {
             const list = [...userCreated, ...DEMO_REQUESTS];
             return list.map(item => {
                 const override = localStorage.getItem(`coophub_status_${item.id}`) ||
-                    (item.id === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null);
-                return override ? { ...item, status: override === 'inProgress' ? 'in_progress' : override } : item;
+                    (item.id === 'REQ-8942' ? (localStorage.getItem('coophub_status_ORD-9842') || localStorage.getItem('coophub_status_RFQ-8942')) : null);
+                const cancelReason = localStorage.getItem(`coophub_cancel_reason_${item.id}`) ||
+                    (item.id === 'REQ-8942' ? (localStorage.getItem('coophub_cancel_reason_ORD-9842') || localStorage.getItem('coophub_cancel_reason_RFQ-8942')) : null);
+                const updated = override ? { ...item, status: override === 'inProgress' ? 'in_progress' : override } : { ...item };
+                if (updated.status === 'cancelled') {
+                    updated.cancel_reason = updated.cancel_reason || cancelReason || 'Cancelled by customer';
+                    updated.cancelled_by = updated.cancelled_by || 'customer';
+                }
+                return updated;
             });
         }
 
@@ -969,22 +1050,41 @@ export const serviceRequestService = {
             const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
             const localExtras = [...userCreated, ...sharedOrders];
 
-            const dbList = data || [];
+            const dbList = (data || []).map(r => {
+                const dynamicCode = r.receipt_number || 
+                                    r.payment_gateway_ref || 
+                                    (r.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || 
+                                    r.booking_code || 
+                                    (String(r.id).startsWith("REQ-") || String(r.id).startsWith("ORD-") ? r.id : "REQ-" + String(r.id).substring(0, 6).toUpperCase());
+                return {
+                    ...r,
+                    booking_code: dynamicCode,
+                    order_id: dynamicCode
+                };
+            });
             const merged = [...dbList];
 
             localExtras.forEach(localItem => {
-                const idx = merged.findIndex(m => m.id === localItem.id || m.booking_code === localItem.id);
+                if (!localItem || !localItem.id) return;
+                const idx = merged.findIndex(m => m.id === localItem.id || m.booking_code === localItem.id || (localItem.db_id && m.id === localItem.db_id));
                 if (idx >= 0) {
                     merged[idx] = { ...merged[idx], ...localItem };
-                } else if (localItem.status === 'completed' || localItem.status === 'cancelled') {
+                } else {
                     merged.push(localItem);
                 }
             });
 
             return merged.map(item => {
                 const override = localStorage.getItem(`coophub_status_${item.id}`) ||
-                    (item.id === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null);
-                return override ? { ...item, status: override === 'inProgress' ? 'in_progress' : override } : item;
+                    (item.id === 'REQ-8942' ? (localStorage.getItem('coophub_status_ORD-9842') || localStorage.getItem('coophub_status_RFQ-8942')) : null);
+                const cancelReason = localStorage.getItem(`coophub_cancel_reason_${item.id}`) ||
+                    (item.id === 'REQ-8942' ? (localStorage.getItem('coophub_cancel_reason_ORD-9842') || localStorage.getItem('coophub_cancel_reason_RFQ-8942')) : null);
+                const updated = override ? { ...item, status: override === 'inProgress' ? 'in_progress' : override } : { ...item };
+                if (updated.status === 'cancelled') {
+                    updated.cancel_reason = updated.cancel_reason || cancelReason || 'Cancelled by customer';
+                    updated.cancelled_by = updated.cancelled_by || 'customer';
+                }
+                return updated;
             });
         } catch (err) {
             console.warn("Supabase customer history fetch note, reading local items:", err.message);
@@ -994,8 +1094,15 @@ export const serviceRequestService = {
             const deduped = Array.from(new Map(allLocal.map(item => [item.id, item])).values());
             return deduped.map(item => {
                 const override = localStorage.getItem(`coophub_status_${item.id}`) ||
-                    (item.id === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null);
-                return override ? { ...item, status: override === 'inProgress' ? 'in_progress' : override } : item;
+                    (item.id === 'REQ-8942' ? (localStorage.getItem('coophub_status_ORD-9842') || localStorage.getItem('coophub_status_RFQ-8942')) : null);
+                const cancelReason = localStorage.getItem(`coophub_cancel_reason_${item.id}`) ||
+                    (item.id === 'REQ-8942' ? (localStorage.getItem('coophub_cancel_reason_ORD-9842') || localStorage.getItem('coophub_cancel_reason_RFQ-8942')) : null);
+                const updated = override ? { ...item, status: override === 'inProgress' ? 'in_progress' : override } : { ...item };
+                if (updated.status === 'cancelled') {
+                    updated.cancel_reason = updated.cancel_reason || cancelReason || 'Cancelled by customer';
+                    updated.cancelled_by = updated.cancelled_by || 'customer';
+                }
+                return updated;
             });
         }
     }

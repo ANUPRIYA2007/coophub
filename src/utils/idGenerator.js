@@ -109,12 +109,110 @@ export const idGenerator = {
   },
 
   /**
+   * Generates dynamic, sequential Request / Order ID based on active Supabase records and local state
+   * Inspects service_requests (receipt_number, payment_gateway_ref, customer_description) and bookings
+   * @param {Array} fallbackRequests - Optional local requests array for offline/demo
+   * @returns {Promise<string>} e.g. "REQ-9481", "REQ-9482"
+   */
+  async generateRequestCode(fallbackRequests = []) {
+    try {
+      let maxSequence = 0;
+
+      const scanCode = (str) => {
+        if (!str) return;
+        const matches = String(str).matchAll(/(?:REQ|ORD|BKG)-(\d+)/gi);
+        for (const m of matches) {
+          const num = parseInt(m[1], 10);
+          if (!isNaN(num) && num > maxSequence) {
+            maxSequence = num;
+          }
+        }
+      };
+
+      // 1. Query Supabase live database for recent service_requests
+      try {
+        const { data: dbRequests, error } = await supabase
+          .from('service_requests')
+          .select('receipt_number, payment_gateway_ref, customer_description')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (!error && Array.isArray(dbRequests)) {
+          dbRequests.forEach(r => {
+            scanCode(r.receipt_number);
+            scanCode(r.payment_gateway_ref);
+            scanCode(r.customer_description);
+          });
+        }
+      } catch (dbErr) {
+        console.warn("Supabase request ID scan note:", dbErr);
+      }
+
+      // 2. Also check bookings table
+      try {
+        const { data: dbBookings } = await supabase
+          .from('bookings')
+          .select('booking_code')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (Array.isArray(dbBookings)) {
+          dbBookings.forEach(b => scanCode(b.booking_code));
+        }
+      } catch (bErr) {}
+
+      // 3. Check local storage if available
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const c = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+          const s = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+          [...c, ...s].forEach(item => {
+            if (!item) return;
+            scanCode(item.id);
+            scanCode(item.booking_code);
+            scanCode(item.order_id);
+            scanCode(item.receipt_number);
+            scanCode(item.customer_description);
+          });
+        }
+      } catch (e) {}
+
+      // 4. Scan any caller provided fallback requests
+      if (Array.isArray(fallbackRequests)) {
+        fallbackRequests.forEach(item => {
+          if (!item) return;
+          scanCode(item.id);
+          scanCode(item.booking_code);
+          scanCode(item.order_id);
+          scanCode(item.receipt_number);
+          scanCode(item.customer_description);
+        });
+      }
+
+      if (maxSequence === 0) {
+        try {
+          const { count } = await supabase.from('service_requests').select('*', { count: 'exact', head: true });
+          maxSequence = 1000 + (count || 0);
+        } catch (e) {
+          maxSequence = 1000;
+        }
+      }
+
+      const nextNum = maxSequence + 1;
+      return `REQ-${nextNum}`;
+    } catch (err) {
+      console.warn("Dynamic Request ID generation notice, using safe dynamic sequence:", err);
+      return `REQ-${Date.now().toString().slice(-4)}`;
+    }
+  },
+
+  /**
    * Generates real Booking ID / Transaction reference
    * @param {Array} existingBookings - Bookings array
-   * @returns {string} e.g. "BKG-9842"
+   * @returns {string} e.g. "BKG-1001"
    */
   generateBookingCode(existingBookings = []) {
-    let maxNum = 9800;
+    let maxNum = 0;
     if (existingBookings && existingBookings.length > 0) {
       existingBookings.forEach(b => {
         const code = b.booking_code || b.id || "";
@@ -125,8 +223,10 @@ export const idGenerator = {
         }
       });
     }
+    if (maxNum === 0) maxNum = 1000;
     return `BKG-${maxNum + 1}`;
   },
+
 
   /**
    * Generates real Customer ID code
@@ -141,3 +241,4 @@ export const idGenerator = {
 };
 
 export default idGenerator;
+

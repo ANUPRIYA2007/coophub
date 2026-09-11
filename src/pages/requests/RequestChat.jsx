@@ -28,19 +28,8 @@ export default function RequestChat() {
                 setRequestData(data);
 
                 // Live Supabase Messages strictly for this service request / booking
-                const { data: msgs, error } = await supabase
-                    .from('messages')
-                    .select('*')
-                    .or(`request_id.eq.${id},booking_id.eq.${id}`)
-                    .order('created_at', { ascending: true });
-
-                if (msgs && msgs.length > 0) {
-                    setMessages(msgs);
-                } else if (isDemo) {
-                    setMessages([]);
-                } else {
-                    setMessages([]);
-                }
+                const { data: msgs } = await jobCommunicationService.getMessages(id);
+                setMessages(msgs || []);
             } catch (err) {
                 console.error(err);
             } finally {

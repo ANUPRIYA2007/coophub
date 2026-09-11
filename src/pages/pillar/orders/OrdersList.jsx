@@ -47,7 +47,7 @@ function resolveCustomerName(order) {
 
 export default function OrdersList() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("pending");
@@ -65,6 +65,7 @@ export default function OrdersList() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [markingCashId, setMarkingCashId] = useState(null);
   const [cancelledOrderAlert, setCancelledOrderAlert] = useState(null);
+  const activePillarId = profile?.id || user?.id || "PIL-CHE-042";
 
   // Play pleasant double-chime when an incoming order arrives
   const playChime = () => {
@@ -92,7 +93,7 @@ export default function OrdersList() {
   const fetchOrders = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const { data } = await pillarOrderService.getOrders(user?.id);
+      const { data } = await pillarOrderService.getOrders(activePillarId, null, profile);
       const list = data || [];
 
       // Detect if any previously known order was cancelled by the customer
@@ -139,49 +140,76 @@ export default function OrdersList() {
     fetchOrders(false);
 
     // Live Realtime Channel for new incoming customer requests & status updates
-    const channel = pillarOrderService.subscribeToPillarOrders(user?.id, (payload) => {
+    const channel = pillarOrderService.subscribeToPillarOrders(activePillarId, (payload) => {
       console.log("⚡ Incoming realtime order event for Pillar:", payload);
       fetchOrders(true);
     });
 
-    // 8-second polling heartbeat ensures guaranteed live synchronization
+    // 3-second polling heartbeat ensures guaranteed live synchronization across browsers
     const pollInterval = setInterval(() => {
       fetchOrders(true);
-    }, 8000);
+    }, 3000);
 
     return () => {
       channel?.unsubscribe();
       clearInterval(pollInterval);
     };
-  }, [user]);
+  }, [user, profile, activePillarId]);
 
   const handleStatusChange = async (bookingId, newStatus) => {
+    // 1. Determine target UI tab and DB status
+    let targetTab = "accepted";
+    if (newStatus === "accepted") targetTab = "accepted";
+    else if (newStatus === "onTheWay" || newStatus === "inProgress" || newStatus === "arrived") targetTab = "inProgress";
+    else if (newStatus === "completed") targetTab = "completed";
+    else if (newStatus === "cancelled" || newStatus === "rejected" || newStatus === "declined") targetTab = "cancelled";
+
+    let dbStatus = newStatus;
+    if (newStatus === "onTheWay") dbStatus = "on_the_way";
+    if (newStatus === "inProgress") dbStatus = "in_progress";
+    if (newStatus === "rejected" || newStatus === "declined") dbStatus = "cancelled";
+
+    const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ""));
+
+    // 2. OPTIMISTIC UPDATE: Update React local state immediately so the card is already in the target tab!
+    setOrders(prev => prev.map(o => {
+      const match = (
+        o.id === bookingId ||
+        o.booking_code === bookingId ||
+        o.order_id === bookingId ||
+        (o.db_id && o.db_id === bookingId)
+      );
+      if (match) {
+        return {
+          ...o,
+          status: newStatus === "rejected" || newStatus === "declined" ? "cancelled" : newStatus,
+          db_status: dbStatus,
+          cancel_reason: newStatus === "rejected" || newStatus === "declined" ? "Declined by technician" : o.cancel_reason,
+          cancelled_by: newStatus === "rejected" || newStatus === "declined" ? "pillar" : o.cancelled_by,
+          cancelled_at: newStatus === "rejected" || newStatus === "declined" ? new Date().toISOString() : o.cancelled_at,
+          updated_at: new Date().toISOString()
+        };
+      }
+      return o;
+    }));
+
+    // 3. Switch active tab immediately
+    setActiveTab(targetTab);
+
+    // 4. Update backend / Supabase
     if (newStatus === "rejected" || newStatus === "declined") {
       await pillarOrderService.cancelOrder(bookingId, "Declined by technician", user?.id);
-      setOrders(prev => prev.map(o => o.id === bookingId ? {
-        ...o,
-        status: 'cancelled',
-        db_status: 'cancelled',
-        cancel_reason: 'Declined by technician',
-        cancelled_by: 'pillar',
-        cancelled_at: new Date().toISOString()
-      } : o));
-      fetchOrders(true);
-      return;
+    } else {
+      const metadata = {};
+      if (newStatus === "accepted") {
+        metadata.pillar_id = (user?.id && isUuid(user.id))
+          ? user.id
+          : "7842d4fd-ac93-4014-93ed-001c0237a36c";
+      }
+      await pillarOrderService.updateOrderStatus(bookingId, newStatus, metadata);
     }
 
-    const metadata = {};
-    if (newStatus === "accepted" && user?.id) {
-      metadata.pillar_id = user.id;
-    }
-    await pillarOrderService.updateOrderStatus(bookingId, newStatus, metadata);
-    if (newStatus === "accepted") {
-      setActiveTab("accepted");
-    } else if (newStatus === "onTheWay" || newStatus === "inProgress") {
-      setActiveTab("inProgress");
-    } else if (newStatus === "completed") {
-      setActiveTab("completed");
-    }
+    // 5. Silent refresh in background
     fetchOrders(true);
   };
 
@@ -199,9 +227,9 @@ export default function OrdersList() {
     const orderIdToCancel = cancelModalOrder.id;
     await pillarOrderService.cancelOrder(orderIdToCancel, reason, user?.id);
 
-    // Immediately update local orders state to reflect cancellation
+    // Immediately update local orders state to reflect cancellation across all IDs
     setOrders(prev => prev.map(o => {
-      if (o.id === orderIdToCancel) {
+      if (o.id === orderIdToCancel || o.booking_code === orderIdToCancel || (o.db_id && o.db_id === orderIdToCancel)) {
         return {
           ...o,
           status: 'cancelled',

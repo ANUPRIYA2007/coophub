@@ -22,16 +22,39 @@ export default function Header({ toggleSidebar }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
 
+  // Audio chime for notifications
+  const playChimeSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.36);
+    } catch (e) {}
+  };
+
   // Fetch Live Dynamic Notifications
   useEffect(() => {
     let isMounted = true;
 
-    const fetchLiveNotifications = async () => {
+    const fetchLiveNotifications = async (withChime = false) => {
       try {
         const res = await notificationSyncService.getPortalNotifications(portalRole, user?.id);
         if (isMounted) {
           setNotifications(res.notifications || []);
           setUnreadCount(res.unreadCount || 0);
+          if (withChime && res.unreadCount > 0) {
+            playChimeSound();
+          }
         }
       } catch (err) {
         console.warn('Notifications fetch note:', err);
@@ -40,16 +63,38 @@ export default function Header({ toggleSidebar }) {
 
     fetchLiveNotifications();
 
-    const handleSync = () => {
-      fetchLiveNotifications();
+    const handleSync = (e) => {
+      fetchLiveNotifications(true);
     };
 
     window.addEventListener('coophub_notifications_updated', handleSync);
+    window.addEventListener('coophub_order_created', handleSync);
+
+    // Cross-tab BroadcastChannel for instantaneous notification sync
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('coophub_orders_sync');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'NEW_ORDER') {
+            fetchLiveNotifications(true);
+          }
+        };
+      }
+    } catch (e) {}
+
+    // Storage event sync
+    const handleStorage = (e) => {
+      if (e.key === 'coophub_pillar_notifications' || e.key === 'coophub_shared_live_orders' || e.key === 'coophub_last_order_event') {
+        fetchLiveNotifications(true);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
 
     const channel = supabase
       .channel(`header_notifs_sync_${portalRole}_${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        fetchLiveNotifications();
+        fetchLiveNotifications(true);
         
         const derivedTitle = payload.new.title || (payload.new.type ? payload.new.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'System Alert');
         const derivedMessage = payload.new.message || (payload.new.message_translations && payload.new.message_translations.en) || 'Notification update';
@@ -64,12 +109,17 @@ export default function Header({ toggleSidebar }) {
       })
       .subscribe();
 
-    // Fallback polling every 15 seconds in case table is not in supabase_realtime publication
-    const pollInterval = setInterval(fetchLiveNotifications, 15000);
+    // Fallback polling every 10 seconds
+    const pollInterval = setInterval(() => fetchLiveNotifications(false), 10000);
 
     return () => {
       isMounted = false;
       window.removeEventListener('coophub_notifications_updated', handleSync);
+      window.removeEventListener('coophub_order_created', handleSync);
+      window.removeEventListener('storage', handleStorage);
+      if (bc) {
+        try { bc.close(); } catch(e) {}
+      }
       supabase.removeChannel(channel);
       clearInterval(pollInterval);
     };

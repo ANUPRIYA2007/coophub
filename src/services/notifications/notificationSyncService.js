@@ -215,42 +215,86 @@ export const notificationSyncService = {
     const defaultItems = portalRole === 'pillar' ? initialPillar : initialAdmin;
 
     try {
-      let query = supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(15);
+      let items = [];
 
-      if (portalRole === 'pillar' && userId) {
-        // The notifications table does not have a user_id or pillar_id column in the remote DB.
-        // To avoid a 400 Bad Request error, we will not filter by user_id here. 
-        // In a production system, we'd join on service_requests to filter by pillar_id.
+      // 1. Fetch from Supabase notifications table
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(15);
+
+        if (!error && data && data.length > 0) {
+          items = data.map(n => {
+            let derivedTitle = n.title;
+            if (!derivedTitle && n.type) {
+              derivedTitle = n.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            }
+            let derivedMessage = n.message;
+            if (!derivedMessage && n.message_translations && n.message_translations.en) {
+              derivedMessage = n.message_translations.en;
+            }
+            
+            return {
+              id: n.id,
+              title: derivedTitle || 'System Alert',
+              message: derivedMessage || 'Notification update',
+              created_at: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              is_read: Boolean(n.is_read || n.read || readIds.has(n.id) || dismissedIds.has(n.id)),
+              type: n.type || 'system',
+              order_id: n.order_id || null
+            };
+          });
+        }
+      } catch (dbErr) {
+        console.warn('DB notifications query note:', dbErr);
       }
 
-      const { data, error } = await query;
+      // 2. For Pillar Portal, merge dedicated pillar booking notifications from localStorage
+      if (portalRole === 'pillar') {
+        const existingIds = new Set(items.map(i => i.id));
 
-      let items = [];
-      if (!error && data && data.length > 0) {
-        items = data.map(n => {
-          let derivedTitle = n.title;
-          if (!derivedTitle && n.type) {
-            derivedTitle = n.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-          }
-          let derivedMessage = n.message;
-          if (!derivedMessage && n.message_translations && n.message_translations.en) {
-            derivedMessage = n.message_translations.en;
-          }
-          
-          return {
-            id: n.id,
-            title: derivedTitle || 'System Alert',
-            message: derivedMessage || 'Notification update',
-            created_at: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            is_read: Boolean(n.is_read || n.read || readIds.has(n.id) || dismissedIds.has(n.id)),
-            type: n.type || 'system'
-          };
-        });
-      } else {
+        try {
+          const storedPillarNotifs = JSON.parse(localStorage.getItem('coophub_pillar_notifications') || '[]');
+          storedPillarNotifs.forEach(pNotif => {
+            if (!existingIds.has(pNotif.id)) {
+              existingIds.add(pNotif.id);
+              items.unshift({
+                ...pNotif,
+                is_read: Boolean(pNotif.is_read || readIds.has(pNotif.id) || dismissedIds.has(pNotif.id)),
+                created_at: pNotif.created_at ? new Date(pNotif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'
+              });
+            }
+          });
+        } catch (spErr) {}
+
+        // Also synthesize notification items from shared live orders if any pending request exists
+        try {
+          const liveOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+          const custOrders = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+          const combinedLocal = [...liveOrders, ...custOrders];
+
+          combinedLocal.forEach(ord => {
+            if (!ord || !ord.id) return;
+            const notifId = `notif-booking-${ord.id}`;
+            if (!existingIds.has(notifId)) {
+              existingIds.add(notifId);
+              items.unshift({
+                id: notifId,
+                title: `New Booking Request: ${ord.service_name || 'Home Service'}`,
+                message: `New booking #${ord.booking_code || ord.id} from ${ord.customer_name || 'Customer'} at ${ord.service_address || 'Chennai'}. Amount: ₹${ord.total_amount || 450}`,
+                created_at: ord.created_at ? new Date(ord.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+                is_read: readIds.has(notifId) || dismissedIds.has(notifId),
+                type: 'booking_new',
+                order_id: ord.id
+              });
+            }
+          });
+        } catch (loErr) {}
+      }
+
+      if (items.length === 0) {
         items = defaultItems;
       }
 

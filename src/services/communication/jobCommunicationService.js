@@ -12,9 +12,115 @@
 import { supabase } from '../../lib/supabase';
 import { notificationService } from '../notifications/notificationService';
 
+const UUID_CACHE = new Map();
+
 /**
- * Resolves any order / request identifier to a valid PostgreSQL UUID.
- * Maps demo IDs like 'REQ-8942' and 'ORD-9842' to a shared synchronized UUID.
+ * Register a known mapping between human booking code (e.g. REQ-9481) and database UUID
+ */
+export function registerOrderUuid(orderCode, uuid) {
+  if (!orderCode || !uuid) return;
+  const c = String(orderCode).trim();
+  const u = String(uuid).trim();
+  UUID_CACHE.set(c, u);
+  UUID_CACHE.set(u, u);
+}
+
+/**
+ * Deterministically produce an RFC4122 v4 UUID from any arbitrary string
+ */
+export function deterministicUuid(str) {
+  if (!str) return '00000000-0000-4000-8000-000000000000';
+  let hash1 = 0, hash2 = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash1 = ((hash1 << 5) - hash1) + char;
+    hash1 |= 0;
+    hash2 = ((hash2 << 7) + hash2) ^ char;
+    hash2 |= 0;
+  }
+  const h1 = Math.abs(hash1).toString(16).padStart(8, '0');
+  const h2 = Math.abs(hash2).toString(16).padStart(8, '0');
+  const combined = (h1 + h2 + h1 + h2).padEnd(32, '0').slice(0, 32);
+  return `${combined.slice(0, 8)}-${combined.slice(8, 12)}-4${combined.slice(13, 16)}-8${combined.slice(17, 20)}-${combined.slice(20, 32)}`;
+}
+
+function findUuidInLocalStorage(str) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const keys = [
+      'coophub_shared_live_orders',
+      'coophub_demo_customer_created_requests',
+      'coophub_recent_bookings',
+      'coophub_customer_requests'
+    ];
+    for (const key of keys) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (!item) continue;
+          const matches = item.id === str || 
+                          item.order_id === str || 
+                          item.booking_code === str || 
+                          item.receipt_number === str ||
+                          item.request_id === str;
+          if (matches) {
+            const candidate = item.id || item.request_id;
+            if (candidate && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidate)) {
+              return candidate;
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+/**
+ * Resolves any order / request identifier to a valid PostgreSQL UUID dynamically.
+ */
+export async function resolveRequestUuidAsync(reqId) {
+  if (!reqId) return null;
+  const str = String(reqId).trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    UUID_CACHE.set(str, str);
+    return str;
+  }
+  if (UUID_CACHE.has(str)) return UUID_CACHE.get(str);
+
+  // Check local storage records
+  const localUuid = findUuidInLocalStorage(str);
+  if (localUuid) {
+    UUID_CACHE.set(str, localUuid);
+    UUID_CACHE.set(localUuid, localUuid);
+    return localUuid;
+  }
+
+  // Query live Supabase service_requests
+  try {
+    const { data } = await supabase
+      .from('service_requests')
+      .select('id')
+      .or(`receipt_number.eq.${str},payment_gateway_ref.eq.${str},customer_description.ilike.%${str}%`)
+      .limit(1)
+      .maybeSingle();
+    if (data?.id) {
+      UUID_CACHE.set(str, data.id);
+      UUID_CACHE.set(data.id, data.id);
+      return data.id;
+    }
+  } catch (e) {}
+
+  // Fallback to deterministic UUID (so both sender and receiver match the same UUID)
+  const fallback = deterministicUuid(str);
+  UUID_CACHE.set(str, fallback);
+  return fallback;
+}
+
+/**
+ * Synchronous resolver fallback
  */
 export function resolveRequestUuid(reqId) {
   if (!reqId) return null;
@@ -22,10 +128,15 @@ export function resolveRequestUuid(reqId) {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
     return str;
   }
-  // Any non-UUID demo/custom order in CoopHub (REQ-8942, ORD-9842, REQ-2506, etc.)
-  // routes to the shared persistent database demo UUID so chat and live collaboration
-  // stay synchronized across customer and pillar views.
-  return '00000000-0000-0000-0000-000000008942';
+  if (UUID_CACHE.has(str)) return UUID_CACHE.get(str);
+  const localUuid = findUuidInLocalStorage(str);
+  if (localUuid) {
+    UUID_CACHE.set(str, localUuid);
+    return localUuid;
+  }
+  const fallback = deterministicUuid(str);
+  UUID_CACHE.set(str, fallback);
+  return fallback;
 }
 
 export const jobCommunicationService = {
@@ -35,46 +146,35 @@ export const jobCommunicationService = {
   async getMessages(requestId, { limit = 50, offset = 0 } = {}) {
     if (!requestId) return { data: [], error: null };
 
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
     let dbMessages = [];
 
     // 1. Fetch from Supabase PostgreSQL
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('request_id', targetUuid)
-        .order('created_at', { ascending: true })
-        .range(offset, offset + limit - 1);
+      if (targetUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('request_id', targetUuid)
+          .order('created_at', { ascending: true })
+          .range(offset, offset + limit - 1);
 
-      if (!error && data) {
-        dbMessages = data;
+        if (!error && data) {
+          dbMessages = data;
+        }
       }
     } catch (err) {
       console.warn("Supabase fetch messages note:", err?.message);
     }
 
-    // 2. Read from localStorage fallback cache (for instant cross-tab & offline resilience)
+    // 2. Read from localStorage fallback cache for this specific order ONLY
     let localMessages = [];
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const keysToRead = [
+        const keysToRead = new Set([
           `coophub_messages_${targetUuid}`,
-          `coophub_messages_${requestId}`,
-          'coophub_messages_REQ-8942',
-          'coophub_messages_ORD-9842',
-          'coophub_messages_00000000-0000-0000-0000-000000008942'
-        ];
-
-        // Also sweep any local storage keys created for other demo requests (e.g. coophub_messages_REQ-2506)
-        try {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && (k.startsWith('coophub_messages_REQ-') || k.startsWith('coophub_messages_ORD-')) && !keysToRead.includes(k)) {
-              keysToRead.push(k);
-            }
-          }
-        } catch(ke) {}
+          `coophub_messages_${requestId}`
+        ]);
 
         keysToRead.forEach(k => {
           try {
@@ -97,7 +197,7 @@ export const jobCommunicationService = {
         const key = m.id || `${m.sender_type}-${m.created_at}-${m.content}`;
         map.set(key, {
           id: m.id || key,
-          request_id: m.request_id || requestId,
+          request_id: m.request_id || targetUuid || requestId,
           booking_id: m.booking_id || requestId,
           sender_id: m.sender_id,
           sender_type: m.sender_type || 'customer',
@@ -137,7 +237,7 @@ export const jobCommunicationService = {
       return { data: null, error: 'Message exceeds maximum allowable length of 1,000 characters.' };
     }
 
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
     const nowIso = new Date().toISOString();
     const tempId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
@@ -148,7 +248,11 @@ export const jobCommunicationService = {
       content: cleanContent,
       message: cleanContent,
       message_type: messageType,
-      metadata: { ...metadata, original_request_id: requestId },
+      metadata: { 
+        ...metadata, 
+        original_request_id: requestId,
+        order_code: requestId
+      },
       read: false,
       is_read: false,
       created_at: nowIso
@@ -165,31 +269,33 @@ export const jobCommunicationService = {
 
     // 1. Insert into Supabase
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert([payload])
-        .select()
-        .single();
+      if (targetUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
+        const { data, error } = await supabase
+          .from('messages')
+          .insert([payload])
+          .select()
+          .single();
 
-      if (!error && data) {
-        createdMsg = {
-          ...data,
-          content: data.content || cleanContent,
-          message: data.message || cleanContent
-        };
+        if (!error && data) {
+          createdMsg = {
+            ...data,
+            content: data.content || cleanContent,
+            message: data.message || cleanContent
+          };
+        } else if (error) {
+          console.warn("Supabase send message error:", error);
+        }
       }
     } catch (err) {
-      console.warn("Supabase send message note:", err);
+      console.warn("Supabase send message exception:", err);
     }
 
-    // 2. Persist to localStorage cache
+    // 2. Persist to localStorage cache for this specific order ONLY
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const cacheKeys = [
           `coophub_messages_${targetUuid}`,
-          requestId !== targetUuid ? `coophub_messages_${requestId}` : null,
-          'coophub_messages_REQ-8942',
-          'coophub_messages_ORD-9842'
+          requestId !== targetUuid ? `coophub_messages_${requestId}` : null
         ].filter(Boolean);
 
         cacheKeys.forEach(key => {
@@ -242,7 +348,8 @@ export const jobCommunicationService = {
    */
   async markAsRead(requestId, readerType) {
     if (!requestId) return;
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
+    if (!targetUuid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) return;
     try {
       const nowIso = new Date().toISOString();
       await supabase
@@ -265,7 +372,8 @@ export const jobCommunicationService = {
    */
   async emitSystemEvent(requestId, { eventType, text, metadata = {} }) {
     if (!requestId || !eventType) return;
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
+    if (!targetUuid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) return;
 
     try {
       const { data: existing } = await supabase
@@ -301,19 +409,21 @@ export const jobCommunicationService = {
       return { success: false, error: 'Extra charge amount must be a positive number.' };
     }
 
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
 
     try {
       // 1. Update service_requests with extra charge request
-      await supabase
-        .from('service_requests')
-        .update({
-          extra_charge_amount: numAmount,
-          extra_charge_reason: `${description} - ${reason}`,
-          extra_charge_status: 'pending',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', targetUuid);
+      if (targetUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
+        await supabase
+          .from('service_requests')
+          .update({
+            extra_charge_amount: numAmount,
+            extra_charge_reason: `${description} - ${reason}`,
+            extra_charge_status: 'pending',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', targetUuid);
+      }
 
       // 2. Insert structured PARTS_REQUEST message
       const msgRes = await this.sendMessage({
@@ -346,42 +456,49 @@ export const jobCommunicationService = {
   async respondToExtraCharge({ requestId, customerId, action }) {
     const isApproved = action === 'APPROVE';
     const newStatus = isApproved ? 'accepted' : 'rejected';
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
 
     try {
-      const { data: req } = await supabase
-        .from('service_requests')
-        .select('amount, extra_charge_amount')
-        .eq('id', targetUuid)
-        .maybeSingle();
+      let baseAmount = 450;
+      let extraAmount = 0;
 
-      const baseAmount = Number(req?.amount || 450);
-      const extraAmount = Number(req?.extra_charge_amount || 0);
-      const finalAmount = isApproved ? (baseAmount + extraAmount) : baseAmount;
+      if (targetUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
+        const { data: req } = await supabase
+          .from('service_requests')
+          .select('amount, extra_charge_amount')
+          .eq('id', targetUuid)
+          .maybeSingle();
 
-      await supabase
-        .from('service_requests')
-        .update({
-          extra_charge_status: newStatus,
-          final_amount: finalAmount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', targetUuid);
+        baseAmount = Number(req?.amount || 450);
+        extraAmount = Number(req?.extra_charge_amount || 0);
+        const finalAmount = isApproved ? (baseAmount + extraAmount) : baseAmount;
 
-      const text = isApproved
-        ? `✓ [Additional Charge Approved] Customer approved extra charge of ₹${extraAmount}. Revised total: ₹${finalAmount}.`
-        : `✕ [Additional Charge Rejected] Customer declined the extra charge request.`;
+        await supabase
+          .from('service_requests')
+          .update({
+            extra_charge_status: newStatus,
+            final_amount: finalAmount,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', targetUuid);
 
-      await this.sendMessage({
-        requestId,
-        senderId: customerId,
-        senderType: 'customer',
-        content: text,
-        messageType: 'PRICE_CHANGE',
-        metadata: { action, extra_amount: extraAmount, final_amount: finalAmount }
-      });
+        const text = isApproved
+          ? `✓ [Additional Charge Approved] Customer approved extra charge of ₹${extraAmount}. Revised total: ₹${finalAmount}.`
+          : `✕ [Additional Charge Rejected] Customer declined the extra charge request.`;
 
-      return { success: true, status: newStatus, finalAmount };
+        await this.sendMessage({
+          requestId,
+          senderId: customerId,
+          senderType: 'customer',
+          content: text,
+          messageType: 'PRICE_CHANGE',
+          metadata: { action, extra_amount: extraAmount, final_amount: finalAmount }
+        });
+
+        return { success: true, status: newStatus, finalAmount };
+      }
+
+      return { success: true, status: newStatus, finalAmount: baseAmount };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -391,24 +508,29 @@ export const jobCommunicationService = {
    * Customer reports an issue / dispute during service
    */
   async reportCustomerIssue({ requestId, customerId, category, description }) {
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
 
     try {
-      const { data: ticket } = await supabase
-        .from('support_tickets')
-        .insert([{
-          request_id: targetUuid,
-          customer_id: customerId,
-          subject: `Customer Dispute: ${category} on Order #${String(requestId).slice(0, 8)}`,
-          issue_type: category,
-          category: category,
-          description: description,
-          priority: 'high',
-          status: 'open',
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .maybeSingle();
+      let ticketId = null;
+      if (targetUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
+        const { data: ticket } = await supabase
+          .from('support_tickets')
+          .insert([{
+            request_id: targetUuid,
+            customer_id: customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId) ? customerId : null,
+            subject: `Customer Dispute: ${category} on Order #${String(requestId).slice(0, 8)}`,
+            issue_type: category,
+            category: category,
+            description: description,
+            priority: 'high',
+            status: 'open',
+            created_at: new Date().toISOString()
+          }])
+          .select()
+          .maybeSingle();
+
+        ticketId = ticket?.id;
+      }
 
       await this.sendMessage({
         requestId,
@@ -416,10 +538,10 @@ export const jobCommunicationService = {
         senderType: 'customer',
         content: `⚠️ [Customer Issue Reported] Issue filed under "${category}": ${description}. Customer Support alerted.`,
         messageType: 'ISSUE_REPORT',
-        metadata: { ticket_id: ticket?.id, category }
+        metadata: { ticket_id: ticketId, category }
       });
 
-      return { success: true, ticketId: ticket?.id };
+      return { success: true, ticketId };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -430,7 +552,8 @@ export const jobCommunicationService = {
    */
   async getUnreadCount(requestId, userRole) {
     if (!requestId) return 0;
-    const targetUuid = resolveRequestUuid(requestId);
+    const targetUuid = await resolveRequestUuidAsync(requestId);
+    if (!targetUuid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) return 0;
     try {
       const { count, error } = await supabase
         .from('messages')
@@ -466,12 +589,20 @@ export function subscribeToMessages(requestId, callbacks = {}) {
   const onUpdateCb = typeof callbacks === 'object' ? callbacks?.onUpdate : null;
   const onErrorCb = typeof callbacks === 'object' ? callbacks?.onError : null;
 
-  const targetUuid = resolveRequestUuid(requestId);
-  const channelName = `conversation-${targetUuid}-${Date.now()}`;
+  let currentTargetUuid = resolveRequestUuid(requestId);
+
+  // Asynchronously resolve true UUID and update currentTargetUuid in background
+  resolveRequestUuidAsync(requestId).then(asyncUuid => {
+    if (asyncUuid && asyncUuid !== currentTargetUuid) {
+      currentTargetUuid = asyncUuid;
+    }
+  }).catch(() => {});
+
+  const channelName = `coophub_chat_${String(requestId).replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
 
   const formatMsg = (msg) => ({
     id: msg.id,
-    request_id: msg.request_id || requestId,
+    request_id: msg.request_id || currentTargetUuid || requestId,
     booking_id: msg.booking_id || requestId,
     sender_id: msg.sender_id,
     sender_type: msg.sender_type || 'customer',
@@ -485,6 +616,20 @@ export function subscribeToMessages(requestId, callbacks = {}) {
     created_at: msg.created_at || new Date().toISOString()
   });
 
+  const isMatchingMessage = (msg) => {
+    if (!msg) return false;
+    const curUuid = currentTargetUuid || resolveRequestUuid(requestId);
+    const originalReq = msg.metadata?.original_request_id;
+    const orderCode = msg.metadata?.order_code;
+    return (
+      (curUuid && msg.request_id === curUuid) ||
+      msg.request_id === requestId ||
+      (originalReq && (originalReq === requestId || originalReq === curUuid)) ||
+      (orderCode && (orderCode === requestId || orderCode === curUuid)) ||
+      (msg.booking_id && (msg.booking_id === curUuid || msg.booking_id === requestId))
+    );
+  };
+
   // 1. Supabase Realtime Subscription
   const channel = supabase
     .channel(channelName)
@@ -494,7 +639,7 @@ export function subscribeToMessages(requestId, callbacks = {}) {
       (payload) => {
         if (!payload.new) return;
         const msg = payload.new;
-        if (msg.request_id === targetUuid || msg.request_id === requestId || msg.booking_id === requestId) {
+        if (isMatchingMessage(msg)) {
           if (onInsertCb) onInsertCb(formatMsg(msg));
         }
       }
@@ -505,7 +650,7 @@ export function subscribeToMessages(requestId, callbacks = {}) {
       (payload) => {
         if (!payload.new) return;
         const msg = payload.new;
-        if (msg.request_id === targetUuid || msg.request_id === requestId || msg.booking_id === requestId) {
+        if (isMatchingMessage(msg)) {
           if (onUpdateCb) onUpdateCb(formatMsg(msg));
           else if (onInsertCb) onInsertCb(formatMsg(msg));
         }
@@ -525,12 +670,7 @@ export function subscribeToMessages(requestId, callbacks = {}) {
       bc.onmessage = (event) => {
         const { type, requestId: msgReqId, targetUuid: msgTargetUuid, message } = event.data || {};
         if (type === 'NEW_CHAT_MESSAGE' && message) {
-          const isDemoMatch = targetUuid === '00000000-0000-0000-0000-000000008942' && 
-                             (msgTargetUuid === '00000000-0000-0000-0000-000000008942' || 
-                              String(msgReqId).startsWith('REQ-') || 
-                              String(msgReqId).startsWith('ORD-'));
-
-          if (isDemoMatch || msgTargetUuid === targetUuid || msgReqId === requestId || message.request_id === targetUuid || message.request_id === requestId) {
+          if (isMatchingMessage(message) || isMatchingMessage({ request_id: msgTargetUuid, metadata: { original_request_id: msgReqId } })) {
             if (onInsertCb) onInsertCb(formatMsg(message));
           }
         }
@@ -541,12 +681,7 @@ export function subscribeToMessages(requestId, callbacks = {}) {
   // 3. Same-window custom event listener
   const handleCustomMessage = (e) => {
     const { requestId: evReqId, targetUuid: evTargetUuid, message } = e.detail || {};
-    const isDemoMatch = targetUuid === '00000000-0000-0000-0000-000000008942' && 
-                       (evTargetUuid === '00000000-0000-0000-0000-000000008942' || 
-                        String(evReqId).startsWith('REQ-') || 
-                        String(evReqId).startsWith('ORD-'));
-
-    if (message && (isDemoMatch || evTargetUuid === targetUuid || evReqId === requestId)) {
+    if (message && (isMatchingMessage(message) || isMatchingMessage({ request_id: evTargetUuid, metadata: { original_request_id: evReqId } }))) {
       if (onInsertCb) onInsertCb(formatMsg(message));
     }
   };

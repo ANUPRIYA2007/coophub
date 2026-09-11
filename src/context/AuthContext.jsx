@@ -40,6 +40,29 @@ export function AuthProvider({ children }) {
     }
   };
 
+    const isPillarPath = typeof window !== 'undefined' && 
+      (window.location.pathname.startsWith('/dashboard') || window.location.pathname.startsWith('/pillar'));
+
+    const DEFAULT_PILLAR_PROFILE = {
+      id: "PIL-CHE-042",
+      alias_id: "c0000000-0000-0000-0000-000000000011",
+      full_name: localStorage.getItem("coophub_demo_user_name") || "Raj Kumar",
+      pillar_code: "PIL-CHE-042",
+      alias_code: "PIL-CHE-111",
+      mobile: "+91 98400 11223",
+      email: "raj@coophub.in",
+      main_services: ["Electrical Repair", "AC Repair & HVAC"],
+      sub_services: ["Ceiling Fan & Switchboard Wiring", "MCB Installation", "AC General Service"],
+      experience_years: 6,
+      service_area: "Guindy, Velachery, Adyar",
+      is_available: isAvailable,
+      status: "approved",
+      rating: 4.97,
+      total_orders: 142,
+      completion_rate: 98.5,
+      role: 'pillar'
+    };
+
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -49,37 +72,28 @@ export function AuthProvider({ children }) {
           setSession(currentSession);
           setUser(currentSession.user);
           await loadProfile(currentSession.user.id);
+
+          // If on a Pillar portal route and profile is not a pillar, switch to Pillar profile
+          if (isPillarPath) {
+            const { profile: pProf } = await pillarProfileService.getProfile(currentSession.user.id);
+            if (!pProf) {
+              setProfile(DEFAULT_PILLAR_PROFILE);
+              setUser({ id: "PIL-CHE-042", email: "raj@coophub.in" });
+            }
+          }
         } else {
           // Handle Demo / Bypass Modes
           const isPillarDemo = localStorage.getItem("coophub_demo_user") === "true";
           const isCustomerDemo = localStorage.getItem("coophub_demo_customer") === "true";
           const isAdminDemo = localStorage.getItem("coophub_demo_admin") === "true";
 
-          if (isPillarDemo || isAdminDemo) {
+          if (isPillarDemo || isAdminDemo || isPillarPath) {
             const pillarDemoSession = {
-              user: { id: "c0000000-0000-0000-0000-000000000011", email: "raj@coophub.in" }
+              user: { id: "PIL-CHE-042", email: "raj@coophub.in" }
             };
             setSession(pillarDemoSession);
             setUser(pillarDemoSession.user);
-            setProfile({
-              id: "c0000000-0000-0000-0000-000000000011",
-              alias_id: "7842d4fd-ac93-4014-93ed-001c0237a36c",
-              full_name: localStorage.getItem("coophub_demo_user_name") || "Raj Kumar",
-              pillar_code: "PIL-CHE-111",
-              alias_code: "PIL-CHE-042",
-              mobile: "+91 98400 11223",
-              email: "raj@coophub.in",
-              main_services: ["Electrician", "AC Repair & HVAC"],
-              sub_services: ["Wiring", "DB Box", "Inverter", "MCB Installation", "AC General Service"],
-              experience_years: 6,
-              service_area: "Guindy, Velachery, Adyar",
-              is_available: isAvailable,
-              status: "approved",
-              rating: 4.97,
-              total_orders: 142,
-              completion_rate: 98.5,
-              role: 'pillar'
-            });
+            setProfile(DEFAULT_PILLAR_PROFILE);
           } else if (isCustomerDemo) {
             const customerDemoSession = {
               user: { id: '11111111-1111-1111-1111-111111111111', email: 'demo_bypass@example.com' },

@@ -36,6 +36,9 @@ export default function CustomerPortalLayout() {
         if (theme === 'dark') {
             toggleTheme();
         }
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+        try { localStorage.setItem('coophub_theme', 'light'); } catch(e){}
     }, []);
 
     // Fetch dynamic unread notification count for header badge

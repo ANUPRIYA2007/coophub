@@ -32,6 +32,8 @@ export default function Dashboard() {
 
   const [loadingToggle, setLoadingToggle] = useState(false);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [newBookingAlert, setNewBookingAlert] = useState(null);
+  const activePillarId = profile?.id || user?.id || "PIL-CHE-042";
 
   const [orderMetrics, setOrderMetrics] = useState({
     pending: 0,
@@ -47,36 +49,63 @@ export default function Dashboard() {
     paid: 0,
   });
 
+  // Play pleasant double-chime when a new customer booking arrives
+  const playChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.36);
+    } catch (e) {}
+  };
+
   useEffect(() => {
-    async function loadData() {
-      if (!user) {
-        setLoadingMetrics(false);
-        return;
-      }
+    async function loadData(showToastForNew = null) {
       setLoadingMetrics(true);
 
-      const [ordersRes, earningsRes] = await Promise.all([
-        pillarOrderService.getOrders(user.id),
-        pillarEarningsService.getEarningsSummary(user.id),
-      ]);
+      try {
+        const [ordersRes, earningsRes] = await Promise.all([
+          pillarOrderService.getOrders(activePillarId, null, profile),
+          pillarEarningsService.getEarningsSummary(activePillarId),
+        ]);
 
-      const allOrders = ordersRes.data || [];
-      const pendingList = allOrders.filter((o) => o.status === "pending");
-      const activeList = allOrders.filter((o) => ["accepted", "onTheWay", "arrived", "inProgress"].includes(o.status));
-      const completedList = allOrders.filter((o) => o.status === "completed");
+        const allOrders = ordersRes.data || [];
+        const pendingList = allOrders.filter((o) => o.status === "pending" || o.status === "assigned" || o.db_status === "assigned");
+        const activeList = allOrders.filter((o) => ["accepted", "onTheWay", "on_the_way", "arrived", "inProgress", "in_progress"].includes(o.status));
+        const completedList = allOrders.filter((o) => o.status === "completed");
 
-      setOrderMetrics({
-        pending: pendingList.length,
-        active: activeList.length,
-        completed: completedList.length,
-        nextBooking: pendingList[0] || activeList[0] || null,
-      });
+        const next = pendingList[0] || activeList[0] || null;
 
-      if (earningsRes && earningsRes.summary) {
-        setEarningsSummary(earningsRes.summary);
+        setOrderMetrics({
+          pending: pendingList.length,
+          active: activeList.length,
+          completed: completedList.length,
+          nextBooking: next,
+        });
+
+        if (showToastForNew) {
+          playChime();
+          setNewBookingAlert(showToastForNew);
+        }
+
+        if (earningsRes && earningsRes.summary) {
+          setEarningsSummary(earningsRes.summary);
+        }
+      } catch (err) {
+        console.warn("Dashboard loadData note:", err);
+      } finally {
+        setLoadingMetrics(false);
       }
-
-      setLoadingMetrics(false);
 
       // Smooth Stagger Entrance for Dashboard elements
       setTimeout(() => {
@@ -91,15 +120,49 @@ export default function Dashboard() {
 
     loadData();
 
-    // Supabase Realtime Live Subscription (Syncs incoming bookings from Customer Portal)
-    const channel = pillarOrderService.subscribeToPillarOrders(user?.id, () => {
-      loadData();
+    // 1. Supabase Realtime Live Subscription
+    const channel = pillarOrderService.subscribeToPillarOrders(activePillarId, (payload) => {
+      console.log("⚡ Dashboard live order update:", payload);
+      const newOrder = payload?.order || payload?.detail || payload?.new;
+      loadData(newOrder);
     });
+
+    // 2. BroadcastChannel cross-tab live sync
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        bc = new BroadcastChannel("coophub_orders_sync");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "NEW_ORDER") {
+            loadData(event.data.order);
+          }
+        };
+      }
+    } catch (e) {}
+
+    // 3. Window Custom Event listeners (same page)
+    const handleOrderCreated = (e) => {
+      loadData(e.detail);
+    };
+    const handleNotifUpdated = (e) => {
+      loadData(e.detail?.order || null);
+    };
+    window.addEventListener("coophub_order_created", handleOrderCreated);
+    window.addEventListener("coophub_notifications_updated", handleNotifUpdated);
+
+    // 4. Polling heartbeat every 10s
+    const poll = setInterval(() => loadData(), 10000);
 
     return () => {
       channel?.unsubscribe();
+      if (bc) {
+        try { bc.close(); } catch (e) {}
+      }
+      window.removeEventListener("coophub_order_created", handleOrderCreated);
+      window.removeEventListener("coophub_notifications_updated", handleNotifUpdated);
+      clearInterval(poll);
     };
-  }, [user]);
+  }, [user, profile, activePillarId]);
 
   const handleToggleAvailability = async () => {
     setLoadingToggle(true);
@@ -109,6 +172,72 @@ export default function Dashboard() {
 
   return (
     <div className="container" style={{ paddingTop: "var(--space-6)", paddingBottom: "var(--space-12)" }}>
+      {/* Realtime New Customer Booking Floating Alert */}
+      {newBookingAlert && (
+        <div
+          className="card"
+          style={{
+            background: "linear-gradient(135deg, #FF7900 0%, #E05300 100%)",
+            color: "white",
+            padding: "16px 20px",
+            borderRadius: "16px",
+            marginBottom: "20px",
+            boxShadow: "0 10px 25px rgba(255, 121, 0, 0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+            animation: "slideInDown 0.3s ease"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "24px" }}>🔔</span>
+            <div>
+              <div style={{ fontWeight: "800", fontSize: "15px" }}>
+                New Customer Booking Received!
+              </div>
+              <div style={{ fontSize: "13px", opacity: 0.95 }}>
+                {newBookingAlert.customer_name || 'Customer'} booked <strong>{newBookingAlert.service_name || 'Home Service'}</strong> (₹{newBookingAlert.total_amount || newBookingAlert.base_amount || 450})
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => navigate("/dashboard/orders")}
+              style={{
+                background: "white",
+                color: "#E05300",
+                border: "none",
+                borderRadius: "10px",
+                padding: "8px 16px",
+                fontWeight: "800",
+                fontSize: "13px",
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)"
+              }}
+            >
+              View Orders →
+            </button>
+            <button
+              onClick={() => setNewBookingAlert(null)}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                padding: "8px 12px",
+                fontWeight: "700",
+                fontSize: "13px",
+                cursor: "pointer"
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner: Greeting & Live Availability Toggle */}
       <div
         className="card gsap-fade-card"
@@ -128,7 +257,7 @@ export default function Dashboard() {
               <span style={{ fontSize: "var(--font-size-xs)", opacity: 0.95, fontWeight: "700", letterSpacing: "0.5px" }}>ID: {profile?.pillar_code || "PIL-CHE-042"}</span>
             </div>
             <h1 style={{ fontSize: "var(--font-size-3xl)", fontWeight: "800", margin: 0, color: "white" }}>
-              {t("common.welcome")}, {profile?.full_name || t("Pillar")}!
+              {t("common.welcome")}, {profile?.full_name || "Raj Kumar"}!
             </h1>
             <div style={{ minHeight: "20px", marginTop: "4px", fontSize: "14.5px", color: "#CCD6E6" }}>
               <TypewriterEffect

@@ -80,8 +80,9 @@ export default function OrderDetailsModal({
     const raw = (order?.attachments && order.attachments.length > 0)
       ? order.attachments
       : (order?.photo_urls || order?.photos || []);
-    const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    const list = Array.isArray(raw) ? raw.filter(Boolean) : (raw ? [raw] : []);
     return list.map((item, idx) => {
+      if (!item) return null;
       if (typeof item === 'string') {
         const isPdf = item.includes('application/pdf') || item.toLowerCase().endsWith('.pdf');
         const isData = item.startsWith('data:');
@@ -111,7 +112,7 @@ export default function OrderDetailsModal({
         size: item.size || (isPdf ? 'PDF Document' : 'Inspection Photo'),
         uploaded_at: item.uploaded_at || 'Attached'
       };
-    });
+    }).filter(Boolean);
   }, [order?.attachments, order?.photo_urls, order?.photos]);
 
   if (!order) return null;

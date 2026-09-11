@@ -1,4 +1,4 @@
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../lib/supabase.js";
 
 const DEMO_ORDERS = [
   {
@@ -164,61 +164,102 @@ const KNOWN_CUSTOMERS = [
   { full_name: "Venkatesh Kumar", mobile: "+91 98412 88776", email: "venkat.k@gmail.com" }
 ];
 
-export function isOrderForPillar(order, pillarId) {
+export function isOrderForPillar(order, pillarId, pillarProfile = null) {
   if (!order) return false;
 
-  // Normalise target pillar IDs
+  // Normalise target pillar IDs, codes, and names
   const targetIds = new Set();
+  const targetCodes = new Set();
+  const targetNames = new Set();
+
   if (pillarId && pillarId !== "00000000-0000-0000-0000-000000000000") {
     targetIds.add(String(pillarId).toLowerCase());
+    targetCodes.add(String(pillarId).toUpperCase());
   }
 
-  // Check demo user in localStorage
+  if (pillarProfile) {
+    if (pillarProfile.id) {
+      targetIds.add(String(pillarProfile.id).toLowerCase());
+      targetCodes.add(String(pillarProfile.id).toUpperCase());
+    }
+    if (pillarProfile.alias_id) {
+      targetIds.add(String(pillarProfile.alias_id).toLowerCase());
+    }
+    if (pillarProfile.pillar_code) {
+      targetCodes.add(String(pillarProfile.pillar_code).toUpperCase());
+      targetIds.add(String(pillarProfile.pillar_code).toLowerCase());
+    }
+    if (pillarProfile.alias_code) {
+      targetCodes.add(String(pillarProfile.alias_code).toUpperCase());
+      targetIds.add(String(pillarProfile.alias_code).toLowerCase());
+    }
+    if (pillarProfile.full_name) {
+      targetNames.add(pillarProfile.full_name.toLowerCase());
+    }
+  }
+
+  // Check demo user / active pillar in localStorage
   let demoName = "";
   try {
     demoName = localStorage.getItem("coophub_demo_user_name") || "";
+    if (demoName) targetNames.add(demoName.toLowerCase());
+    const activePCode = localStorage.getItem("coophub_active_pillar_code");
+    if (activePCode) targetCodes.add(activePCode.toUpperCase());
+    const activePId = localStorage.getItem("coophub_active_pillar_id");
+    if (activePId) targetIds.add(activePId.toLowerCase());
   } catch(e) {}
 
+  // Check if current pillar is Raj Kumar / PIL-CHE-042 / PIL-CHE-111 / Senthil Kumar (default demo pillar)
   const isRaj = Array.from(targetIds).some(id => 
     id === "7842d4fd-ac93-4014-93ed-001c0237a36c" || 
-    id === "c0000000-0000-0000-0000-000000000011"
-  ) || (demoName && /raj\s*kumar/i.test(demoName)) || (targetIds.size === 0 && localStorage.getItem("coophub_demo_user") === "true");
+    id === "c0000000-0000-0000-0000-000000000011" ||
+    id === "pil-che-042" ||
+    id === "pil-che-111"
+  ) || Array.from(targetCodes).some(c => c === "PIL-CHE-042" || c === "PIL-CHE-111")
+    || (demoName && /raj\s*kumar/i.test(demoName)) 
+    || (targetIds.size === 0 && localStorage.getItem("coophub_demo_user") === "true")
+    || (!pillarId || pillarId === "00000000-0000-0000-0000-000000000000");
 
   if (isRaj) {
     targetIds.add("7842d4fd-ac93-4014-93ed-001c0237a36c");
     targetIds.add("c0000000-0000-0000-0000-000000000011");
+    targetIds.add("pil-che-042");
+    targetIds.add("pil-che-111");
+    targetCodes.add("PIL-CHE-042");
+    targetCodes.add("PIL-CHE-111");
+    targetNames.add("raj kumar");
+    targetNames.add("senthil kumar");
   }
 
-  const orderPillarId = order.pillar_id ? String(order.pillar_id).toLowerCase() : null;
+  const orderPillarId = order.pillar_id ? String(order.pillar_id).toLowerCase() : (order.pillar?.id ? String(order.pillar.id).toLowerCase() : null);
   const orderPillarName = (order.pillar_name || order.pillar?.full_name || "").toLowerCase();
   const orderPillarCode = (order.pillar_code || order.pillar?.pillar_code || "").toUpperCase();
 
-  // 1. If order is explicitly assigned to a pillar
-  if (orderPillarId) {
-    if (targetIds.has(orderPillarId)) return true;
-    if (isRaj && /raj\s*kumar/i.test(orderPillarName)) return true;
-    if (isRaj && (orderPillarCode === "PIL-CHE-111" || orderPillarCode === "PIL-CHE-042")) return true;
-    if (demoName && orderPillarName && orderPillarName === demoName.toLowerCase()) return true;
-    // Assigned to someone else
-    return false;
+  // 1. Direct match by ID
+  if (orderPillarId && (targetIds.has(orderPillarId) || targetCodes.has(orderPillarId.toUpperCase()))) return true;
+
+  // 2. Direct match by Pillar Code
+  if (orderPillarCode && (targetCodes.has(orderPillarCode) || targetIds.has(orderPillarCode.toLowerCase()))) return true;
+
+  // 3. Direct match by Name
+  if (orderPillarName && targetNames.has(orderPillarName)) return true;
+
+  // 4. If this is the demo pillar (PIL-CHE-042), match variations
+  if (isRaj) {
+    if (orderPillarCode === "PIL-CHE-042" || orderPillarCode === "PIL-CHE-111") return true;
+    if (orderPillarId === "pil-che-042" || orderPillarId === "pil-che-111") return true;
+    if (/raj\s*kumar/i.test(orderPillarName) || /senthil/i.test(orderPillarName)) return true;
   }
 
-  // Also check if assigned by name/code without ID
-  if (orderPillarName) {
-    if (isRaj && /raj\s*kumar/i.test(orderPillarName)) return true;
-    if (demoName && orderPillarName === demoName.toLowerCase()) return true;
-    return false;
-  }
-
-  if (orderPillarCode) {
-    if (isRaj && (orderPillarCode === "PIL-CHE-111" || orderPillarCode === "PIL-CHE-042")) return true;
-    return false;
-  }
-
-  // 2. If order is unassigned pool (status === 'pending')
+  // 5. If order is unassigned pool (status === 'pending' or 'assigned' without explicit pillar)
   const s = (order.status || order.db_status || "").toLowerCase();
-  if (!orderPillarId && (s === 'pending' || s === '')) {
-    return true; // Available for any eligible pillar to accept
+  if (!orderPillarId && !orderPillarCode && (s === 'pending' || s === 'assigned' || s === '')) {
+    return true; // Available for any eligible pillar in trade pool
+  }
+
+  // 6. Check if order was created by customer in local storage without explicit pillar ID
+  if (order.id && !orderPillarId && !orderPillarCode) {
+    return true;
   }
 
   return false;
@@ -228,11 +269,13 @@ export const pillarOrderService = {
   getDeterministicArrivalOtp,
   formatOrderTime,
   isOrderForPillar,
-  async getOrders(pillarId, status = null) {
+  async getOrders(pillarId, status = null, pillarProfile = null) {
     const isDemo = localStorage.getItem("coophub_demo_user") === "true" || 
                    pillarId === "00000000-0000-0000-0000-000000000000" ||
                    pillarId === "7842d4fd-ac93-4014-93ed-001c0237a36c" ||
                    pillarId === "c0000000-0000-0000-0000-000000000011" ||
+                   pillarId === "pil-che-042" ||
+                   pillarId === "PIL-CHE-042" ||
                    pillarId === "c4200000-0000-0000-0000-000000000042";
 
     // 🔒 REAL USER & DEMO: Query live Supabase database across service_requests and bookings
@@ -286,7 +329,7 @@ export const pillarOrderService = {
         }
 
         sReqs.forEach(r => {
-          if (!isOrderForPillar(r, pillarId)) return;
+          if (!isOrderForPillar(r, pillarId, pillarProfile)) return;
           const cust = custMap[r.customer_id] || {};
           
           // Deterministic authentic customer fallback when user profile is not public
@@ -298,7 +341,7 @@ export const pillarOrderService = {
 
           // Parse name and phone from customer description if embedded
           if ((!custName || custName === 'Valued Customer' || custName === 'Coop Customer') && r.customer_description) {
-            const matchName = r.customer_description.match(/\[Customer:\s*([^|\]]+)/i);
+            const matchName = r.customer_description.match(/\[(?:Order:[^|\]]+\|\s*)?Customer:\s*([^|\]]+)/i) || r.customer_description.match(/Customer:\s*([^|\]]+)/i);
             if (matchName && matchName[1] && matchName[1].trim() !== 'Valued Customer') custName = matchName[1].trim();
             const matchPhone = r.customer_description.match(/Phone:\s*([^|\]]+)/i);
             if (matchPhone && matchPhone[1]) custMobile = matchPhone[1].trim();
@@ -330,10 +373,15 @@ export const pillarOrderService = {
           if (uiStatus === "on_the_way") uiStatus = "onTheWay";
           if (uiStatus === "in_progress") uiStatus = "inProgress";
 
+          const orderCode = r.receipt_number || 
+                            r.payment_gateway_ref || 
+                            (r.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || 
+                            (String(r.id).startsWith("REQ-") || String(r.id).startsWith("ORD-") ? r.id : "REQ-" + r.id.substring(0, 6).toUpperCase());
+
           combinedOrders.push({
             id: r.id,
-            order_id: r.id,
-            booking_code: "REQ-" + r.id.substring(0, 6).toUpperCase(),
+            order_id: orderCode,
+            booking_code: orderCode,
             service_id: r.service_id,
             sub_service_id: r.sub_service_id,
             status: uiStatus,
@@ -348,7 +396,17 @@ export const pillarOrderService = {
               email: custEmail
             },
             service_name: r.services?.name || r.services?.name_translations?.en || "General Home Service",
-            sub_service_name: r.sub_services?.name || r.sub_services?.name_translations?.en || "",
+            sub_service_name: (() => {
+              if (r.sub_services?.name) return r.sub_services.name;
+              if (r.sub_services?.name_translations?.en) return r.sub_services.name_translations.en;
+              if (r.customer_description) {
+                const descWithoutTag = r.customer_description.replace(/\[[^\]]+\]\s*/g, '').trim();
+                if (descWithoutTag) {
+                  return descWithoutTag.split(/\s*-\s*/)[0]?.trim() || "";
+                }
+              }
+              return "";
+            })(),
             service: {
               id: r.service_id,
               name: r.services?.name || r.services?.name_translations?.en || "General Home Service",
@@ -421,6 +479,10 @@ export const pillarOrderService = {
             extra_charge_amount: r.extra_charge_amount || 0,
             created_at: r.created_at,
             pillar_id: r.pillar_id,
+            pillar_name: r.pillar?.full_name || r.pillar_name || (r.pillar_id === "7842d4fd-ac93-4014-93ed-001c0237a36c" ? "Raj Kumar" : undefined),
+            pillar_code: r.pillar?.pillar_code || r.pillar_code || (r.pillar_id === "7842d4fd-ac93-4014-93ed-001c0237a36c" ? "PIL-CHE-042" : undefined),
+            customer_phone: custMobile,
+            phone: custMobile,
             raw_data: r
           });
         });
@@ -446,7 +508,7 @@ export const pillarOrderService = {
       if (bookings && bookings.length > 0) {
         const existingIds = new Set(combinedOrders.map(o => o.id));
         bookings.forEach(b => {
-          if (!existingIds.has(b.id) && isOrderForPillar(b, pillarId)) {
+          if (!existingIds.has(b.id) && isOrderForPillar(b, pillarId, pillarProfile)) {
             let uiStatus = b.status || "pending";
             if (uiStatus === "assigned") uiStatus = "pending";
             if (uiStatus === "on_the_way") uiStatus = "onTheWay";
@@ -478,7 +540,7 @@ export const pillarOrderService = {
         const existingIds = new Set(combinedOrders.map(o => o.id));
         allLocal.forEach(loc => {
           if (!loc || !loc.id) return;
-          if (!isOrderForPillar(loc, pillarId)) return;
+          if (!isOrderForPillar(loc, pillarId, pillarProfile)) return;
 
           let uiStatus = loc.status || "pending";
           if (uiStatus === "assigned") uiStatus = "pending";
@@ -505,8 +567,19 @@ export const pillarOrderService = {
           loc.customer_name = locCustName;
           if (loc.customer) loc.customer.full_name = locCustName;
 
-          const existingOrder = combinedOrders.find(o => o.id === loc.id);
+          const existingOrder = combinedOrders.find(o => 
+            o.id === loc.id || 
+            o.booking_code === loc.id || 
+            o.booking_code === loc.booking_code || 
+            (loc.db_id && o.id === loc.db_id) ||
+            (loc.order_id && (o.id === loc.order_id || o.booking_code === loc.order_id))
+          );
           if (existingOrder) {
+            const humanCode = loc.booking_code || (String(loc.id).startsWith("REQ-") || String(loc.id).startsWith("ORD-") ? loc.id : null);
+            if (humanCode) {
+              existingOrder.booking_code = humanCode;
+              existingOrder.order_id = humanCode;
+            }
             if (existingOrder.customer_name === 'Valued Customer' || !existingOrder.customer_name) {
               existingOrder.customer_name = locCustName;
             }
@@ -525,9 +598,12 @@ export const pillarOrderService = {
 
           existingIds.add(loc.id);
 
+          const locHumanCode = loc.booking_code || (String(loc.id).startsWith("REQ-") || String(loc.id).startsWith("ORD-") ? loc.id : "REQ-" + String(loc.id).slice(0, 6).toUpperCase());
+
           combinedOrders.unshift({
             id: loc.id,
-            booking_code: loc.booking_code || (String(loc.id).startsWith("REQ-") ? loc.id : "REQ-" + String(loc.id).substring(0, 6).toUpperCase()),
+            booking_code: locHumanCode,
+            order_id: locHumanCode,
             status: uiStatus,
             db_status: loc.status || "pending",
             customer_name: locCustName,
@@ -614,6 +690,26 @@ export const pillarOrderService = {
         console.warn("Local orders merge note:", locErr);
       }
 
+      // Ensure DEMO_ORDERS are available if this is demo pillar / Raj Kumar or if combinedOrders is empty
+      const targetIds = new Set();
+      if (pillarId) targetIds.add(String(pillarId).toLowerCase());
+      if (pillarProfile?.id) targetIds.add(String(pillarProfile.id).toLowerCase());
+      if (pillarProfile?.pillar_code) targetIds.add(String(pillarProfile.pillar_code).toLowerCase());
+      const isRajPillar = targetIds.has("pil-che-042") || targetIds.has("pil-che-111") || targetIds.has("c0000000-0000-0000-0000-000000000011") || isDemo;
+
+      if (isRajPillar) {
+        const existingIds = new Set(combinedOrders.map(o => o.id));
+        const hasLivePending = combinedOrders.some(o => o.status === 'pending');
+        DEMO_ORDERS.forEach(demoOrd => {
+          // If there is already a live pending order in the dashboard, don't show the static pending demo order ORD-9843
+          if (hasLivePending && demoOrd.status === 'pending') return;
+          if (!existingIds.has(demoOrd.id)) {
+            combinedOrders.push(demoOrd);
+            existingIds.add(demoOrd.id);
+          }
+        });
+      }
+
       let finalResult = combinedOrders;
       if (status) {
         finalResult = finalResult.filter(o => o.status === status);
@@ -655,13 +751,54 @@ export const pillarOrderService = {
     if (status === "rejected" || status === "declined") dbStatus = "cancelled";
 
     const nowIso = new Date().toISOString();
+    const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ""));
+
+    // Sanitize metadata: Supabase service_requests.pillar_id MUST be a valid UUID or omitted
+    const safeMetadata = { ...metadata };
+    if (safeMetadata.pillar_id) {
+      if (!isUuid(safeMetadata.pillar_id)) {
+        if (String(safeMetadata.pillar_id).toUpperCase() === "PIL-CHE-042" || String(safeMetadata.pillar_id).toUpperCase() === "PIL-CHE-111") {
+          safeMetadata.pillar_id = "7842d4fd-ac93-4014-93ed-001c0237a36c";
+        } else {
+          delete safeMetadata.pillar_id; // Never crash Postgres with non-UUID string in UUID column
+        }
+      }
+    }
+
+    const matchesTarget = (o) => (
+      o && (
+        o.id === bookingId ||
+        o.booking_code === bookingId ||
+        o.order_id === bookingId ||
+        (o.db_id && o.db_id === bookingId) ||
+        (o.receipt_number && o.receipt_number === bookingId)
+      )
+    );
+
+    // Resolve target database UUID dynamically
+    let targetUuid = isUuid(bookingId) ? bookingId : null;
+    if (!targetUuid) {
+      if (bookingId === 'ORD-9842' || bookingId === 'REQ-8942') {
+        targetUuid = '00000000-0000-0000-0000-000000008942';
+      } else {
+        try {
+          const { data: matched } = await supabase
+            .from("service_requests")
+            .select("id")
+            .or(`receipt_number.eq.${bookingId},payment_gateway_ref.eq.${bookingId},customer_description.ilike.%${bookingId}%`)
+            .limit(1)
+            .maybeSingle();
+          if (matched?.id) targetUuid = matched.id;
+        } catch (e) {}
+      }
+    }
 
     // 1. Update in DEMO_ORDERS if matched
-    const match = DEMO_ORDERS.find(o => o.id === bookingId || o.booking_code === bookingId);
+    const match = DEMO_ORDERS.find(o => matchesTarget(o) || (targetUuid && (o.id === targetUuid || (targetUuid === '00000000-0000-0000-0000-000000008942' && o.id === 'ORD-9842'))));
     if (match) {
       match.status = status === "rejected" || status === "declined" ? "cancelled" : status;
       match.updated_at = nowIso;
-      if (metadata.pillar_id) match.pillar_id = metadata.pillar_id;
+      if (safeMetadata.pillar_id) match.pillar_id = safeMetadata.pillar_id;
     }
 
     // 2. Update in Supabase
@@ -669,53 +806,66 @@ export const pillarOrderService = {
       const updates = {
         status: dbStatus,
         updated_at: nowIso,
-        ...metadata,
+        ...safeMetadata,
       };
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(bookingId));
-      if (isUuid) {
-        await supabase
+      if (targetUuid) {
+        const { error: sErr } = await supabase
           .from("service_requests")
           .update(updates)
-          .eq("id", bookingId);
-
-        await supabase
-          .from("bookings")
-          .update({
-            ...updates,
-            status: dbStatus === 'in_progress' ? 'inProgress' : (dbStatus === 'on_the_way' ? 'onTheWay' : dbStatus)
-          })
-          .eq("id", bookingId);
+          .eq("id", targetUuid);
+        if (sErr) console.warn("Supabase service_requests update error:", sErr);
       } else {
-        // For demo requests (like REQ-8942 or ORD-9842), update the shared demo record in Supabase
-        const demoUuid = '00000000-0000-0000-0000-000000008942';
-        await supabase
+        const { error: sErr } = await supabase
           .from("service_requests")
           .update(updates)
-          .eq("id", demoUuid);
-
-        await supabase
-          .from("bookings")
-          .update({
-            ...updates,
-            status: dbStatus === 'in_progress' ? 'inProgress' : (dbStatus === 'on_the_way' ? 'onTheWay' : dbStatus)
-          })
-          .eq("booking_code", bookingId);
+          .or(`receipt_number.eq.${bookingId},payment_gateway_ref.eq.${bookingId},customer_description.ilike.%${bookingId}%`);
+        if (sErr) console.warn("Supabase service_requests update error:", sErr);
       }
+
+      // Also update bookings table
+      try {
+        if (targetUuid) {
+          await supabase
+            .from("bookings")
+            .update({
+              ...updates,
+              status: dbStatus === 'in_progress' ? 'inProgress' : (dbStatus === 'on_the_way' ? 'onTheWay' : dbStatus)
+            })
+            .or(`id.eq.${targetUuid},booking_code.eq.${bookingId}`);
+        } else {
+          await supabase
+            .from("bookings")
+            .update({
+              ...updates,
+              status: dbStatus === 'in_progress' ? 'inProgress' : (dbStatus === 'on_the_way' ? 'onTheWay' : dbStatus)
+            })
+            .eq("booking_code", bookingId);
+        }
+      } catch (bErr) {}
     } catch (error) {
       console.warn("Update order status Supabase note:", error);
     }
 
     // 3. Update in localStorage feeds
+    const relatedKeys = [
+      bookingId,
+      targetUuid,
+      bookingId === 'ORD-9842' ? 'REQ-8942' : null,
+      bookingId === 'REQ-8942' ? 'ORD-9842' : null,
+      targetUuid === '00000000-0000-0000-0000-000000008942' ? 'REQ-8942' : null,
+      targetUuid === '00000000-0000-0000-0000-000000008942' ? 'ORD-9842' : null
+    ].filter(Boolean);
+
     try {
       if (typeof window !== "undefined" && window.localStorage) {
         const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
         let updatedShared = false;
         sharedOrders.forEach(o => {
-          if (o.id === bookingId || o.booking_code === bookingId) {
+          if (matchesTarget(o) || (targetUuid && (o.id === targetUuid || o.db_id === targetUuid))) {
             o.status = dbStatus;
             o.updated_at = nowIso;
-            if (metadata.pillar_id) o.pillar_id = metadata.pillar_id;
+            if (safeMetadata.pillar_id) o.pillar_id = safeMetadata.pillar_id;
             updatedShared = true;
           }
         });
@@ -726,10 +876,10 @@ export const pillarOrderService = {
         const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
         let updatedCust = false;
         custRequests.forEach(o => {
-          if (o.id === bookingId || o.booking_code === bookingId) {
+          if (matchesTarget(o) || (targetUuid && (o.id === targetUuid || o.db_id === targetUuid))) {
             o.status = dbStatus;
             o.updated_at = nowIso;
-            if (metadata.pillar_id) o.pillar_id = metadata.pillar_id;
+            if (safeMetadata.pillar_id) o.pillar_id = safeMetadata.pillar_id;
             updatedCust = true;
           }
         });
@@ -737,10 +887,6 @@ export const pillarOrderService = {
           localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
         }
 
-        const relatedKeys = [
-          bookingId,
-          bookingId === 'ORD-9842' ? 'REQ-8942' : (bookingId === 'REQ-8942' ? 'ORD-9842' : null)
-        ].filter(Boolean);
         relatedKeys.forEach(k => {
           try {
             localStorage.setItem(`coophub_status_${k}`, dbStatus);
@@ -749,6 +895,7 @@ export const pillarOrderService = {
 
         localStorage.setItem('coophub_last_order_event', JSON.stringify({
           id: bookingId,
+          targetUuid,
           relatedKeys,
           action: 'status_updated',
           status: dbStatus,
@@ -765,8 +912,12 @@ export const pillarOrderService = {
         const bc = new BroadcastChannel('coophub_orders_sync');
         bc.postMessage({
           type: 'ORDER_UPDATED',
+          action: 'status_updated',
           orderId: bookingId,
+          resolvedId: targetUuid,
+          relatedIds: relatedKeys,
           status: dbStatus,
+          uiStatus: status,
           timestamp: Date.now()
         });
         setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
@@ -775,22 +926,33 @@ export const pillarOrderService = {
 
     try {
       window.dispatchEvent(new CustomEvent('coophub_order_updated', {
-        detail: { id: bookingId, status: dbStatus }
+        detail: { id: bookingId, targetUuid, relatedIds: relatedKeys, status: dbStatus }
       }));
       window.dispatchEvent(new CustomEvent('coophub_order_status_updated', {
-        detail: { id: bookingId, status: dbStatus }
+        detail: { id: bookingId, targetUuid, relatedIds: relatedKeys, status: dbStatus }
       }));
     } catch (we) {}
 
-    return { data: { id: bookingId, status: dbStatus }, error: null };
+    return { data: { id: bookingId, targetUuid, status: dbStatus }, error: null };
   },
 
   async cancelOrder(bookingId, reason, pillarId) {
     const fullReason = reason || "Cancelled by technician";
     const nowIso = new Date().toISOString();
+    const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ""));
+
+    const matchesTarget = (o) => (
+      o && (
+        o.id === bookingId ||
+        o.booking_code === bookingId ||
+        o.order_id === bookingId ||
+        (o.db_id && o.db_id === bookingId) ||
+        (o.receipt_number && o.receipt_number === bookingId)
+      )
+    );
 
     // 1. Update in DEMO_ORDERS if matched
-    const match = DEMO_ORDERS.find(o => o.id === bookingId || o.booking_code === bookingId);
+    const match = DEMO_ORDERS.find(matchesTarget);
     if (match) {
       match.status = "cancelled";
       match.cancel_reason = fullReason;
@@ -809,8 +971,8 @@ export const pillarOrderService = {
         updated_at: nowIso,
       };
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(bookingId));
-      if (isUuid) {
+      const bookingIsUuid = isUuid(bookingId);
+      if (bookingIsUuid) {
         await supabase
           .from("service_requests")
           .update(updates)
@@ -824,12 +986,12 @@ export const pillarOrderService = {
         await supabase
           .from("service_requests")
           .update(updates)
-          .or(`order_code.eq.${bookingId},id.eq.${bookingId}`);
+          .or(`receipt_number.eq.${bookingId},payment_gateway_ref.eq.${bookingId},customer_description.ilike.%${bookingId}%`);
 
         await supabase
           .from("bookings")
           .update(updates)
-          .or(`booking_code.eq.${bookingId},id.eq.${bookingId}`);
+          .or(`booking_code.eq.${bookingId}`);
       }
     } catch (dbErr) {
       console.warn("Cancel order Supabase update note:", dbErr);
@@ -841,7 +1003,7 @@ export const pillarOrderService = {
         const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
         let updatedShared = false;
         sharedOrders.forEach(o => {
-          if (o.id === bookingId || o.booking_code === bookingId) {
+          if (matchesTarget(o)) {
             o.status = 'cancelled';
             o.cancel_reason = fullReason;
             o.cancelled_by = 'pillar';
@@ -856,7 +1018,7 @@ export const pillarOrderService = {
         const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
         let updatedCust = false;
         custRequests.forEach(o => {
-          if (o.id === bookingId || o.booking_code === bookingId) {
+          if (matchesTarget(o)) {
             o.status = 'cancelled';
             o.cancel_reason = fullReason;
             o.cancelled_by = 'pillar';
@@ -907,18 +1069,33 @@ export const pillarOrderService = {
   async completeOrderAndFinalizeBill(orderId, payload) {
     try {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(orderId || ''));
-      const targetReqId = isUuid ? orderId : '00000000-0000-0000-0000-000000008942';
+      let targetReqId = isUuid ? orderId : null;
+
+      // Dynamically lookup the matching record in service_requests if orderId is human booking code
+      if (!targetReqId) {
+        try {
+          const { data: matched } = await supabase
+            .from("service_requests")
+            .select("id, amount, extra_charge_status, extra_charge_amount, payment_method, payment_gateway_ref, customer_id, pillar_id")
+            .or(`receipt_number.eq.${orderId},payment_gateway_ref.eq.${orderId},customer_description.ilike.%${orderId}%`)
+            .limit(1)
+            .maybeSingle();
+          if (matched?.id) targetReqId = matched.id;
+        } catch (e) {}
+      }
 
       // Fetch request from Supabase to check approved extra charges and amounts
       let req = null;
-      try {
-        const res = await supabase
-          .from("service_requests")
-          .select("*")
-          .eq("id", targetReqId)
-          .maybeSingle();
-        req = res.data;
-      } catch (e) {}
+      if (targetReqId) {
+        try {
+          const res = await supabase
+            .from("service_requests")
+            .select("*")
+            .eq("id", targetReqId)
+            .maybeSingle();
+          req = res.data;
+        } catch (e) {}
+      }
 
       const baseAmount = Number(payload.amount || req?.amount || 450);
       const isExtraApproved = req?.extra_charge_status === 'accepted' || payload.extra_charge_status === 'accepted';
@@ -1006,13 +1183,13 @@ export const pillarOrderService = {
       }
 
       // 5. Update localStorage status overrides across all related IDs
+      const isDemoOrder = orderId === 'REQ-8942' || orderId === 'ORD-9842' || targetReqId === '00000000-0000-0000-0000-000000008942';
       const relatedIds = [
         orderId,
-        targetReqId,
-        'REQ-8942',
-        'ORD-9842',
-        '00000000-0000-0000-0000-000000008942'
-      ];
+        targetReqId !== '00000000-0000-0000-0000-000000008942' ? targetReqId : (isDemoOrder ? targetReqId : null),
+        isDemoOrder ? 'REQ-8942' : null,
+        isDemoOrder ? 'ORD-9842' : null
+      ].filter(Boolean);
       relatedIds.forEach(idKey => {
         try {
           localStorage.setItem(`coophub_status_${idKey}`, 'completed');
@@ -1026,7 +1203,7 @@ export const pillarOrderService = {
         if (typeof window !== "undefined" && window.localStorage) {
           const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
           sharedOrders.forEach(o => {
-            if (o.id === orderId || o.booking_code === orderId || (orderId.startsWith('REQ-') && String(o.id).startsWith('REQ-'))) {
+            if (o.id === orderId || o.booking_code === orderId || (isDemoOrder && (o.id === 'ORD-9842' || o.id === 'REQ-8942'))) {
               o.status = 'completed';
               o.payment_status = 'completed';
               o.payment_method = 'HAND CASH';
@@ -1038,7 +1215,7 @@ export const pillarOrderService = {
 
           const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
           custRequests.forEach(o => {
-            if (o.id === orderId || o.booking_code === orderId || (orderId.startsWith('REQ-') && String(o.id).startsWith('REQ-'))) {
+            if (o.id === orderId || o.booking_code === orderId || (isDemoOrder && (o.id === 'ORD-9842' || o.id === 'REQ-8942'))) {
               o.status = 'completed';
               o.payment_status = 'completed';
               o.payment_method = 'HAND CASH';
@@ -1061,9 +1238,13 @@ export const pillarOrderService = {
             payment_method: 'HAND CASH'
           };
           localStorage.setItem(`coophub_invoice_${orderId}`, JSON.stringify(invoiceObj));
-          localStorage.setItem(`coophub_invoice_${targetReqId}`, JSON.stringify(invoiceObj));
-          localStorage.setItem('coophub_invoice_REQ-8942', JSON.stringify(invoiceObj));
-          localStorage.setItem('coophub_invoice_ORD-9842', JSON.stringify(invoiceObj));
+          if (targetReqId && (targetReqId !== '00000000-0000-0000-0000-000000008942' || isDemoOrder)) {
+            localStorage.setItem(`coophub_invoice_${targetReqId}`, JSON.stringify(invoiceObj));
+          }
+          if (isDemoOrder) {
+            localStorage.setItem('coophub_invoice_REQ-8942', JSON.stringify(invoiceObj));
+            localStorage.setItem('coophub_invoice_ORD-9842', JSON.stringify(invoiceObj));
+          }
 
           localStorage.setItem('coophub_last_order_event', JSON.stringify({
             id: orderId,
@@ -1144,15 +1325,16 @@ export const pillarOrderService = {
 
       // Check service_requests for live arrival_otp by ID
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(bookingId));
-      const targetReqId = isUuid ? bookingId : '00000000-0000-0000-0000-000000008942';
 
       let sData = null;
       try {
-        const res = await supabase
-          .from("service_requests")
-          .select("id, arrival_otp, otp_attempts, status")
-          .eq("id", targetReqId)
-          .maybeSingle();
+        let sQuery = supabase.from("service_requests").select("id, arrival_otp, otp_attempts, status");
+        if (isUuid) {
+          sQuery = sQuery.eq("id", bookingId);
+        } else {
+          sQuery = sQuery.or(`receipt_number.eq.${bookingId},payment_gateway_ref.eq.${bookingId},customer_description.ilike.%${bookingId}%`);
+        }
+        const res = await sQuery.maybeSingle();
         sData = res.data;
       } catch (e) {}
 
@@ -1215,9 +1397,7 @@ export const pillarOrderService = {
           bData?.id,
           bData?.booking_code,
           bookingId === 'ORD-9842' || resolvedId === 'ORD-9842' ? 'REQ-8942' : null,
-          bookingId === 'REQ-8942' || resolvedId === 'REQ-8942' ? 'ORD-9842' : null,
-          'REQ-8942',
-          'ORD-9842'
+          bookingId === 'REQ-8942' || resolvedId === 'REQ-8942' ? 'ORD-9842' : null
         ].filter(Boolean);
 
         // Store status overrides in localStorage for instant synchronization across tabs
@@ -1229,17 +1409,20 @@ export const pillarOrderService = {
 
         // Also sync service_requests directly by UUID
         try {
-          await supabase
-            .from("service_requests")
-            .update({
-              status: "in_progress",
-              arrival_otp: cleanEntered,
-              otp_attempts: 0,
-              arrived_at: nowIso,
-              started_at: nowIso,
-              updated_at: nowIso
-            })
-            .eq("id", targetReqId);
+          const targetReqId = sData?.id || (isUuid ? bookingId : null);
+          if (targetReqId) {
+            await supabase
+              .from("service_requests")
+              .update({
+                status: "in_progress",
+                arrival_otp: cleanEntered,
+                otp_attempts: 0,
+                arrived_at: nowIso,
+                started_at: nowIso,
+                updated_at: nowIso
+              })
+              .eq("id", targetReqId);
+          }
         } catch (e) {}
 
         // Also update local storage if cached orders exist
@@ -1365,15 +1548,29 @@ export const pillarOrderService = {
       };
 
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(bookingId));
-      const targetReqId = isUuid ? bookingId : '00000000-0000-0000-0000-000000008942';
+      let targetReqId = isUuid ? bookingId : null;
+
+      if (!targetReqId) {
+        try {
+          const { data: matched } = await supabase
+            .from("service_requests")
+            .select("id")
+            .or(`receipt_number.eq.${bookingId},payment_gateway_ref.eq.${bookingId},customer_description.ilike.%${bookingId}%`)
+            .limit(1)
+            .maybeSingle();
+          if (matched?.id) targetReqId = matched.id;
+        } catch (e) {}
+      }
 
       // 1. Update service_requests so customer immediately gets realtime prompt
-      const { data: sData, error: sErr } = await supabase
-        .from("service_requests")
-        .update(updates)
-        .eq("id", targetReqId)
-        .select()
-        .maybeSingle();
+      if (targetReqId) {
+        try {
+          await supabase
+            .from("service_requests")
+            .update(updates)
+            .eq("id", targetReqId);
+        } catch (e) {}
+      }
 
       // 2. Update bookings
       if (isUuid) {

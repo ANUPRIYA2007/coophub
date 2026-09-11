@@ -304,43 +304,86 @@ export default function SupportCenter() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button 
                         onClick={() => navigate('/support/new')} 
-                        className="group bg-white dark:bg-slate-900 p-5 rounded-2xl border border-navy-100 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-orange-300 dark:hover:border-orange-700 transition-all text-left flex items-start space-x-4 relative overflow-hidden"
+                        className="group relative bg-white p-5 rounded-2xl border border-navy-100 shadow-xs hover:shadow-lg hover:border-orange-300 hover:-translate-y-0.5 transition-all text-left overflow-hidden"
                     >
-                        <div className="p-3.5 bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 rounded-2xl group-hover:scale-110 transition-transform">
-                            <MessageSquare size={22} />
-                        </div>
-                        <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-navy-900 dark:text-white text-base group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                                    {t('Contact Support')}
-                                </h3>
-                                <span className="text-[11px] font-semibold text-orange-500 bg-orange-50 dark:bg-orange-950 px-2 py-0.5 rounded-md">{t('New Ticket')}</span>
+                        {/* Gradient accent */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-orange-50/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                        <div className="relative">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl border border-orange-100 group-hover:scale-110 group-hover:bg-orange-100 transition-all">
+                                    <MessageSquare size={22} />
+                                </div>
+                                <span className="text-[11px] font-extrabold text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-full">
+                                    New Ticket
+                                </span>
                             </div>
-                            <p className="text-xs text-navy-500 dark:text-slate-400 mt-1 leading-relaxed">
+                            <h3 className="font-extrabold text-navy-900 text-base group-hover:text-orange-600 transition-colors mb-1">
+                                {t('Contact Support')}
+                            </h3>
+                            <p className="text-xs text-navy-500 leading-relaxed">
                                 {t('Open a new inquiry or request resolution from a cooperative ward officer.')}
                             </p>
+                            <div className="flex items-center gap-1.5 mt-3 text-[11px] font-semibold text-orange-600">
+                                <span>Avg. response: 15 min</span>
+                                <span className="w-1 h-1 rounded-full bg-orange-400"></span>
+                                <span>24/7 Active</span>
+                            </div>
                         </div>
                     </button>
 
                     <button 
                         onClick={() => navigate('/support/tickets')} 
-                        className="group bg-white dark:bg-slate-900 p-5 rounded-2xl border border-navy-100 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all text-left flex items-start space-x-4 relative overflow-hidden"
+                        className="group relative bg-white p-5 rounded-2xl border border-navy-100 shadow-xs hover:shadow-lg hover:border-navy-300 hover:-translate-y-0.5 transition-all text-left overflow-hidden"
                     >
-                        <div className="p-3.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl group-hover:scale-110 transition-transform">
-                            <FileText size={22} />
-                        </div>
-                        <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-navy-900 dark:text-white text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                    {t('My Tickets')}
-                                </h3>
-                                <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md">{t('Track Status')}</span>
+                        {/* Gradient accent */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-navy-50/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                        <div className="relative">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="p-3 bg-navy-50 text-navy-600 rounded-2xl border border-navy-100 group-hover:scale-110 group-hover:bg-navy-100 transition-all">
+                                    <FileText size={22} />
+                                </div>
+                                <span className="text-[11px] font-extrabold text-navy-600 bg-navy-50 border border-navy-200 px-2.5 py-1 rounded-full">
+                                    Track Status
+                                </span>
                             </div>
-                            <p className="text-xs text-navy-500 dark:text-slate-400 mt-1 leading-relaxed">
+                            <h3 className="font-extrabold text-navy-900 text-base group-hover:text-navy-700 transition-colors mb-1">
+                                {t('My Tickets')}
+                            </h3>
+                            <p className="text-xs text-navy-500 leading-relaxed">
                                 {t('Check the real-time progress and history of your submitted support inquiries.')}
                             </p>
+                            <div className="flex items-center gap-1.5 mt-3 text-[11px] font-semibold text-navy-500">
+                                <span>Live status updates</span>
+                                <span className="w-1 h-1 rounded-full bg-navy-300"></span>
+                                <span>Full audit trail</span>
+                            </div>
                         </div>
                     </button>
+                </div>
+
+                {/* Quick Info Stats Row */}
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white border border-navy-100 rounded-2xl p-3.5 text-center shadow-xs">
+                        <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 flex items-center justify-center mx-auto mb-2">
+                            <Headphones size={18} />
+                        </div>
+                        <div className="text-base font-black text-navy-900">24/7</div>
+                        <div className="text-[11px] font-semibold text-navy-600 mt-0.5">Support Hours</div>
+                    </div>
+                    <div className="bg-white border border-navy-100 rounded-2xl p-3.5 text-center shadow-xs">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center mx-auto mb-2">
+                            <CheckCircle2 size={18} />
+                        </div>
+                        <div className="text-base font-black text-navy-900">&lt;15 min</div>
+                        <div className="text-[11px] font-semibold text-navy-600 mt-0.5">First Response</div>
+                    </div>
+                    <div className="bg-white border border-navy-100 rounded-2xl p-3.5 text-center shadow-xs">
+                        <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center mx-auto mb-2">
+                            <ShieldCheck size={18} />
+                        </div>
+                        <div className="text-base font-black text-navy-900">100%</div>
+                        <div className="text-[11px] font-semibold text-navy-600 mt-0.5">Resolved Rate</div>
+                    </div>
                 </div>
 
                 {/* FAQ Section */}
