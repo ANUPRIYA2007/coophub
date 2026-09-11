@@ -10,7 +10,7 @@ import {
     Phone, MessageSquare, MapPin, Navigation, Clock, ShieldCheck, 
     CheckCircle2, AlertTriangle, FileText, Star, UserCheck, ChevronRight,
     CreditCard, ArrowLeft, Sparkles, Banknote, Printer, Mail, Loader2, Check,
-    XCircle, AlertOctagon
+    XCircle, AlertOctagon, Wrench
 } from 'lucide-react';
 import OrderReceiptModal from '../../components/common/OrderReceiptModal';
 import CoopHubServiceReceipt from '../../components/common/CoopHubServiceReceipt';
@@ -254,7 +254,8 @@ export default function RequestDetails() {
     };
 
     useEffect(() => {
-        const fetchRequest = async () => {
+        const fetchRequest = async (silent = false) => {
+            if (!silent && !requestData) setLoading(true);
             try {
                 const data = await serviceRequestService.getRequestDetails(id);
                 setRequestData(data);
@@ -290,7 +291,7 @@ export default function RequestDetails() {
                 }
             } catch (err) {
                 console.error("Failed to load request details:", err);
-                setError(err.message || "Failed to load request details");
+                if (!silent) setError(err.message || "Failed to load request details");
             } finally {
                 setLoading(false);
             }
@@ -298,7 +299,40 @@ export default function RequestDetails() {
 
         fetchRequest();
 
-        // Realtime Subscription on service_requests & bookings for immediate status transition
+        // 1. Cross-tab BroadcastChannel listener for live status updates from Pillar portal
+        let bc = null;
+        try {
+            if (typeof BroadcastChannel !== 'undefined') {
+                bc = new BroadcastChannel('coophub_orders_sync');
+                bc.onmessage = (event) => {
+                    console.log("⚡ BroadcastChannel order sync received in Customer Portal:", event.data);
+                    fetchRequest(true);
+                };
+            }
+        } catch (e) {}
+
+        // 2. Cross-tab localStorage storage event listener
+        const handleStorageChange = (e) => {
+            if (!e.key || e.key.startsWith('coophub_status_') || e.key === 'coophub_shared_live_orders' || e.key === 'coophub_last_order_event' || e.key === 'coophub_pillar_orders') {
+                console.log("⚡ Storage change detected in Customer Portal:", e.key);
+                fetchRequest(true);
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+
+        // 3. Same-window custom events
+        const handleCustomUpdate = () => {
+            fetchRequest(true);
+        };
+        window.addEventListener('coophub_order_updated', handleCustomUpdate);
+        window.addEventListener('coophub_order_status_updated', handleCustomUpdate);
+
+        // 4. Background silent polling for guaranteed real-time updates
+        const pollInterval = setInterval(() => {
+            fetchRequest(true);
+        }, 2000);
+
+        // 5. Supabase Realtime Subscription on service_requests & bookings for immediate status transition
         const uniqueId = Math.random().toString(36).substring(2, 9);
         const reqChannel = supabase
             .channel(`req_live_${id}_${uniqueId}`)
@@ -307,14 +341,14 @@ export default function RequestDetails() {
                 { event: '*', schema: 'public', table: 'service_requests', filter: `id=eq.${id}` },
                 (payload) => {
                     console.log("⚡ Live Request status change in Customer Portal:", payload.new);
-                    fetchRequest();
+                    fetchRequest(true);
                 }
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${id}` },
                 (payload) => {
-                    fetchRequest();
+                    fetchRequest(true);
                 }
             )
             .on(
@@ -322,7 +356,7 @@ export default function RequestDetails() {
                 { event: '*', schema: 'public', table: 'invoices', filter: `request_id=eq.${id}` },
                 (payload) => {
                     console.log("⚡ Live Invoice update in Customer Portal:", payload.new);
-                    fetchRequest();
+                    fetchRequest(true);
                 }
             )
             .on(
@@ -330,7 +364,7 @@ export default function RequestDetails() {
                 { event: '*', schema: 'public', table: 'payments', filter: `request_id=eq.${id}` },
                 (payload) => {
                     console.log("⚡ Live Payment update in Customer Portal:", payload.new);
-                    fetchRequest();
+                    fetchRequest(true);
                 }
             )
             .subscribe();
@@ -341,6 +375,15 @@ export default function RequestDetails() {
                     supabase.removeChannel(reqChannel);
                 } catch (e) {}
             }
+            if (bc) {
+                try {
+                    bc.close();
+                } catch (e) {}
+            }
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('coophub_order_updated', handleCustomUpdate);
+            window.removeEventListener('coophub_order_status_updated', handleCustomUpdate);
+            clearInterval(pollInterval);
         };
     }, [id]);
 
@@ -419,10 +462,13 @@ export default function RequestDetails() {
     // Determine secure arrival OTP
     const displayOtp = requestData.arrival_otp || '489201';
 
+    // Normalized status string for reliable state matching across snake_case, camelCase, and spaces
+    const normStatus = (requestData?.status || '').toLowerCase().replace(/_/g, '').trim();
+
     // Check if assigned with real pillar profile
     const isDemo = localStorage.getItem('coophub_demo_customer') === 'true' || localStorage.getItem('coophub_demo_user') === 'true';
-    const isAssigned = ['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'completed'].includes(requestData.status) || !!requestData.pillar;
-    const pillar = requestData.pillar || null;
+    const isAssigned = ['assigned', 'accepted', 'ontheway', 'arrived', 'inprogress', 'working', 'completed'].includes(normStatus) || !!requestData?.pillar;
+    const pillar = requestData?.pillar || null;
 
     // Extra Charge Decision Handler
     const handleExtraCharge = async (decision) => {
@@ -453,8 +499,8 @@ export default function RequestDetails() {
         'Other reason'
     ];
 
-    const CANCELLABLE_STATUSES = ['pending', 'assigned', 'accepted', 'on_the_way', 'arrived'];
-    const canCancel = CANCELLABLE_STATUSES.includes(requestData?.status);
+    const CANCELLABLE_STATUSES = ['pending', 'assigned', 'accepted', 'ontheway', 'arrived'];
+    const canCancel = CANCELLABLE_STATUSES.includes(normStatus);
 
     const handleCancelRequest = async () => {
         if (!cancelReason) {
@@ -485,31 +531,33 @@ export default function RequestDetails() {
     };
 
     const statusBadge = (status) => {
-        switch (status) {
+        const s = (status || '').toLowerCase().replace(/_/g, '').trim();
+        switch (s) {
             case 'pending': return { text: t('Searching for Pillar'), bg: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
             case 'accepted': case 'assigned': return { text: t('Pillar Assigned'), bg: 'bg-blue-100 text-blue-800 border-blue-200' };
-            case 'on_the_way': return { text: t('Pillar En Route'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
+            case 'ontheway': case 'enroute': return { text: t('Pillar En Route'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
             case 'arrived': return { text: t('Pillar Arrived'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
-            case 'in_progress': return { text: t('Service in Progress'), bg: 'bg-purple-100 text-purple-800 border-purple-200' };
+            case 'inprogress': case 'working': return { text: t('Service in Progress'), bg: 'bg-purple-100 text-purple-800 border-purple-200' };
             case 'completed': 
-                if (invoiceData?.invoice_status === 'paid') {
+                if (invoiceData?.invoice_status === 'paid' || requestData?.payment_status === 'completed' || requestData?.payment_status === 'PAID') {
                     return { text: t('Finally Completed'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-500' };
                 }
                 return { text: t('Payment Pending'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
             case 'cancelled': return { text: t('Cancelled'), bg: 'bg-red-100 text-red-800 border-red-300' };
-            default: return { text: t(status.replace(/_/g, ' ')), bg: 'bg-navy-100 text-navy-800 border-navy-200' };
+            default: return { text: t((status || '').replace(/_/g, ' ')), bg: 'bg-navy-100 text-navy-800 border-navy-200' };
         }
     };
 
     const getStepperProgress = () => {
         if (!requestData) return -1;
-        if (invoiceData?.invoice_status === 'paid') return 7;
-        if (requestData.status === 'completed') return 6;
-        if (requestData.status === 'in_progress') return 5;
-        if (requestData.status === 'arrived') return 4;
-        if (requestData.status === 'on_the_way') return 3;
-        if (requestData.status === 'accepted') return 2;
-        if (requestData.status === 'assigned') return 1;
+        const s = (requestData.status || '').toLowerCase().replace(/_/g, '').trim();
+        if (invoiceData?.invoice_status === 'paid' || requestData.payment_status === 'completed' || requestData.payment_status === 'PAID') return 7;
+        if (s === 'completed') return 6;
+        if (s === 'inprogress' || s === 'working') return 5;
+        if (s === 'arrived') return 4;
+        if (s === 'ontheway' || s === 'enroute') return 3;
+        if (s === 'accepted') return 2;
+        if (s === 'assigned') return 1;
         return 0; // pending
     };
     
@@ -650,27 +698,33 @@ export default function RequestDetails() {
                     <div className="space-y-6 animate-fade-in">
 
                 {/* ─── LIVE STATUS JOURNEY STEPPER ─── */}
-                {requestData.status !== 'cancelled' && (
+                {normStatus !== 'cancelled' && (
                     <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm mb-4 overflow-hidden">
-                        <h3 className="font-bold text-navy-900 text-sm mb-4">Live Service Journey</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-navy-900 text-sm">Live Service Journey</h3>
+                            <span className="text-[11px] font-bold text-orange-600 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                                {journeySteps.find(s => s.idx === stepperIndex)?.label || 'Pending'}
+                            </span>
+                        </div>
                         <div className="relative flex justify-between items-center w-full px-4 sm:px-8">
-                            <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-navy-50 rounded-full z-0"></div>
+                            <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1.5 bg-navy-100 rounded-full z-0"></div>
                             <div 
-                                className="absolute left-8 top-1/2 -translate-y-1/2 h-1 bg-orange-500 rounded-full z-0 transition-all duration-500" 
-                                style={{ width: `calc(${Math.max(0, (Math.min(stepperIndex, 7) - 1) * 16.666)}% - 2rem)` }}
+                                className="absolute left-8 top-1/2 -translate-y-1/2 h-1.5 bg-orange-500 rounded-full z-0 transition-all duration-500 shadow-xs" 
+                                style={{ width: `calc((100% - 4rem) * ${Math.max(0, Math.min(6, stepperIndex - 1)) / 6})` }}
                             ></div>
                             {journeySteps.map((step) => {
                                 const isCompleted = stepperIndex >= step.idx;
                                 const isCurrent = stepperIndex === step.idx;
                                 return (
                                     <div key={step.idx} className="relative z-10 flex flex-col items-center group">
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shadow-sm ${
-                                            isCompleted ? 'bg-orange-500 border-orange-500 text-white' : 'bg-white border-navy-200 text-transparent'
-                                        } ${isCurrent ? 'ring-4 ring-orange-500/20' : ''}`}>
-                                            {isCompleted && <CheckCircle2 size={12} />}
+                                        <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 shadow-sm ${
+                                            isCompleted ? 'bg-orange-500 border-orange-500 text-white font-bold' : 'bg-white border-navy-200 text-transparent'
+                                        } ${isCurrent ? 'ring-4 ring-orange-500/25 scale-110 shadow-md' : ''}`}>
+                                            {isCompleted && <CheckCircle2 size={13} className="stroke-[2.5]" />}
                                         </div>
-                                        <span className={`absolute top-8 text-[9px] font-bold uppercase tracking-wide hidden sm:block whitespace-nowrap ${
-                                            isCurrent ? 'text-orange-600' : isCompleted ? 'text-navy-900' : 'text-navy-300'
+                                        <span className={`absolute top-9 text-[10px] font-bold uppercase tracking-wide hidden sm:block whitespace-nowrap transition-colors duration-200 ${
+                                            isCurrent ? 'text-orange-600 font-extrabold' : isCompleted ? 'text-navy-900' : 'text-navy-300'
                                         }`}>
                                             {step.label}
                                         </span>
@@ -683,7 +737,7 @@ export default function RequestDetails() {
                 )}
 
                 {/* ─── CANCELLED STATUS BANNER ─── */}
-                {requestData.status === 'cancelled' && (
+                {normStatus === 'cancelled' && (
                     <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-6 text-center space-y-3 animate-fade-in">
                         <div className="w-16 h-16 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto">
                             <XCircle size={32} />
@@ -707,25 +761,25 @@ export default function RequestDetails() {
                     </div>
                 )}
 
-                {/* ─── ARRIVAL OTP CARD (Displayed when Assigned, En Route, or Arrived) ─── */}
-                {['assigned', 'accepted', 'on_the_way', 'arrived'].includes(requestData.status) && (
+                {/* ─── ARRIVAL OTP CARD (Displayed ONLY when Assigned, En Route, or Arrived — Dismisses when PIN Verified / Working) ─── */}
+                {['assigned', 'accepted', 'ontheway', 'arrived'].includes(normStatus) && (
                     <div className={`rounded-3xl p-6 shadow-2xl text-white relative overflow-hidden animate-fade-in ${
-                        requestData.status === 'arrived' 
+                        normStatus === 'arrived' 
                             ? 'bg-gradient-to-r from-emerald-950 via-navy-950 to-emerald-950 border-2 border-emerald-500/60 ring-4 ring-emerald-500/20' 
                             : 'bg-gradient-to-r from-navy-950 via-navy-900 to-navy-950 border border-orange-500/30'
                     }`}>
                         <div className="absolute top-0 right-0 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3 text-orange-400 font-bold">
-                                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${requestData.status === 'arrived' ? 'bg-emerald-500 text-white animate-bounce' : 'bg-orange-500/20 text-orange-400'}`}>
-                                    {requestData.status === 'arrived' ? <CheckCircle2 size={20} /> : <ShieldCheck size={20} />}
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${normStatus === 'arrived' ? 'bg-emerald-500 text-white animate-bounce' : 'bg-orange-500/20 text-orange-400'}`}>
+                                    {normStatus === 'arrived' ? <CheckCircle2 size={20} /> : <ShieldCheck size={20} />}
                                 </div>
                                 <div>
                                     <span className="text-base sm:text-lg text-white font-bold block">
-                                        {requestData.status === 'arrived' ? `🎉 ${t("Technician Arrived at Doorstep!")}` : `🔐 ${t("Secure Arrival Verification PIN")}`}
+                                        {normStatus === 'arrived' ? `🎉 ${t("Technician Arrived at Doorstep!")}` : `🔐 ${t("Secure Arrival Verification PIN")}`}
                                     </span>
                                     <span className="text-[11px] text-orange-300 font-normal">
-                                        {requestData.status === 'arrived' ? t("Share this PIN with Pillar to start job") : t("Provide this code to technician upon arrival")}
+                                        {normStatus === 'arrived' ? t("Share this PIN with Pillar to start job") : t("Provide this code to technician upon arrival")}
                                     </span>
                                 </div>
                             </div>
@@ -740,6 +794,46 @@ export default function RequestDetails() {
                             <span className="font-mono text-3xl sm:text-4xl font-extrabold tracking-widest text-orange-400 select-all">
                                 {displayOtp}
                             </span>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── LIVE WORK IN PROGRESS CARD (Shown Once PIN is Verified & Technician Starts Working) ─── */}
+                {['inprogress', 'working'].includes(normStatus) && (
+                    <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-navy-950 border-2 border-purple-500/40 rounded-3xl p-6 shadow-xl text-white relative overflow-hidden animate-fade-in mb-4">
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3 text-purple-400 font-bold">
+                                <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-400/30 shadow-inner">
+                                    <Wrench size={20} className="animate-spin" style={{ animationDuration: '8s' }} />
+                                </div>
+                                <div>
+                                    <span className="text-base sm:text-lg text-white font-bold flex items-center gap-2">
+                                        <span>⚡ {t("Service Work In Progress")}</span>
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            ✓ {t("PIN Verified")}
+                                        </span>
+                                    </span>
+                                    <span className="text-[11px] text-purple-200 font-normal">
+                                        {t("Technician verified arrival PIN and is currently performing service at your location.")}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mt-4 bg-black/40 border border-white/10 rounded-2xl p-3.5 text-xs">
+                            <div>
+                                <span className="text-navy-300 text-[10px] uppercase font-bold tracking-wider block">Arrival Verification</span>
+                                <span className="text-emerald-400 font-bold flex items-center gap-1.5 mt-0.5">
+                                    <CheckCircle2 size={13} /> {t("Verified & Secured")}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-navy-300 text-[10px] uppercase font-bold tracking-wider block">Job Execution</span>
+                                <span className="text-purple-300 font-bold flex items-center gap-1.5 mt-0.5">
+                                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping"></span>
+                                    {t("Technician On Site")}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )}

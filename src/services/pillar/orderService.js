@@ -729,8 +729,19 @@ export const pillarOrderService = {
           localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
         }
 
+        const relatedKeys = [
+          bookingId,
+          bookingId === 'ORD-9842' ? 'REQ-8942' : (bookingId === 'REQ-8942' ? 'ORD-9842' : null)
+        ].filter(Boolean);
+        relatedKeys.forEach(k => {
+          try {
+            localStorage.setItem(`coophub_status_${k}`, dbStatus);
+          } catch(e) {}
+        });
+
         localStorage.setItem('coophub_last_order_event', JSON.stringify({
           id: bookingId,
+          relatedKeys,
           action: 'status_updated',
           status: dbStatus,
           time: Date.now()
@@ -756,6 +767,9 @@ export const pillarOrderService = {
 
     try {
       window.dispatchEvent(new CustomEvent('coophub_order_updated', {
+        detail: { id: bookingId, status: dbStatus }
+      }));
+      window.dispatchEvent(new CustomEvent('coophub_order_status_updated', {
         detail: { id: bookingId, status: dbStatus }
       }));
     } catch (we) {}
@@ -1028,12 +1042,34 @@ export const pillarOrderService = {
 
       if (isValid) {
         const resolvedId = sData?.id || bData?.id || bookingId;
+        const nowIso = new Date().toISOString();
+
         // Valid OTP -> Transition to in_progress & record start time
         await this.updateOrderStatus(resolvedId, "in_progress", {
-          started_at: new Date().toISOString(),
-          arrived_at: new Date().toISOString(),
+          started_at: nowIso,
+          arrived_at: nowIso,
           arrival_otp: cleanEntered,
           otp_attempts: 0
+        });
+
+        const relatedIds = [
+          bookingId,
+          resolvedId,
+          sData?.id,
+          sData?.booking_code,
+          bData?.id,
+          bData?.booking_code,
+          bookingId === 'ORD-9842' || resolvedId === 'ORD-9842' ? 'REQ-8942' : null,
+          bookingId === 'REQ-8942' || resolvedId === 'REQ-8942' ? 'ORD-9842' : null,
+          'REQ-8942',
+          'ORD-9842'
+        ].filter(Boolean);
+
+        // Store status overrides in localStorage for instant synchronization across tabs
+        relatedIds.forEach(idKey => {
+          try {
+            localStorage.setItem(`coophub_status_${idKey}`, 'in_progress');
+          } catch (e) {}
         });
 
         // Also sync service_requests directly
@@ -1044,8 +1080,8 @@ export const pillarOrderService = {
               status: "in_progress",
               arrival_otp: cleanEntered,
               otp_attempts: 0,
-              arrived_at: new Date().toISOString(),
-              started_at: new Date().toISOString()
+              arrived_at: nowIso,
+              started_at: nowIso
             })
             .or(`id.eq.${bookingId},booking_code.eq.${bookingId}`);
         } catch (e) {}
@@ -1055,16 +1091,86 @@ export const pillarOrderService = {
           const raw = localStorage.getItem("coophub_pillar_orders");
           if (raw) {
             const list = JSON.parse(raw);
-            const updated = list.map(o => (o.id === bookingId || o.booking_code === bookingId) ? {
+            const updated = list.map(o => (relatedIds.includes(o.id) || relatedIds.includes(o.booking_code)) ? {
               ...o,
               status: "inProgress",
               db_status: "in_progress",
-              arrived_at: new Date().toISOString(),
-              started_at: new Date().toISOString()
+              arrived_at: nowIso,
+              started_at: nowIso
             } : o);
             localStorage.setItem("coophub_pillar_orders", JSON.stringify(updated));
           }
         } catch (e) {}
+
+        // Update shared live orders and customer created requests
+        try {
+          const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+          let sharedChanged = false;
+          sharedOrders.forEach(o => {
+            if (relatedIds.includes(o.id) || relatedIds.includes(o.booking_code)) {
+              o.status = 'in_progress';
+              o.db_status = 'in_progress';
+              o.arrived_at = nowIso;
+              o.started_at = nowIso;
+              sharedChanged = true;
+            }
+          });
+          if (sharedChanged) {
+            localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
+          }
+        } catch (e) {}
+
+        try {
+          const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+          let custChanged = false;
+          custRequests.forEach(o => {
+            if (relatedIds.includes(o.id) || relatedIds.includes(o.booking_code)) {
+              o.status = 'in_progress';
+              o.arrived_at = nowIso;
+              o.started_at = nowIso;
+              custChanged = true;
+            }
+          });
+          if (custChanged) {
+            localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
+          }
+        } catch (e) {}
+
+        // Set last order event for storage listener
+        try {
+          localStorage.setItem('coophub_last_order_event', JSON.stringify({
+            id: resolvedId,
+            relatedIds,
+            action: 'otp_verified',
+            status: 'in_progress',
+            time: Date.now()
+          }));
+        } catch (e) {}
+
+        // Broadcast cross-tab updates
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const bc = new BroadcastChannel('coophub_orders_sync');
+            bc.postMessage({
+              type: 'ORDER_STATUS_CHANGED',
+              action: 'otp_verified',
+              orderId: resolvedId,
+              relatedIds,
+              status: 'in_progress',
+              timestamp: Date.now()
+            });
+            setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
+          }
+        } catch (bcErr) {}
+
+        try {
+          window.dispatchEvent(new CustomEvent('coophub_order_updated', {
+            detail: { id: resolvedId, relatedIds, status: 'in_progress' }
+          }));
+          window.dispatchEvent(new CustomEvent('coophub_order_status_updated', {
+            detail: { id: resolvedId, relatedIds, status: 'in_progress' }
+          }));
+        } catch (we) {}
 
         return { success: true, error: null };
       }

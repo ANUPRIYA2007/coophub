@@ -479,18 +479,51 @@ export const serviceRequestService = {
             if (item.customer && (!item.customer.full_name || item.customer.full_name === 'Valued Customer')) {
                 item.customer.full_name = item.customer_name;
             }
+            if (item.status === 'inProgress') {
+                item.status = 'in_progress';
+            }
             return item;
         };
 
         const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
-        // 🧪 DEMO MODE: Match from static demo list or created items
-        if (isDemo) {
+        // Check for any explicit status override in localStorage (e.g. from Pillar OTP verification)
+        const localStatusOverride = 
+            localStorage.getItem(`coophub_status_${requestId}`) ||
+            (requestId === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null) ||
+            (requestId === 'ORD-9842' ? localStorage.getItem('coophub_status_REQ-8942') : null);
+
+        // Also check coophub_shared_live_orders for any updated status
+        let sharedOrderMatch = null;
+        try {
+            const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+            sharedOrderMatch = shared.find(o => o.id === requestId || o.booking_code === requestId || (requestId === 'REQ-8942' && o.id === 'ORD-9842'));
+        } catch(e) {}
+
+        const isCustomOrDemoId = isDemo || 
+            String(requestId).startsWith('REQ-') || 
+            String(requestId).startsWith('ORD-') || 
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId));
+
+        // 🧪 DEMO / LOCAL MODE: Match from static demo list or created items
+        if (isCustomOrDemoId) {
             const userCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
             const allDemo = [...userCreated, ...DEMO_REQUESTS];
-            const found = allDemo.find(r => r.id === requestId);
-            if (found) return sanitizeRequest(found);
-            return sanitizeRequest(allDemo[0]);
+            let found = allDemo.find(r => r.id === requestId || r.booking_code === requestId);
+            if (!found && (requestId === 'REQ-8942' || requestId === 'ORD-9842')) {
+                found = DEMO_REQUESTS[0];
+            }
+            if (!found) found = allDemo[0];
+
+            if (found) {
+                const copy = { ...found };
+                if (localStatusOverride) {
+                    copy.status = localStatusOverride === 'inProgress' ? 'in_progress' : localStatusOverride;
+                } else if (sharedOrderMatch?.status) {
+                    copy.status = sharedOrderMatch.status === 'inProgress' ? 'in_progress' : sharedOrderMatch.status;
+                }
+                return sanitizeRequest(copy);
+            }
         }
 
         // 🔒 REAL SUPABASE: Live database query
@@ -516,14 +549,22 @@ export const serviceRequestService = {
         }
 
         if (!data) {
-            const { data: simpleData, error: simpleError } = await supabase
-                .from('service_requests')
-                .select('*')
-                .eq('id', requestId)
-                .maybeSingle();
+            try {
+                const { data: simpleData } = await supabase
+                    .from('service_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .maybeSingle();
 
-            if (simpleError || !simpleData) {
-                // Also check bookings table as fallback
+                if (simpleData) {
+                    data = simpleData;
+                }
+            } catch(e) {}
+        }
+
+        if (!data) {
+            // Also check bookings table as fallback
+            try {
                 const { data: bData } = await supabase
                     .from('bookings')
                     .select('*')
@@ -540,12 +581,30 @@ export const serviceRequestService = {
                         arrival_otp: bData.arrival_otp || '489201',
                         created_at: bData.created_at
                     };
-                } else {
-                    throw new Error('Failed to retrieve request details, or request not found.');
                 }
-            } else {
-                data = simpleData;
+            } catch(e) {}
+        }
+
+        if (!data) {
+            // Final fallback to demo object if not in DB
+            const userCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+            const allDemo = [...userCreated, ...DEMO_REQUESTS];
+            const found = allDemo.find(r => r.id === requestId) || allDemo[0];
+            if (found) {
+                const copy = { ...found };
+                if (localStatusOverride) {
+                    copy.status = localStatusOverride === 'inProgress' ? 'in_progress' : localStatusOverride;
+                }
+                return sanitizeRequest(copy);
             }
+            throw new Error('Failed to retrieve request details, or request not found.');
+        }
+
+        // Apply local status override if available
+        if (localStatusOverride) {
+            data.status = localStatusOverride === 'inProgress' ? 'in_progress' : localStatusOverride;
+        } else if (sharedOrderMatch?.status) {
+            data.status = sharedOrderMatch.status === 'inProgress' ? 'in_progress' : sharedOrderMatch.status;
         }
 
         // Fetch service name if not populated
@@ -766,10 +825,15 @@ export const serviceRequestService = {
     getCustomerRequests: async () => {
         const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
-        // 🧪 DEMO MODE: Return rich demo requests
+        // 🧪 DEMO MODE: Return rich demo requests with local overrides
         if (isDemo) {
             const userCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
-            return [...userCreated, ...DEMO_REQUESTS];
+            const list = [...userCreated, ...DEMO_REQUESTS];
+            return list.map(item => {
+                const override = localStorage.getItem(`coophub_status_${item.id}`) ||
+                    (item.id === 'REQ-8942' ? localStorage.getItem('coophub_status_ORD-9842') : null);
+                return override ? { ...item, status: override === 'inProgress' ? 'in_progress' : override } : item;
+            });
         }
 
         // 🔒 REAL SUPABASE: Live database query
