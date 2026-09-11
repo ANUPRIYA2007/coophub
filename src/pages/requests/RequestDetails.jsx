@@ -254,8 +254,6 @@ export default function RequestDetails() {
     };
 
     useEffect(() => {
-        let channel = null;
-
         const fetchRequest = async () => {
             try {
                 const data = await serviceRequestService.getRequestDetails(id);
@@ -270,39 +268,29 @@ export default function RequestDetails() {
                     setPillarGps(null);
                 }
 
-                // Subscribe to realtime Pillar GPS telemetry if assigned
-                if (data.pillar_id && !channel) {
-                    channel = supabase
-                        .channel(`pillar_gps_${data.pillar_id}_${Date.now()}`)
-                        .on(
-                            'postgres_changes',
-                            { event: 'UPDATE', schema: 'public', table: 'pillar_profiles', filter: `id=eq.${data.pillar_id}` },
-                            (payload) => {
-                                if (payload.new?.current_lat != null && payload.new?.current_lng != null) {
-                                    setPillarGps({
-                                        lat: Number(payload.new.current_lat),
-                                        lng: Number(payload.new.current_lng)
-                                    });
-                                }
-                            }
-                        )
-                        .subscribe();
+                // Fetch real request history log softly
+                try {
+                    const { data: hist } = await supabase
+                        .from('request_status_history')
+                        .select('*')
+                        .eq('request_id', id)
+                        .order('created_at', { ascending: true });
+                    if (hist) setHistoryData(hist);
+                } catch (hErr) {
+                    console.warn("History fetch note:", hErr?.message);
                 }
 
-                // Fetch real request history log
-                const { data: hist } = await supabase
-                    .from('request_status_history')
-                    .select('*')
-                    .eq('request_id', id)
-                    .order('created_at', { ascending: true });
-                setHistoryData(hist || []);
-
                 // Fetch Payment / Invoice securely
-                const { invoice, payment } = await paymentService.getPaymentDetails(id);
-                setInvoiceData(invoice);
-                setPaymentData(payment);
+                try {
+                    const { invoice, payment } = await paymentService.getPaymentDetails(id);
+                    if (invoice) setInvoiceData(invoice);
+                    if (payment) setPaymentData(payment);
+                } catch (pErr) {
+                    console.warn("Payment fetch note:", pErr?.message);
+                }
             } catch (err) {
-                setError(err.message);
+                console.error("Failed to load request details:", err);
+                setError(err.message || "Failed to load request details");
             } finally {
                 setLoading(false);
             }
@@ -311,8 +299,9 @@ export default function RequestDetails() {
         fetchRequest();
 
         // Realtime Subscription on service_requests & bookings for immediate status transition
+        const uniqueId = Math.random().toString(36).substring(2, 9);
         const reqChannel = supabase
-            .channel(`req_live_${id}_${Date.now()}`)
+            .channel(`req_live_${id}_${uniqueId}`)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'service_requests', filter: `id=eq.${id}` },
@@ -347,10 +336,50 @@ export default function RequestDetails() {
             .subscribe();
 
         return () => {
-            if (channel) supabase.removeChannel(channel);
-            if (reqChannel) supabase.removeChannel(reqChannel);
+            if (reqChannel) {
+                try {
+                    supabase.removeChannel(reqChannel);
+                } catch (e) {}
+            }
         };
     }, [id]);
+
+    // Dedicated safe listener for real-time pillar GPS telemetry
+    useEffect(() => {
+        if (!requestData?.pillar_id) return;
+
+        const pId = requestData.pillar_id;
+        const channelName = `pillar_gps_${pId}_${Math.random().toString(36).substring(2, 9)}`;
+        let gpsChannel = null;
+
+        try {
+            gpsChannel = supabase
+                .channel(channelName)
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'pillar_profiles', filter: `id=eq.${pId}` },
+                    (payload) => {
+                        if (payload.new?.current_lat != null && payload.new?.current_lng != null) {
+                            setPillarGps({
+                                lat: Number(payload.new.current_lat),
+                                lng: Number(payload.new.current_lng)
+                            });
+                        }
+                    }
+                )
+                .subscribe();
+        } catch (subErr) {
+            console.warn("Pillar GPS realtime subscription note:", subErr?.message);
+        }
+
+        return () => {
+            if (gpsChannel) {
+                try {
+                    supabase.removeChannel(gpsChannel);
+                } catch (e) {}
+            }
+        };
+    }, [requestData?.pillar_id]);
 
     // Auto-sync arrival_otp to DB if missing
     useEffect(() => {
