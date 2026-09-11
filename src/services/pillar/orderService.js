@@ -1214,54 +1214,89 @@ export const pillarOrderService = {
     }
 
     try {
+      const nowIso = new Date().toISOString();
       const updates = {
         extra_charge_amount: numAmount,
         extra_charge_reason: reason,
         extra_charge_status: "pending",
-        updated_at: new Date().toISOString()
+        updated_at: nowIso
       };
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(bookingId));
+      const targetReqId = isUuid ? bookingId : '00000000-0000-0000-0000-000000008942';
 
       // 1. Update service_requests so customer immediately gets realtime prompt
       const { data: sData, error: sErr } = await supabase
         .from("service_requests")
         .update(updates)
-        .eq("id", bookingId)
+        .eq("id", targetReqId)
         .select()
         .maybeSingle();
 
       // 2. Update bookings
-      await supabase
-        .from("bookings")
-        .update(updates)
-        .eq("id", bookingId);
-
-      // 3. Record in extra_charges table
-      try {
+      if (isUuid) {
         await supabase
-          .from("extra_charges")
-          .insert([{
-            booking_id: bookingId,
+          .from("bookings")
+          .update(updates)
+          .eq("id", bookingId);
+      } else {
+        await supabase
+          .from("bookings")
+          .update(updates)
+          .eq("booking_code", bookingId);
+      }
+
+      // 3. Update DEMO_ORDERS in-memory
+      const match = DEMO_ORDERS.find(o => o.id === bookingId || o.booking_code === bookingId || (bookingId === 'REQ-8942' && o.id === 'ORD-9842'));
+      if (match) {
+        match.extra_charges = numAmount;
+        match.extra_charge_amount = numAmount;
+        match.extra_charge_reason = reason;
+        match.extra_charge_status = "pending";
+      }
+
+      // 4. Update in localStorage feeds
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          localStorage.setItem(`coophub_extra_charge_${bookingId}`, JSON.stringify(updates));
+          if (bookingId === 'ORD-9842' || bookingId === 'REQ-8942') {
+            localStorage.setItem('coophub_extra_charge_REQ-8942', JSON.stringify(updates));
+            localStorage.setItem('coophub_extra_charge_ORD-9842', JSON.stringify(updates));
+          }
+
+          const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+          sharedOrders.forEach(o => {
+            if (o.id === bookingId || o.booking_code === bookingId || (bookingId === 'REQ-8942' && o.id === 'ORD-9842')) {
+              o.extra_charge_amount = numAmount;
+              o.extra_charge_reason = reason;
+              o.extra_charge_status = "pending";
+            }
+          });
+          localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
+        }
+      } catch (e) {}
+
+      // 5. Broadcast to Customer Portal
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('coophub_orders_sync');
+          bc.postMessage({
+            type: 'EXTRA_CHARGE_REQUESTED',
+            orderId: bookingId,
             amount: numAmount,
             reason,
-            status: "pending",
-            created_at: new Date().toISOString()
-          }]);
-      } catch (ece) {}
+            status: 'pending',
+            timestamp: Date.now()
+          });
+          setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
+        }
+      } catch (bcErr) {}
 
-      // 4. Create customer notification
-      if (sData?.customer_id) {
-        try {
-          await supabase.from("notifications").insert([{
-            customer_id: sData.customer_id,
-            request_id: bookingId,
-            type: "extra_charge_requested",
-            message_translations: {
-              en: `Technician requested ₹${numAmount} extra for parts/labor: ${reason}`,
-              ta: `தொழில்நுட்ப வல்லுநர் உதிரிபாகங்களுக்காக ₹${numAmount} கூடுதல் கட்டணம் கோரியுள்ளார்: ${reason}`
-            }
-          }]);
-        } catch (ne) {}
-      }
+      try {
+        window.dispatchEvent(new CustomEvent('coophub_extra_charge_requested', {
+          detail: { id: bookingId, amount: numAmount, reason }
+        }));
+      } catch (we) {}
 
       return { data: sData || updates, error: sErr };
     } catch (error) {

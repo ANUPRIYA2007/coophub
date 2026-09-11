@@ -20,9 +20,9 @@ const DEMO_REQUESTS = [
         longitude: 80.2021,
         customer_description: "Ceiling fan making squeaking noise and 16A switch spark issue.",
         arrival_otp: "489201",
-        extra_charge_status: "pending",
-        extra_charge_amount: 500,
-        extra_charge_reason: "Replacement of burned heavy-duty capacitor and copper coil rewire.",
+        extra_charge_status: "none",
+        extra_charge_amount: 0,
+        extra_charge_reason: "",
         services: {
             id: "srv-1",
             name: "Electrical Repair",
@@ -537,6 +537,26 @@ export const serviceRequestService = {
                 } else if (sharedOrderMatch?.status) {
                     copy.status = sharedOrderMatch.status === 'inProgress' ? 'in_progress' : sharedOrderMatch.status;
                 }
+
+                // Apply extra charge ONLY if the pillar technician actually added one
+                try {
+                    const extraKey = localStorage.getItem(`coophub_extra_charge_${requestId}`) ||
+                        (requestId === 'REQ-8942' ? localStorage.getItem('coophub_extra_charge_ORD-9842') : null) ||
+                        (requestId === 'ORD-9842' ? localStorage.getItem('coophub_extra_charge_REQ-8942') : null);
+                    if (extraKey) {
+                        const parsedExtra = JSON.parse(extraKey);
+                        if (parsedExtra?.extra_charge_amount) {
+                            copy.extra_charge_amount = parsedExtra.extra_charge_amount;
+                            copy.extra_charge_reason = parsedExtra.extra_charge_reason;
+                            copy.extra_charge_status = parsedExtra.extra_charge_status || 'pending';
+                        }
+                    } else if (sharedOrderMatch?.extra_charge_amount) {
+                        copy.extra_charge_amount = sharedOrderMatch.extra_charge_amount;
+                        copy.extra_charge_reason = sharedOrderMatch.extra_charge_reason;
+                        copy.extra_charge_status = sharedOrderMatch.extra_charge_status || 'pending';
+                    }
+                } catch(e) {}
+
                 return sanitizeRequest(copy);
             }
         }
