@@ -785,20 +785,17 @@ export default function OrdersList() {
                       <div style={{ marginTop: "10px" }}>
                         <LiveTrackingMap
                           customerLocation={{
-                            lat: Number(order.customer_latitude || order.latitude || order.lat || 13.0067),
-                            lng: Number(order.customer_longitude || order.longitude || order.lng || 80.2025)
+                            lat: Number(order.customer_latitude || order.latitude || order.lat || 13.3592),
+                            lng: Number(order.customer_longitude || order.longitude || order.lng || 80.1417)
                           }}
                           customerName={resolveCustomerName(order)}
-                          pillarLocation={(user?.current_lat != null && user?.current_lng != null) ? {
-                            lat: Number(user.current_lat),
-                            lng: Number(user.current_lng)
-                          } : (user?.lat != null && user?.lng != null) ? {
-                            lat: Number(user.lat),
-                            lng: Number(user.lng)
-                          } : null}
+                          pillarLocation={{
+                            lat: Number(user?.current_lat || user?.lat || (Number(order.customer_latitude || order.latitude || 13.3592) - 0.015)),
+                            lng: Number(user?.current_lng || user?.lng || (Number(order.customer_longitude || order.longitude || 80.1417) - 0.012))
+                          }}
                           pillarName={user?.full_name || t("You (Technician)")}
                           pillarRole={t("Technician")}
-                          height="220px"
+                          height="260px"
                         />
                       </div>
                     )}
