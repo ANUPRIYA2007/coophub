@@ -8,6 +8,7 @@ import {
 
 export default function LiveTrackingMap({
   customerLocation = null,
+  customerName = "Customer Service Location",
   pillarLocation = null,
   pillarName = "Assigned Technician",
   pillarRole = "Pillar",
@@ -28,24 +29,27 @@ export default function LiveTrackingMap({
   const custLng = hasCustCoords ? Number(customerLocation.lng) : Number(customerLocation?.longitude || 80.2025);
 
   const hasPillarCoords = pillarLocation?.lat != null && pillarLocation?.lng != null;
-  const pilLat = hasPillarCoords ? Number(pillarLocation.lat) : (pillarLocation?.latitude ? Number(pillarLocation.latitude) : null);
-  const pilLng = hasPillarCoords ? Number(pillarLocation.lng) : (pillarLocation?.longitude ? Number(pillarLocation.longitude) : null);
+  const pilLat = hasPillarCoords ? Number(pillarLocation.lat) : null;
+  const pilLng = hasPillarCoords ? Number(pillarLocation.lng) : null;
 
   // Initialize Map
   useEffect(() => {
     let isMounted = true;
 
-    async function initLiveMap() {
-      try {
-        setLoading(true);
-        const centerPos = (hasPillarCoords && pilLat != null)
-          ? { lat: (custLat + pilLat) / 2, lng: (custLng + pilLng) / 2 }
-          : { lat: custLat, lng: custLng };
+    async function init() {
+      if (!containerRef.current) return;
 
-        const map = await googleMapsService.initializeMap(containerRef.current, {
-          center: centerPos,
-          zoom: hasPillarCoords ? 14 : 15,
-          theme: "cleanLight",
+      try {
+        await googleMapsService.loadGoogleMaps();
+        if (!window.google || !window.google.maps) return;
+
+        // Base center point (Customer destination)
+        const center = { lat: custLat, lng: custLng };
+
+        const map = new window.google.maps.Map(containerRef.current, {
+          center,
+          zoom: 13,
+          mapTypeId: "roadmap",
           disableDefaultUI: false,
           zoomControl: true
         });
@@ -57,7 +61,7 @@ export default function LiveTrackingMap({
         customerMarkerRef.current = new window.google.maps.Marker({
           position: { lat: custLat, lng: custLng },
           map,
-          title: "Your Service Location",
+          title: `${customerName} (Service Location)`,
           icon: {
             path: window.google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
             fillColor: "#EF4444",

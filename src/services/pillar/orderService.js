@@ -297,15 +297,26 @@ export const pillarOrderService = {
           let custEmail = cust.email || r.customer_email;
 
           // Parse name and phone from customer description if embedded
-          if ((!custName || custName === 'Valued Customer') && r.customer_description) {
+          if ((!custName || custName === 'Valued Customer' || custName === 'Coop Customer') && r.customer_description) {
             const matchName = r.customer_description.match(/\[Customer:\s*([^|\]]+)/i);
-            if (matchName && matchName[1]) custName = matchName[1].trim();
+            if (matchName && matchName[1] && matchName[1].trim() !== 'Valued Customer') custName = matchName[1].trim();
             const matchPhone = r.customer_description.match(/Phone:\s*([^|\]]+)/i);
             if (matchPhone && matchPhone[1]) custMobile = matchPhone[1].trim();
           }
 
-          if (!custName) custName = defaultCust.full_name;
-          if (!custMobile) custMobile = defaultCust.mobile;
+          if (!custName || custName === 'Valued Customer' || custName === 'Coop Customer') {
+            try {
+              const demoProf = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+              if (demoProf.full_name && demoProf.full_name !== 'Valued Customer') {
+                custName = demoProf.full_name;
+              }
+            } catch(e) {}
+          }
+
+          if (!custName || custName === 'Valued Customer' || custName === 'Coop Customer') {
+            custName = defaultCust.full_name;
+          }
+          if (!custMobile || custMobile.includes('1234567890')) custMobile = defaultCust.mobile;
           if (!custEmail) custEmail = defaultCust.email;
 
           // Strip raw coordinates from service_address
@@ -437,8 +448,16 @@ export const pillarOrderService = {
             if (uiStatus === "on_the_way") uiStatus = "onTheWay";
             if (uiStatus === "in_progress") uiStatus = "inProgress";
 
+            let bCustName = b.customer_name;
+            if (!bCustName || bCustName === 'Valued Customer' || bCustName === 'Coop Customer') {
+              const charSum = (b.id || "").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+              const defaultCust = KNOWN_CUSTOMERS[charSum % KNOWN_CUSTOMERS.length];
+              bCustName = defaultCust.full_name;
+            }
+
             combinedOrders.push({
               ...b,
+              customer_name: bCustName,
               status: uiStatus,
               db_status: b.status
             });
@@ -462,8 +481,31 @@ export const pillarOrderService = {
           if (uiStatus === "on_the_way") uiStatus = "onTheWay";
           if (uiStatus === "in_progress") uiStatus = "inProgress";
 
+          let locCustName = (loc.customer_name && loc.customer_name !== 'Valued Customer' && loc.customer_name !== 'Coop Customer')
+            ? loc.customer_name
+            : (loc.customer?.full_name && loc.customer.full_name !== 'Valued Customer' ? loc.customer.full_name : null);
+
+          if (!locCustName) {
+            try {
+              const demoProf = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+              if (demoProf.full_name && demoProf.full_name !== 'Valued Customer') locCustName = demoProf.full_name;
+            } catch(e) {}
+          }
+
+          if (!locCustName) {
+            const charSum = (loc.id || "").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+            const defaultCust = KNOWN_CUSTOMERS[charSum % KNOWN_CUSTOMERS.length];
+            locCustName = defaultCust.full_name;
+          }
+
+          loc.customer_name = locCustName;
+          if (loc.customer) loc.customer.full_name = locCustName;
+
           const existingOrder = combinedOrders.find(o => o.id === loc.id);
           if (existingOrder) {
+            if (existingOrder.customer_name === 'Valued Customer' || !existingOrder.customer_name) {
+              existingOrder.customer_name = locCustName;
+            }
             if (loc.status === 'cancelled' || loc.status === 'declined' || loc.status === 'rejected') {
               existingOrder.status = 'cancelled';
               existingOrder.db_status = 'cancelled';
@@ -484,12 +526,12 @@ export const pillarOrderService = {
             booking_code: loc.booking_code || (String(loc.id).startsWith("REQ-") ? loc.id : "REQ-" + String(loc.id).substring(0, 6).toUpperCase()),
             status: uiStatus,
             db_status: loc.status || "pending",
-            customer_name: loc.customer_name || loc.customer?.full_name || "Anupriya Murugan",
+            customer_name: locCustName,
             customer_mobile: loc.customer_phone || loc.customer_mobile || loc.customer?.mobile || "+91 98401 23456",
             customer_email: loc.customer_email || loc.email || "customer@coophub.in",
             customer: {
               id: loc.customer_id || "cust-demo",
-              full_name: loc.customer_name || loc.customer?.full_name || "Anupriya Murugan",
+              full_name: locCustName,
               mobile: loc.customer_phone || loc.customer_mobile || loc.customer?.mobile || "+91 98401 23456",
               email: loc.customer_email || loc.email || "customer@coophub.in"
             },

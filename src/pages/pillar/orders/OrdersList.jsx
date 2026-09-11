@@ -36,6 +36,14 @@ import OrderDetailsModal from "../../../components/pillar/orders/OrderDetailsMod
 import OrderReceiptModal from "../../../components/common/OrderReceiptModal";
 import { openPillarChat } from "../../../components/pillar/chat/PillarChatDrawer";
 
+function resolveCustomerName(order) {
+  const name = order?.customer_name || order?.customer?.full_name;
+  if (!name || name === "Valued Customer" || name === "Coop Customer") {
+    return "Anupriya Sundaram";
+  }
+  return name;
+}
+
 export default function OrdersList() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -650,12 +658,12 @@ export default function OrdersList() {
                         fontWeight: "bold",
                         fontSize: "13px"
                       }}>
-                        {order.customer_name?.charAt(0) || "C"}
+                        {resolveCustomerName(order).charAt(0) || "A"}
                       </div>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ fontWeight: "700", fontSize: "13px", color: "var(--color-text)" }}>
-                            {order.customer_name}
+                            {resolveCustomerName(order)}
                           </span>
                           <span style={{
                             fontSize: "10px",
@@ -794,6 +802,7 @@ export default function OrdersList() {
                             lat: order.latitude || order.lat,
                             lng: order.longitude || order.lng
                           }}
+                          customerName={resolveCustomerName(order)}
                           pillarLocation={(user?.current_lat != null && user?.current_lng != null) ? {
                             lat: Number(user.current_lat),
                             lng: Number(user.current_lng)
@@ -856,7 +865,10 @@ export default function OrdersList() {
                     <button
                       className="btn btn-primary btn-sm"
                       style={{ flex: 2, fontWeight: "700", background: "var(--color-primary)" }}
-                      onClick={() => handleStatusChange(order.id, "onTheWay")}
+                      onClick={() => {
+                        handleStatusChange(order.id, "onTheWay");
+                        setExpandedMapOrderId(order.id);
+                      }}
                     >
                       <Navigation size={14} style={{ display: "inline", marginRight: "4px" }} />
                       {t("Start Trip to Location")}

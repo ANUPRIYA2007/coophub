@@ -310,6 +310,16 @@ export default function ServiceRequest() {
                 ? formData.address_line
                 : [formData.area, formData.city].filter(Boolean).join(', ');
 
+            const resolvedCustomerName = profile?.full_name || profile?.name || (() => {
+                try {
+                    const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+                    if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer') return savedDemo.full_name;
+                    const custUser = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
+                    if (custUser.full_name && custUser.full_name !== 'Valued Customer') return custUser.full_name;
+                } catch(e) {}
+                return 'Anupriya Sundaram';
+            })();
+
             const payload = {
                 service_id: serviceInfo?.id || targetServiceId,
                 sub_service_id: subServiceInfo?.id || targetSubServiceId || null,
@@ -320,9 +330,9 @@ export default function ServiceRequest() {
                 pillar_name: assignedPillarName,
                 pillar_code: assignedPillarCode,
                 pillar: chosenPillar,
-                customer_name: profile?.full_name || profile?.name || 'Valued Customer',
-                customer_phone: profile?.mobile || profile?.phone || '',
-                customer_email: profile?.email || '',
+                customer_name: resolvedCustomerName,
+                customer_phone: profile?.mobile || profile?.phone || '+91 98401 23456',
+                customer_email: profile?.email || 'customer@coophub.in',
                 amount: chosenPillar?.starting_price || subServiceInfo?.base_price || 450,
                 ...formData,
                 address_line: cleanAddress,

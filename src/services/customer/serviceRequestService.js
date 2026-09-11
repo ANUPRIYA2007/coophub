@@ -198,7 +198,18 @@ export const serviceRequestService = {
 
         // 3. Resolve customer details & authenticate safely
         let validCustomerId = null;
-        let customerName = requestData.customer_name || 'Valued Customer';
+        let customerName = requestData.customer_name;
+        if (!customerName || customerName === 'Valued Customer' || customerName === 'Coop Customer') {
+            try {
+                const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+                if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer') customerName = savedDemo.full_name;
+                if (!customerName) {
+                    const custUser = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
+                    if (custUser.full_name && custUser.full_name !== 'Valued Customer') customerName = custUser.full_name;
+                }
+            } catch (e) {}
+            if (!customerName) customerName = 'Anupriya Sundaram';
+        }
         let customerPhone = requestData.customer_phone || requestData.customer_mobile || '+91 98401 23456';
         let customerEmail = requestData.customer_email || requestData.email || 'customer@coophub.in';
 
@@ -207,7 +218,7 @@ export const serviceRequestService = {
             if (user?.id && UUID_REGEX.test(user.id)) {
                 validCustomerId = user.id;
                 customerEmail = user.email || customerEmail;
-                if (user.user_metadata?.full_name) customerName = user.user_metadata.full_name;
+                if (user.user_metadata?.full_name && user.user_metadata.full_name !== 'Valued Customer') customerName = user.user_metadata.full_name;
                 if (user.user_metadata?.mobile || user.phone) customerPhone = user.user_metadata?.mobile || user.phone;
             }
         } catch (e) {}
@@ -217,7 +228,8 @@ export const serviceRequestService = {
                 const stored = localStorage.getItem('coophub_customer_user');
                 if (stored) {
                     const parsed = JSON.parse(stored);
-                    customerName = parsed.name || parsed.full_name || customerName;
+                    if (parsed.full_name && parsed.full_name !== 'Valued Customer') customerName = parsed.full_name;
+                    else if (parsed.name && parsed.name !== 'Valued Customer') customerName = parsed.name;
                     customerPhone = parsed.mobile || parsed.phone || customerPhone;
                     customerEmail = parsed.email || customerEmail;
                 }
@@ -451,6 +463,25 @@ export const serviceRequestService = {
      * @param {string} requestId 
      */
     getRequestDetails: async (requestId) => {
+        const sanitizeRequest = (item) => {
+            if (!item) return item;
+            if (!item.customer_name || item.customer_name === 'Valued Customer' || item.customer_name === 'Coop Customer') {
+                try {
+                    const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+                    if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer') {
+                        item.customer_name = savedDemo.full_name;
+                    }
+                } catch(e) {}
+                if (!item.customer_name || item.customer_name === 'Valued Customer' || item.customer_name === 'Coop Customer') {
+                    item.customer_name = 'Anupriya Sundaram';
+                }
+            }
+            if (item.customer && (!item.customer.full_name || item.customer.full_name === 'Valued Customer')) {
+                item.customer.full_name = item.customer_name;
+            }
+            return item;
+        };
+
         const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
 
         // 🧪 DEMO MODE: Match from static demo list or created items
@@ -458,8 +489,8 @@ export const serviceRequestService = {
             const userCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
             const allDemo = [...userCreated, ...DEMO_REQUESTS];
             const found = allDemo.find(r => r.id === requestId);
-            if (found) return found;
-            return allDemo[0];
+            if (found) return sanitizeRequest(found);
+            return sanitizeRequest(allDemo[0]);
         }
 
         // 🔒 REAL SUPABASE: Live database query
@@ -541,7 +572,7 @@ export const serviceRequestService = {
             } catch (pe) {}
         }
 
-        return data;
+        return sanitizeRequest(data);
     },
 
     /**
