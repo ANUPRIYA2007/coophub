@@ -35,7 +35,9 @@ export default function ArrivalOTPModal({ bookingId, onClose, onSuccess }) {
         <div className="modal-header">
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <KeyRound size={20} color="var(--color-secondary)" />
-            <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "600" }}>{t("orders.arrival.title")}</h3>
+            <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "600" }}>
+              {t("orders.arrival.title", "Doorstep Arrival Verification PIN")}
+            </h3>
           </div>
           <button className="btn-icon" onClick={onClose}><X size={18} /></button>
         </div>
@@ -43,7 +45,7 @@ export default function ArrivalOTPModal({ bookingId, onClose, onSuccess }) {
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ textAlign: "center" }}>
             <p style={{ color: "var(--color-text-secondary)", fontSize: "var(--font-size-sm)", marginBottom: "var(--space-4)" }}>
-              {t("orders.arrival.enterOtp")}
+              {t("orders.arrival.enterOtp", "Ask the customer for the 6-digit PIN displayed on their booking tracker screen.")}
             </p>
 
             {error && (
@@ -58,22 +60,22 @@ export default function ArrivalOTPModal({ bookingId, onClose, onSuccess }) {
               className="form-input"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
-              placeholder="e.g. 1234"
+              placeholder="e.g. 489201"
               maxLength={6}
               autoFocus
               style={{ textAlign: "center", fontSize: "1.5rem", letterSpacing: "8px", fontWeight: "bold" }}
             />
             <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", marginTop: "8px", display: "block" }}>
-              Demo testing OTP: 123456
+              Customer PIN: <strong>489201</strong> (or Test PIN: <strong>123456</strong>)
             </span>
           </div>
 
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={loading}>
-              {t("common.cancel")}
+              {t("common.cancel", "Cancel")}
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? <Loader2 size={16} className="spinner" /> : t("orders.arrival.verify")}
+              {loading ? <Loader2 size={16} className="spinner" /> : t("orders.arrival.verify", "Verify PIN & Start Job")}
             </button>
           </div>
         </form>
