@@ -84,30 +84,38 @@ export function calculatePillarMatchScore({ pillar, request, approvedCerts = [] 
   }
 
   // 3. Proximity / Distance (20 pts)
-  const destCoords = request.lat && request.lng 
-    ? { lat: request.lat, lng: request.lng } 
-    : CHENNAI_DEFAULT_COORDS[request.area] || { lat: 13.0067, lng: 80.2025 };
+  const destLat = request.lat || request.latitude;
+  const destLng = request.lng || request.longitude;
+  const destCoords = (destLat && destLng) ? { lat: Number(destLat), lng: Number(destLng) } : null;
 
-  const pillarCoords = pillar.lat && pillar.lng 
-    ? { lat: Number(pillar.lat), lng: Number(pillar.lng) }
-    : pillar.current_lat && pillar.current_lng 
-      ? { lat: Number(pillar.current_lat), lng: Number(pillar.current_lng) }
-      : CHENNAI_DEFAULT_COORDS[Array.isArray(pillar.service_area) ? pillar.service_area[0] : pillar.service_area] || { lat: 13.0100, lng: 80.2100 };
+  const pillarCoords = (pillar.current_lat && pillar.current_lng) 
+    ? { lat: Number(pillar.current_lat), lng: Number(pillar.current_lng) }
+    : (pillar.lat && pillar.lng)
+      ? { lat: Number(pillar.lat), lng: Number(pillar.lng) }
+      : (pillar.latitude && pillar.longitude)
+        ? { lat: Number(pillar.latitude), lng: Number(pillar.longitude) }
+        : null;
 
-  const distanceKm = calculateDistanceKm(destCoords.lat, destCoords.lng, pillarCoords.lat, pillarCoords.lng);
+  let distanceKm = null;
+  
+  if (destCoords && pillarCoords) {
+    distanceKm = calculateDistanceKm(destCoords.lat, destCoords.lng, pillarCoords.lat, pillarCoords.lng);
 
-  if (distanceKm <= 3.0) {
-    score += 20;
-    reasons.push(`Hyper-local proximity: ${distanceKm} km (+20)`);
-  } else if (distanceKm <= 8.0) {
-    score += 14;
-    reasons.push(`Close service radius: ${distanceKm} km (+14)`);
-  } else if (distanceKm <= 15.0) {
-    score += 8;
-    reasons.push(`Within standard operational zone: ${distanceKm} km (+8)`);
+    if (distanceKm <= 3.0) {
+      score += 20;
+      reasons.push(`Hyper-local proximity: ${distanceKm} km (+20)`);
+    } else if (distanceKm <= 8.0) {
+      score += 14;
+      reasons.push(`Close service radius: ${distanceKm} km (+14)`);
+    } else if (distanceKm <= 15.0) {
+      score += 8;
+      reasons.push(`Within standard operational zone: ${distanceKm} km (+8)`);
+    } else {
+      score += 2;
+      reasons.push(`Extended dispatch zone: ${distanceKm} km (+2)`);
+    }
   } else {
-    score += 2;
-    reasons.push(`Extended dispatch zone: ${distanceKm} km (+2)`);
+    reasons.push(`Proximity scoring bypassed (Coordinates unavailable) (+0)`);
   }
 
   // 4. Rating & Reviews (15 pts)
@@ -171,77 +179,26 @@ export async function matchWorkforceForRequest(request) {
   let approvedCerts = [];
 
   try {
-    const { data: pData, error: pErr } = await supabase
-      .from('pillar_profiles')
-      .select('*')
-      .eq('status', 'verified');
-      
-    if (pErr) throw pErr;
+    const { workerService } = await import('../workers/workerService.js');
+    pillars = await workerService.getAvailablePillars({
+        category: request.category || request.service_name || '',
+        serviceName: request.service_name || '',
+        subServiceName: request.sub_service_name || '',
+        lat: request.lat || request.latitude || null,
+        lng: request.lng || request.longitude || null,
+        maxDistanceKm: 100
+    });
 
     const { data: cData, error: cErr } = await supabase
       .from('pillar_certificates')
       .select('*')
       .eq('verification_status', 'approved');
       
-    if (cErr) throw cErr;
-
-    pillars = pData || [];
-    approvedCerts = cData || [];
-  } catch (err) {
-    console.warn("Could not query live pillars from Supabase:", err.message);
-    if (isDemo) {
-      pillars = [
-        {
-          id: "7842d4fd-ac93-4014-93ed-001c0237a36c",
-          full_name: "Raj Kumar",
-          pillar_code: "PIL-CHE-042",
-          mobile: "+91 98400 11223",
-          email: "raj@coophub.in",
-          main_services: ["Electrical Repair", "AC Repair & Installation"],
-          sub_services: ["Ceiling Fan Wiring", "MCB Tripping Check", "DB Box Servicing"],
-          service_area: ["Guindy", "600032"],
-          experience_years: "6",
-          rating: 4.9,
-          is_available: true,
-          lat: 13.0067,
-          lng: 80.2025,
-          status: "verified",
-          certified_skills: ["Electrical Repair", "High Voltage Diagnostics"]
-        },
-        {
-          id: "P-DEMO-002",
-          full_name: "Murugan Selvam",
-          pillar_code: "PIL-CHE-002",
-          mobile: "+91 94440 12345",
-          main_services: ["Plumbing Service", "Deep Home Cleaning"],
-          sub_services: ["Pipe Leak Repair", "Tap Fixing", "Drain Unblocking"],
-          service_area: ["Adyar", "600020"],
-          experience_years: "4",
-          rating: 4.7,
-          is_available: true,
-          lat: 13.0012,
-          lng: 80.2565,
-          status: "verified",
-          certified_skills: ["Plumbing Service"]
-        },
-        {
-          id: "P-DEMO-003",
-          full_name: "Karthik Rajan",
-          pillar_code: "PIL-CHE-003",
-          mobile: "+91 97910 88990",
-          main_services: ["Electrical Repair", "Carpentry & Woodwork"],
-          sub_services: ["Ceiling Fan Wiring", "Switch Replacement"],
-          service_area: ["Velachery", "600042"],
-          experience_years: "3",
-          rating: 4.6,
-          is_available: true,
-          lat: 12.9815,
-          lng: 80.2180,
-          status: "verified",
-          certified_skills: []
-        }
-      ];
+    if (!cErr && cData) {
+        approvedCerts = cData;
     }
+  } catch (err) {
+    console.warn("Could not query robust pillars via workerService:", err.message);
   }
 
   if (pillars.length === 0) {
@@ -262,6 +219,7 @@ export async function matchWorkforceForRequest(request) {
     });
 
     return {
+      id: pillar.id,
       pillarId: pillar.id,
       pillarCode: pillar.pillar_code || pillar.id,
       fullName: pillar.full_name,
@@ -281,34 +239,44 @@ export async function matchWorkforceForRequest(request) {
   scored.sort((a, b) => b.matchScore - a.matchScore);
 
   // For top 3 candidates, enrich with Google Distance Matrix / Route ETA if destination coordinates are present
-  const destCoords = request.lat && request.lng 
-    ? { lat: request.lat, lng: request.lng } 
-    : CHENNAI_DEFAULT_COORDS[request.area] || { lat: 13.0067, lng: 80.2025 };
+  const reqLat = request.lat || request.latitude;
+  const reqLng = request.lng || request.longitude;
+  const destCoords = (reqLat && reqLng) ? { lat: Number(reqLat), lng: Number(reqLng) } : null;
   
   const topCandidates = scored.slice(0, 3);
-  if (destCoords?.lat && destCoords?.lng && topCandidates.length > 0) {
+  if (destCoords && topCandidates.length > 0) {
     try {
-      const { googleMapsService } = await import('../maps/googleMapsService');
-      const origins = topCandidates.map(c => {
+      const { googleMapsService } = await import('../maps/googleMapsService.js');
+      
+      const origins = [];
+      const validCandidates = [];
+      
+      topCandidates.forEach(c => {
         const p = c.rawPillar;
-        return {
-          lat: Number(p.current_lat || p.lat || destCoords.lat),
-          lng: Number(p.current_lng || p.lng || destCoords.lng)
-        };
+        const pLat = Number(p.current_lat || p.lat || p.latitude);
+        const pLng = Number(p.current_lng || p.lng || p.longitude);
+        if (pLat && pLng) {
+            origins.push({ lat: pLat, lng: pLng });
+            validCandidates.push(c);
+        }
       });
-      const destinations = [{ lat: Number(destCoords.lat), lng: Number(destCoords.lng) }];
 
-      const matrix = await googleMapsService.calculateDistanceMatrix(origins, destinations);
-      if (matrix && matrix.length > 0) {
-        topCandidates.forEach((c, idx) => {
-          const el = matrix[idx]?.[0];
-          if (el) {
-            c.routeDistanceKm = el.distanceKm;
-            c.etaMins = el.durationMins;
-            c.distanceKm = el.distanceKm;
-            c.reasons.push(`Google Route Distance: ${el.distanceKm} km (ETA ~${el.durationMins} mins)`);
-          }
-        });
+      if (origins.length > 0) {
+        const destinations = [{ lat: destCoords.lat, lng: destCoords.lng }];
+        const matrix = await googleMapsService.calculateDistanceMatrix(origins, destinations);
+        
+        if (matrix && matrix.length > 0) {
+          validCandidates.forEach((c, idx) => {
+            const el = matrix[idx]?.[0];
+            if (el && (el.status === "OK" || el.status === "FALLBACK_OK")) {
+              c.routeDistanceKm = el.distanceKm;
+              c.etaMins = el.durationMins;
+              c.distanceKm = el.distanceKm;
+              c.isLiveDistance = !el.status.includes('FALLBACK');
+              c.reasons.push(`Google Route Distance: ${el.distanceKm} km (ETA ~${el.durationMins} mins)`);
+            }
+          });
+        }
       }
     } catch (routeErr) {
       console.warn("Google route matrix enrichment notice:", routeErr);

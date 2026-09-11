@@ -11,6 +11,7 @@ import LanguageSelector from '../../components/ui/LanguageSelector';
 import TypewriterEffect from '../../components/ui/TypewriterEffect';
 import ServiceCategoryIcon from '../../components/ui/ServiceCategoryIcon';
 import coopHubLogo from '../../assets/branding/coop-hub-logo.png';
+import AnimatedServiceEcosystemBackground from '../../components/background/AnimatedServiceEcosystemBackground';
 
 import { notificationSyncService } from '../../services/notifications/notificationSyncService';
 import { getServiceImage, getServiceDescription } from '../../utils/serviceImageMap';
@@ -88,10 +89,11 @@ export default function Home() {
 
 
     return (
-        <div className="min-h-screen bg-surface">
+        <div className="min-h-screen bg-surface relative overflow-hidden">
+            <AnimatedServiceEcosystemBackground services={services} />
 
             {/* ─── Main Content ─── */}
-            <main className="max-w-5xl mx-auto px-4 pb-32">
+            <main className="max-w-5xl mx-auto px-4 pb-32 relative" style={{ zIndex: 2 }}>
 
                 {/* ─── Welcome Banner ─── */}
                 <section className="mt-6 mb-8">

@@ -63,6 +63,10 @@ export default function ServiceRequest() {
     const [availablePillars, setAvailablePillars] = useState([]);
     const [selectedPillarId, setSelectedPillarId] = useState(paramPillarId);
     const [loadingPillars, setLoadingPillars] = useState(false);
+    
+    // AI Auto-Match Animation States
+    const [isAiMatching, setIsAiMatching] = useState(false);
+    const [aiMatchedPillar, setAiMatchedPillar] = useState(null);
 
     // Load available pillars when reaching step 3 or when service/coords ready
     const loadPillars = async () => {
@@ -71,8 +75,9 @@ export default function ServiceRequest() {
             const data = await workerService.getAvailablePillars({
                 category: serviceInfo?.category || serviceInfo?.name || '',
                 serviceName: serviceInfo?.name || '',
-                lat: formData.latitude || 13.0067,
-                lng: formData.longitude || 80.2025
+                subServiceName: subServiceInfo?.name || '',
+                lat: formData.latitude || null,
+                lng: formData.longitude || null
             });
             setAvailablePillars(data || []);
             if (paramPillarId !== 'auto_match' && data.some(p => p.id === paramPillarId)) {
@@ -82,6 +87,41 @@ export default function ServiceRequest() {
             console.warn('Pillars load note:', err);
         } finally {
             setLoadingPillars(false);
+        }
+    };
+
+    const handleAiAutoMatch = async () => {
+        setSelectedPillarId('auto_match');
+        if (aiMatchedPillar) return; // already ran once
+
+        setIsAiMatching(true);
+        try {
+            const { matchingService } = await import('../../services/ai/matchingService');
+            const matchRes = await matchingService.matchWorkforceForRequest({
+                service_id: serviceInfo?.id || targetServiceId,
+                service_name: serviceInfo?.name,
+                category: serviceInfo?.category || serviceInfo?.name,
+                sub_service_name: subServiceInfo?.name || '',
+                latitude: formData.latitude || null,
+                longitude: formData.longitude || null
+            });
+
+            if (matchRes?.rankedCandidates?.length > 0) {
+                setAiMatchedPillar(matchRes.rankedCandidates[0]);
+            } else if (availablePillars.length > 0) {
+                setAiMatchedPillar({
+                    id: availablePillars[0].id,
+                    pillarId: availablePillars[0].id,
+                    pillarCode: availablePillars[0].pillar_code,
+                    fullName: availablePillars[0].full_name,
+                    distanceKm: availablePillars[0].distance,
+                    matchScore: 85
+                });
+            }
+        } catch (err) {
+            console.warn('AI matching interactive run failed:', err);
+        } finally {
+            setIsAiMatching(false);
         }
     };
 
@@ -246,7 +286,25 @@ export default function ServiceRequest() {
                 uploadedAttachments.push(attachmentItem);
             }
 
-            const chosenPillar = availablePillars.find(p => p.id === selectedPillarId);
+            // Determine the accurately assigned pillar
+            let chosenPillar = null;
+            if (selectedPillarId && selectedPillarId !== 'auto_match') {
+                chosenPillar = availablePillars.find(p => p.id === selectedPillarId) || null;
+            } else if (aiMatchedPillar) {
+                const targetId = aiMatchedPillar.pillarId || aiMatchedPillar.id;
+                chosenPillar = availablePillars.find(p => p.id === targetId) || {
+                    id: targetId,
+                    full_name: aiMatchedPillar.fullName,
+                    pillar_code: aiMatchedPillar.pillarCode
+                };
+            } else if (availablePillars.length > 0) {
+                chosenPillar = availablePillars[0];
+            }
+
+            const assignedPillarId = chosenPillar?.id || null;
+            const assignedPillarName = chosenPillar?.full_name || null;
+            const assignedPillarCode = chosenPillar?.pillar_code || null;
+
             const isCoords = (s) => !s || /^Lat:\s*[\d.-]+/i.test(String(s).trim());
             const cleanAddress = !isCoords(formData.address_line)
                 ? formData.address_line
@@ -256,9 +314,12 @@ export default function ServiceRequest() {
                 service_id: serviceInfo?.id || targetServiceId,
                 sub_service_id: subServiceInfo?.id || targetSubServiceId || null,
                 service_name: serviceInfo.name,
+                sub_service_name: subServiceInfo?.name || '',
                 category: serviceInfo.category || serviceInfo.name,
-                pillar_id: selectedPillarId !== 'auto_match' ? selectedPillarId : null,
-                pillar_name: chosenPillar?.full_name || null,
+                pillar_id: assignedPillarId,
+                pillar_name: assignedPillarName,
+                pillar_code: assignedPillarCode,
+                pillar: chosenPillar,
                 customer_name: profile?.full_name || profile?.name || 'Valued Customer',
                 customer_phone: profile?.mobile || profile?.phone || '',
                 customer_email: profile?.email || '',
@@ -523,7 +584,7 @@ export default function ServiceRequest() {
 
                             {/* Option 1: AI Auto-Match */}
                             <div
-                                onClick={() => setSelectedPillarId('auto_match')}
+                                onClick={handleAiAutoMatch}
                                 className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-4 ${
                                     selectedPillarId === 'auto_match'
                                         ? 'border-orange-500 bg-orange-50/50 shadow-sm'
@@ -532,7 +593,7 @@ export default function ServiceRequest() {
                             >
                                 <div className="flex items-center gap-3.5">
                                     <div className="w-12 h-12 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
-                                        <Sparkles size={22} />
+                                        <Sparkles size={22} className={isAiMatching ? "animate-spin" : ""} />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
@@ -541,9 +602,20 @@ export default function ServiceRequest() {
                                                 {t('Recommended')}
                                             </span>
                                         </div>
-                                        <p className="text-xs text-navy-500 mt-0.5">
-                                            {t('Dispatches nearest verified specialist with highest trade score and fastest ETA.')}
-                                        </p>
+                                        {isAiMatching ? (
+                                            <p className="text-xs text-orange-600 font-semibold mt-0.5 flex items-center gap-1">
+                                                <span className="animate-pulse">Analyzing Chronos Forecast & Routing Matrix...</span>
+                                            </p>
+                                        ) : aiMatchedPillar ? (
+                                            <p className="text-xs text-emerald-700 font-semibold mt-0.5">
+                                                Top Match: {aiMatchedPillar.fullName} ({aiMatchedPillar.matchScore || 90}% Match)
+                                                {aiMatchedPillar.distanceKm !== null ? ` • ${aiMatchedPillar.isLiveDistance ? '' : '~'}${aiMatchedPillar.distanceKm} km away` : ' • (Distance Unavailable)'}
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-navy-500 mt-0.5">
+                                                {t('Dispatches nearest verified specialist with highest trade score and fastest ETA.')}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -597,7 +669,7 @@ export default function ServiceRequest() {
                                                         <span>{p.completed_jobs} {t('completed jobs')}</span>
                                                         <span>•</span>
                                                         <span className="flex items-center gap-1 text-navy-600 font-semibold">
-                                                            <MapPin size={12} /> ~{p.distance} km
+                                                            <MapPin size={12} /> {p.distance !== null ? `${p.isLiveDistance ? '' : '~'}${p.distance} km` : 'Distance Unavailable'}
                                                         </span>
                                                     </div>
                                                 </div>

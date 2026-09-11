@@ -21,7 +21,7 @@ export default function LanguageSelector({ className = '' }) {
             >
                 {langList.map((lang) => (
                     <option key={lang.code} value={lang.code} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-slate-100 py-1">
-                        {lang.nativeName} ({lang.name})
+                        {lang.nativeName === lang.name ? lang.name : `${lang.nativeName} (${lang.name})`}
                     </option>
                 ))}
             </select>

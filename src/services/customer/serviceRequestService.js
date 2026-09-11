@@ -228,10 +228,9 @@ export const serviceRequestService = {
         const arrivalOtp = String(Math.floor(100000 + Math.random() * 900000));
 
         // 5. Intelligent Workforce Allocation (find matching certified pillar)
-        let assignedPillarId = null;
-        if (requestData.pillar_id && UUID_REGEX.test(requestData.pillar_id)) {
-            assignedPillarId = requestData.pillar_id;
-        }
+        let assignedPillarId = requestData.pillar_id || null;
+        let assignedPillarName = requestData.pillar_name || null;
+        let assignedPillarCode = requestData.pillar_code || null;
 
         try {
             const { matchingService } = await import('../ai/matchingService');
@@ -239,14 +238,18 @@ export const serviceRequestService = {
                 service_id: validServiceId,
                 service_name: requestData.service_name,
                 category: requestData.category || requestData.service_name,
+                sub_service_name: requestData.sub_service_name || requestData.sub_service?.name,
                 latitude: requestData.latitude || 13.0067,
                 longitude: requestData.longitude || 80.2025
             });
 
             if (matchRes?.rankedCandidates?.length > 0 && !assignedPillarId) {
                 const topCandidate = matchRes.rankedCandidates[0];
-                if (topCandidate?.pillarId && UUID_REGEX.test(topCandidate.pillarId)) {
-                    assignedPillarId = topCandidate.pillarId;
+                const cid = topCandidate?.pillarId || topCandidate?.id;
+                if (cid) {
+                    assignedPillarId = cid;
+                    assignedPillarName = topCandidate.fullName;
+                    assignedPillarCode = topCandidate.pillarCode;
                     console.log(`⚡ AI Workforce Engine auto-assigned top matching Pillar: ${topCandidate.fullName} (${topCandidate.pillarCode})`);
                 }
             }
@@ -276,7 +279,7 @@ export const serviceRequestService = {
             longitude: requestData.longitude || 80.2025,
             flexible_timing: !!requestData.flexible_timing,
             preferred_date: requestData.preferred_date || new Date().toISOString().split('T')[0],
-            preferred_time: requestData.preferred_time || '10:30 AM',
+            preferred_time: requestData.preferred_time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             customer_description: formattedDescription,
             amount: requestData.amount || requestData.total_amount || 450,
             total_amount: requestData.total_amount || requestData.amount || 450,
@@ -314,7 +317,7 @@ export const serviceRequestService = {
                         customer_mobile: customerPhone,
                         service_address: [requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Guindy, Chennai',
                         scheduled_date: requestData.preferred_date || new Date().toISOString().split('T')[0],
-                        scheduled_time: requestData.preferred_time || '10:30 AM',
+                        scheduled_time: requestData.preferred_time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                         base_amount: requestData.amount || 450,
                         total_amount: requestData.total_amount || requestData.amount || 450,
                         arrival_otp: arrivalOtp,
@@ -370,9 +373,9 @@ export const serviceRequestService = {
             city: requestData.city || 'Chennai',
             service_address: [requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Guindy, Chennai',
             preferred_date: requestData.preferred_date || new Date().toISOString().split('T')[0],
-            preferred_time: requestData.preferred_time || '10:30 AM',
+            preferred_time: requestData.preferred_time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             scheduled_date: requestData.preferred_date || new Date().toISOString().split('T')[0],
-            scheduled_time: requestData.preferred_time || '10:30 AM',
+            scheduled_time: requestData.preferred_time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             arrival_otp: arrivalOtp,
             extra_charge_status: 'none',
             extra_charge_amount: 0,
@@ -380,6 +383,9 @@ export const serviceRequestService = {
             latitude: requestData.latitude || 13.0067,
             longitude: requestData.longitude || 80.2025,
             pillar_id: assignedPillarId,
+            pillar_name: assignedPillarName,
+            pillar_code: assignedPillarCode,
+            pillar: requestData.pillar || (assignedPillarId ? { id: assignedPillarId, full_name: assignedPillarName, pillar_code: assignedPillarCode } : null),
             attachments: requestData.attachments || [],
             photo_urls: (requestData.attachments || []).map(a => typeof a === 'object' ? (a.url || a.previewUrl) : a).filter(Boolean),
             ...(createdRecord || {})
@@ -430,7 +436,7 @@ export const serviceRequestService = {
                 service_name: requestData.service_name || 'Home Service',
                 request_id: createdId,
                 service_date: requestData.preferred_date || new Date().toISOString().split('T')[0],
-                service_time: requestData.preferred_time || '10:30 AM',
+                service_time: requestData.preferred_time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                 service_location: [requestData.address_line, requestData.area, requestData.city].filter(Boolean).join(', ') || 'Guindy, Chennai',
                 total_amount: requestData.total_amount || 450,
                 request_status: assignedPillarId ? 'Pillar Assigned' : 'Pending Confirmation'
@@ -549,52 +555,108 @@ export const serviceRequestService = {
     cancelRequest: async (requestId, cancelReason, cancelDetails = '') => {
         const CANCELLABLE_STATUSES = ['pending', 'assigned', 'accepted', 'on_the_way', 'arrived'];
 
+        const isDemo = localStorage.getItem('coophub_demo_customer') === 'true';
+        if (isDemo) {
+            const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+            const idx = custRequests.findIndex(r => r.id === requestId);
+            
+            if (idx !== -1) {
+                const req = custRequests[idx];
+                if (!CANCELLABLE_STATUSES.includes(req.status)) {
+                    return { success: false, error: `Cannot cancel — service is already "${req.status}".` };
+                }
+                const fullReason = cancelDetails ? `${cancelReason}: ${cancelDetails}` : cancelReason;
+                req.status = 'cancelled';
+                req.cancel_reason = fullReason;
+                req.cancelled_at = new Date().toISOString();
+                
+                custRequests[idx] = req;
+                localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
+                
+                try {
+                    const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+                    const sharedIdx = sharedOrders.findIndex(r => r.id === requestId);
+                    if (sharedIdx !== -1) {
+                        sharedOrders[sharedIdx].status = 'cancelled';
+                        localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
+                    }
+                } catch(e) {}
+                
+                // Mirror cancellation directly to Supabase so database is updated live
+                try {
+                    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId));
+                    const cancelPayload = {
+                        status: 'cancelled',
+                        cancel_reason: fullReason,
+                        cancelled_at: new Date().toISOString(),
+                        cancelled_by: 'customer'
+                    };
+                    if (isUuid) {
+                        await supabase.from('service_requests').update(cancelPayload).eq('id', requestId);
+                        await supabase.from('bookings').update(cancelPayload).eq('id', requestId);
+                    } else {
+                        await supabase.from('service_requests').update(cancelPayload).or(`order_code.eq.${requestId},id.eq.${requestId}`);
+                        await supabase.from('bookings').update(cancelPayload).or(`booking_code.eq.${requestId},id.eq.${requestId}`);
+                    }
+                } catch (dbSyncErr) {
+                    console.warn("Supabase cancelRequest sync note:", dbSyncErr);
+                }
+
+                try {
+                    if (typeof BroadcastChannel !== 'undefined') {
+                        const bc = new BroadcastChannel('coophub_orders_sync');
+                        bc.postMessage({ type: 'ORDER_CANCELLED', orderId: requestId, reason: fullReason, timestamp: Date.now() });
+                        setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
+                    }
+                } catch(e) {}
+
+                return { success: true };
+            }
+
+            const foundInStatic = DEMO_REQUESTS.find(r => r.id === requestId);
+            if (foundInStatic) {
+                return { success: false, error: 'Cannot cancel static demo requests.' };
+            }
+
+            return { success: false, error: 'Request not found.' };
+        }
+
         try {
-            // 1. Verify current status is cancellable
-            const { data: current, error: fetchErr } = await supabase
-                .from('service_requests')
-                .select('id, status, pillar_id')
-                .eq('id', requestId)
-                .maybeSingle();
-
-            if (fetchErr || !current) {
-                return { success: false, error: 'Request not found.' };
-            }
-
-            if (!CANCELLABLE_STATUSES.includes(current.status)) {
-                return { success: false, error: `Cannot cancel — service is already "${current.status}".` };
-            }
-
-            // 2. Update service_requests to cancelled
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(requestId));
             const fullReason = cancelDetails
                 ? `${cancelReason}: ${cancelDetails}`
                 : cancelReason;
+            const nowIso = new Date().toISOString();
 
-            const { error: updErr } = await supabase
-                .from('service_requests')
-                .update({
-                    status: 'cancelled',
-                    cancel_reason: fullReason,
-                    cancelled_at: new Date().toISOString(),
-                    cancelled_by: 'customer'
-                })
-                .eq('id', requestId);
+            // 1. Verify current status is cancellable if UUID
+            if (isUuid) {
+                const { data: current, error: fetchErr } = await supabase
+                    .from('service_requests')
+                    .select('id, status, pillar_id')
+                    .eq('id', requestId)
+                    .maybeSingle();
 
-            if (updErr) {
-                console.warn('Cancel update error:', updErr.message);
-                return { success: false, error: updErr.message };
+                if (current && !CANCELLABLE_STATUSES.includes(current.status)) {
+                    return { success: false, error: `Cannot cancel — service is already "${current.status}".` };
+                }
             }
 
-            // 3. Also update bookings table
+            // 2. Update service_requests to cancelled
+            const updates = {
+                status: 'cancelled',
+                cancel_reason: fullReason,
+                cancelled_at: nowIso,
+                cancelled_by: 'customer'
+            };
+
             try {
-                await supabase
-                    .from('bookings')
-                    .update({
-                        status: 'cancelled',
-                        cancel_reason: fullReason,
-                        cancelled_at: new Date().toISOString()
-                    })
-                    .eq('id', requestId);
+                if (isUuid) {
+                    await supabase.from('service_requests').update(updates).eq('id', requestId);
+                    await supabase.from('bookings').update(updates).eq('id', requestId);
+                } else {
+                    await supabase.from('service_requests').update(updates).or(`order_code.eq.${requestId},id.eq.${requestId}`);
+                    await supabase.from('bookings').update(updates).or(`booking_code.eq.${requestId},id.eq.${requestId}`);
+                }
             } catch (bErr) {
                 console.warn('Bookings cancel sync note:', bErr?.message);
             }
@@ -612,14 +674,53 @@ export const serviceRequestService = {
                 console.warn('Status history note:', hErr?.message);
             }
 
-            // 5. BroadcastChannel notification
+            // 5. Update localStorage feeds for live cross-portal reflection
+            try {
+                if (typeof window !== 'undefined' && window.localStorage) {
+                    const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+                    const sharedIdx = sharedOrders.findIndex(r => r.id === requestId);
+                    if (sharedIdx !== -1) {
+                        sharedOrders[sharedIdx].status = 'cancelled';
+                        sharedOrders[sharedIdx].cancel_reason = fullReason;
+                        sharedOrders[sharedIdx].cancelled_by = 'customer';
+                        sharedOrders[sharedIdx].cancelled_at = new Date().toISOString();
+                        localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
+                    }
+
+                    const custRequests = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+                    const custIdx = custRequests.findIndex(r => r.id === requestId);
+                    if (custIdx !== -1) {
+                        custRequests[custIdx].status = 'cancelled';
+                        custRequests[custIdx].cancel_reason = fullReason;
+                        custRequests[custIdx].cancelled_by = 'customer';
+                        custRequests[custIdx].cancelled_at = new Date().toISOString();
+                        localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custRequests));
+                    }
+
+                    localStorage.setItem('coophub_last_order_event', JSON.stringify({
+                        id: requestId,
+                        action: 'cancelled',
+                        cancelled_by: 'customer',
+                        reason: fullReason,
+                        time: Date.now()
+                    }));
+                }
+            } catch (lsErr) {}
+
+            // 6. Multi-channel notifications
             try {
                 if (typeof BroadcastChannel !== 'undefined') {
                     const bc = new BroadcastChannel('coophub_orders_sync');
-                    bc.postMessage({ type: 'ORDER_CANCELLED', orderId: requestId, reason: fullReason, timestamp: Date.now() });
+                    bc.postMessage({ type: 'ORDER_CANCELLED', orderId: requestId, reason: fullReason, cancelled_by: 'customer', timestamp: Date.now() });
                     setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
                 }
             } catch (bcErr) {}
+
+            try {
+                window.dispatchEvent(new CustomEvent('coophub_order_cancelled', {
+                    detail: { id: requestId, reason: fullReason, cancelled_by: 'customer' }
+                }));
+            } catch (we) {}
 
             return { success: true };
         } catch (err) {

@@ -57,23 +57,25 @@ export function AuthProvider({ children }) {
 
           if (isPillarDemo || isAdminDemo) {
             const pillarDemoSession = {
-              user: { id: "7842d4fd-ac93-4014-93ed-001c0237a36c", email: "raj@coophub.in" }
+              user: { id: "c0000000-0000-0000-0000-000000000011", email: "raj@coophub.in" }
             };
             setSession(pillarDemoSession);
             setUser(pillarDemoSession.user);
             setProfile({
-              id: "7842d4fd-ac93-4014-93ed-001c0237a36c",
+              id: "c0000000-0000-0000-0000-000000000011",
+              alias_id: "7842d4fd-ac93-4014-93ed-001c0237a36c",
               full_name: localStorage.getItem("coophub_demo_user_name") || "Raj Kumar",
-              pillar_code: "PIL-CHE-042",
+              pillar_code: "PIL-CHE-111",
+              alias_code: "PIL-CHE-042",
               mobile: "+91 98400 11223",
               email: "raj@coophub.in",
-              main_services: ["Electrician", "AC Repair"],
-              sub_services: ["Wiring", "DB Box", "Inverter", "MCB Installation"],
+              main_services: ["Electrician", "AC Repair & HVAC"],
+              sub_services: ["Wiring", "DB Box", "Inverter", "MCB Installation", "AC General Service"],
               experience_years: 6,
               service_area: "Guindy, Velachery, Adyar",
               is_available: isAvailable,
               status: "approved",
-              rating: 4.9,
+              rating: 4.97,
               total_orders: 142,
               completion_rate: 98.5,
               role: 'pillar'

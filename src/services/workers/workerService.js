@@ -4,14 +4,14 @@
 // Backed by Authoritative 80-Pillar Certified Catalog (src/data/pillarsRoster.js)
 // ==============================================================================
 
-import { supabase } from '../../lib/supabase';
-import { PILLARS_ROSTER } from '../../data/pillarsRoster';
+import { supabase } from '../../lib/supabase.js';
+import { PILLARS_ROSTER } from '../../data/pillarsRoster.js';
 
 /**
  * Calculates Haversine distance in km between two GPS coordinates
  */
 export function calculateDistanceKm(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 3.5;
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
   const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -29,7 +29,7 @@ export const workerService = {
   /**
    * Fetch active, verified pillars filtered by service category / trade / sub-service and location
    */
-  async getAvailablePillars({ category = '', serviceName = '', lat = 13.0067, lng = 80.2025, maxDistanceKm = 50 } = {}) {
+  async getAvailablePillars({ category = '', serviceName = '', subServiceName = '', lat = null, lng = null, maxDistanceKm = 50 } = {}) {
     let dbPillars = [];
     try {
       const { data, error } = await supabase
@@ -74,14 +74,14 @@ export const workerService = {
         mobile: dbMatch?.mobile || seed.mobile,
         role: seed.custom_role || dbMatch?.custom_role || seed.main_services[0] || 'Master Specialist',
         custom_role: seed.custom_role || dbMatch?.custom_role,
-        trade: (dbMatch?.main_services?.length ? dbMatch.main_services.join(', ') : seed.main_services.join(', ')),
+        trade: (dbMatch?.main_services?.length ? (Array.isArray(dbMatch.main_services) ? dbMatch.main_services.join(', ') : dbMatch.main_services) : (Array.isArray(seed.main_services) ? seed.main_services.join(', ') : seed.main_services)),
         main_services: dbMatch?.main_services || seed.main_services,
         sub_services: seed.sub_services || dbMatch?.sub_services || [],
         sub_service: (seed.sub_services && seed.sub_services[0]) || (dbMatch?.sub_services && dbMatch.sub_services[0]) || '',
         area: dbMatch?.area || seed.area || 'Chennai Metro',
         pincode: dbMatch?.pincode || seed.pincode || '600001',
         address: seed.address || `${seed.area}, Chennai - ${seed.pincode}`,
-        service_area: dbMatch?.service_area?.length ? dbMatch.service_area.join(', ') : (seed.service_area?.join(', ') || `${seed.area}, Chennai Metro`),
+        service_area: dbMatch?.service_area?.length ? (Array.isArray(dbMatch.service_area) ? dbMatch.service_area.join(', ') : dbMatch.service_area) : (Array.isArray(seed.service_area) ? seed.service_area.join(', ') : `${seed.area}, Chennai Metro`),
         rating: Number(dbMatch?.rating || seed.rating || 4.9),
         total_reviews: Number(dbMatch?.total_reviews || seed.total_reviews || 48),
         completed_jobs: Number(dbMatch?.total_completed_jobs || seed.completed_jobs || 42),
@@ -90,8 +90,8 @@ export const workerService = {
         verification_status: dbMatch?.status || seed.status || 'verified',
         starting_price: Number(seed.starting_price || 350),
         avatar_url: seed.avatar_url || dbMatch?.avatar_url || null,
-        latitude: Number(dbMatch?.current_lat || dbMatch?.lat || seed.lat || 13.0067),
-        longitude: Number(dbMatch?.current_lng || dbMatch?.lng || seed.lng || 80.2025)
+        latitude: dbMatch?.current_lat ? Number(dbMatch.current_lat) : (dbMatch?.lat ? Number(dbMatch.lat) : (seed.lat ? Number(seed.lat) : null)),
+        longitude: dbMatch?.current_lng ? Number(dbMatch.current_lng) : (dbMatch?.lng ? Number(dbMatch.lng) : (seed.lng ? Number(seed.lng) : null))
       });
     }
 
@@ -124,20 +124,24 @@ export const workerService = {
           verification_status: dbP.status || 'verified',
           starting_price: 350,
           avatar_url: dbP.avatar_url || null,
-          latitude: Number(dbP.current_lat || dbP.lat || 13.0067),
-          longitude: Number(dbP.current_lng || dbP.lng || 80.2025)
+          latitude: dbP.current_lat ? Number(dbP.current_lat) : (dbP.lat ? Number(dbP.lat) : null),
+          longitude: dbP.current_lng ? Number(dbP.current_lng) : (dbP.lng ? Number(dbP.lng) : null)
         });
       }
     }
 
+    const safeJoin = (arr) => Array.isArray(arr) ? arr.join(' ').toLowerCase() : '';
+
     // Filter by trade, category, or sub-service name
     const searchTrade = (category || serviceName || '').trim().toLowerCase();
-    let filtered = mergedList;
+    const searchSub = (subServiceName || '').trim().toLowerCase();
+    
+    let baseFiltered = mergedList;
 
     if (searchTrade) {
-      filtered = mergedList.filter(p => {
-        const mainStr = p.main_services.join(' ').toLowerCase();
-        const subStr = p.sub_services.join(' ').toLowerCase();
+      baseFiltered = mergedList.filter(p => {
+        const mainStr = safeJoin(p.main_services);
+        const subStr = safeJoin(p.sub_services);
         const roleStr = (p.role || '').toLowerCase();
         const areaStr = (p.area || '').toLowerCase();
 
@@ -158,13 +162,76 @@ export const workerService = {
       });
     }
 
-    // Compute distance and sort
-    const formatted = filtered.map(p => {
+    // Compute distance
+    const formatted = baseFiltered.map(p => {
       const distance = calculateDistanceKm(lat, lng, p.latitude, p.longitude);
       return { ...p, distance };
     });
 
-    return formatted.sort((a, b) => a.distance - b.distance || b.rating - a.rating);
+    // Sub-service / Distance Filtering Logic
+    let finalFiltered = formatted;
+    
+    if (searchSub) {
+      // 1. Try to find pillars matching the exact sub-service in short distance
+      const subServiceMatches = formatted.filter(p => 
+        safeJoin(p.sub_services).includes(searchSub) && (p.distance === null || p.distance <= maxDistanceKm)
+      );
+      
+      if (subServiceMatches.length > 0) {
+        finalFiltered = subServiceMatches;
+      } else {
+        // Fallback: show any pillar for the main service within distance
+        finalFiltered = formatted.filter(p => p.distance === null || p.distance <= maxDistanceKm);
+      }
+    } else {
+      finalFiltered = formatted.filter(p => p.distance === null || p.distance <= maxDistanceKm);
+    }
+    
+    // If still 0, just return the closest ones of the main service regardless of strict max distance
+    if (finalFiltered.length === 0) {
+       finalFiltered = formatted;
+    }
+
+    finalFiltered.sort((a, b) => {
+      if (a.distance === null && b.distance === null) return b.rating - a.rating;
+      if (a.distance === null) return 1; // missing distance goes to bottom
+      if (b.distance === null) return -1;
+      return a.distance - b.distance || b.rating - a.rating;
+    });
+
+    // Enrich top 10 candidates with live route distances instead of Haversine
+    try {
+      const topCandidates = finalFiltered.slice(0, 10);
+      if (topCandidates.length > 0) {
+        const { googleMapsService } = await import('../maps/googleMapsService.js');
+        const origins = topCandidates.map(p => ({ lat: p.latitude, lng: p.longitude }));
+        const destinations = [{ lat: Number(lat), lng: Number(lng) }];
+        const matrix = await googleMapsService.calculateDistanceMatrix(origins, destinations);
+        
+        if (matrix && matrix.length > 0) {
+          topCandidates.forEach((p, idx) => {
+            const el = matrix[idx]?.[0];
+            if (el && (el.status === "OK" || el.status === "FALLBACK_OK")) {
+              p.distance = el.distanceKm || p.distance;
+              p.etaMins = el.durationMins;
+              p.isLiveDistance = !el.status.includes('FALLBACK');
+            }
+          });
+          // Re-sort based on real route distances
+          topCandidates.sort((a, b) => {
+            if (a.distance === null && b.distance === null) return b.rating - a.rating;
+            if (a.distance === null) return 1;
+            if (b.distance === null) return -1;
+            return a.distance - b.distance || b.rating - a.rating;
+          });
+          finalFiltered.splice(0, topCandidates.length, ...topCandidates);
+        }
+      }
+    } catch (routeErr) {
+      console.warn("Live route distance enrichment failed:", routeErr);
+    }
+
+    return finalFiltered;
   },
 
   /**
@@ -229,8 +296,8 @@ export const workerService = {
       is_available: dbData?.is_available !== false,
       starting_price: Number(seed?.starting_price || 350),
       avatar_url: seed?.avatar_url || dbData?.avatar_url || null,
-      current_lat: Number(dbData?.current_lat || dbData?.lat || seed?.lat || 13.0067),
-      current_lng: Number(dbData?.current_lng || dbData?.lng || seed?.lng || 80.2025)
+      current_lat: dbData?.current_lat ? Number(dbData.current_lat) : (dbData?.lat ? Number(dbData.lat) : (seed?.lat ? Number(seed.lat) : null)),
+      current_lng: dbData?.current_lng ? Number(dbData.current_lng) : (dbData?.lng ? Number(dbData.lng) : (seed?.lng ? Number(seed.lng) : null))
     };
   }
 };

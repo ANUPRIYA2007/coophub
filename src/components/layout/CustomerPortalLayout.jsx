@@ -177,21 +177,19 @@ export default function CustomerPortalLayout() {
             {/* ─── Main Area ─── */}
             < div className="flex-1 flex flex-col min-w-0 overflow-hidden" >
                 {/* ─── Top Header ─── */}
-                < header className="bg-white border-b border-navy-100/50 shadow-sm z-30 shrink-0" >
+                <header className="bg-white dark:bg-[#0B1322] border-b border-slate-200/80 dark:border-slate-800 shadow-xs z-30 shrink-0">
                     <div className="flex items-center justify-between px-4 py-3">
                         {/* Left: Mobile hamburger */}
                         <div className="flex items-center space-x-3">
                             <button
                                 onClick={() => setSidebarOpen(true)}
-                                className="lg:hidden p-2 rounded-lg hover:bg-navy-50 text-navy-500 transition-colors"
+                                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
                             >
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                                 </svg>
                             </button>
-                            <h2 className="font-semibold text-navy-800 text-base hidden sm:block">
-                                {customerName ? `Welcome, ${customerName}` : (t('Dashboard') || 'Customer Portal')}
-                            </h2>
+                            {/* Title removed as per user request to avoid redundancy with sidebar */}
                         </div>
 
                         {/* Right: controls */}
@@ -234,9 +232,9 @@ export default function CustomerPortalLayout() {
                 </header >
 
                 {/* ─── Page Content (Outlet) ─── */}
-                < main className="flex-1 overflow-y-auto" >
+                <main className="flex-1 overflow-y-auto bg-slate-50/60 dark:bg-[#060B14]">
                     <Outlet />
-                </main >
+                </main>
             </div>
         </div>
     );

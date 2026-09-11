@@ -271,7 +271,7 @@ export default function RequestDetails() {
                 }
 
                 // Subscribe to realtime Pillar GPS telemetry if assigned
-                if (data.pillar_id) {
+                if (data.pillar_id && !channel) {
                     channel = supabase
                         .channel(`pillar_gps_${data.pillar_id}_${Date.now()}`)
                         .on(
@@ -474,23 +474,25 @@ export default function RequestDetails() {
 
     const getStepperProgress = () => {
         if (!requestData) return -1;
-        if (invoiceData?.invoice_status === 'paid') return 6;
-        if (requestData.status === 'completed') return 5;
-        if (requestData.status === 'in_progress') return 4;
-        if (requestData.status === 'arrived') return 3;
-        if (requestData.status === 'on_the_way') return 2;
-        if (['assigned', 'accepted'].includes(requestData.status)) return 1;
+        if (invoiceData?.invoice_status === 'paid') return 7;
+        if (requestData.status === 'completed') return 6;
+        if (requestData.status === 'in_progress') return 5;
+        if (requestData.status === 'arrived') return 4;
+        if (requestData.status === 'on_the_way') return 3;
+        if (requestData.status === 'accepted') return 2;
+        if (requestData.status === 'assigned') return 1;
         return 0; // pending
     };
     
     const stepperIndex = getStepperProgress();
     const journeySteps = [
         { label: 'Assigned', idx: 1 },
-        { label: 'En Route', idx: 2 },
-        { label: 'Arrived', idx: 3 },
-        { label: 'Working', idx: 4 },
-        { label: 'Completed', idx: 5 },
-        { label: 'Paid', idx: 6 }
+        { label: 'Accepted', idx: 2 },
+        { label: 'En Route', idx: 3 },
+        { label: 'Arrived', idx: 4 },
+        { label: 'Working', idx: 5 },
+        { label: 'Completed', idx: 6 },
+        { label: 'Paid', idx: 7 }
     ];
 
     const currentBadge = statusBadge(requestData?.status || 'pending');
@@ -626,7 +628,7 @@ export default function RequestDetails() {
                             <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-navy-50 rounded-full z-0"></div>
                             <div 
                                 className="absolute left-8 top-1/2 -translate-y-1/2 h-1 bg-orange-500 rounded-full z-0 transition-all duration-500" 
-                                style={{ width: `calc(${Math.max(0, (Math.min(stepperIndex, 6) - 1) * 20)}% - 2rem)` }}
+                                style={{ width: `calc(${Math.max(0, (Math.min(stepperIndex, 7) - 1) * 16.666)}% - 2rem)` }}
                             ></div>
                             {journeySteps.map((step) => {
                                 const isCompleted = stepperIndex >= step.idx;
@@ -957,7 +959,7 @@ export default function RequestDetails() {
                         <div>
                             <p className="text-navy-400 font-medium mb-1">Scheduled Time</p>
                             <p className="font-bold text-navy-800 text-sm">
-                                {requestData.flexible_timing ? 'Flexible Timing' : `${requestData.preferred_date || 'Today'} • ${requestData.preferred_time || '10:30 AM'}`}
+                                {requestData.flexible_timing ? 'Flexible Timing' : `${requestData.preferred_date ? new Date(requestData.preferred_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Today'} • ${requestData.preferred_time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`}
                             </p>
                         </div>
                     </div>

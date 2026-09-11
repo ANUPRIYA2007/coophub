@@ -147,6 +147,20 @@ export default function OrdersList() {
   }, [user]);
 
   const handleStatusChange = async (bookingId, newStatus) => {
+    if (newStatus === "rejected" || newStatus === "declined") {
+      await pillarOrderService.cancelOrder(bookingId, "Declined by technician", user?.id);
+      setOrders(prev => prev.map(o => o.id === bookingId ? {
+        ...o,
+        status: 'cancelled',
+        db_status: 'cancelled',
+        cancel_reason: 'Declined by technician',
+        cancelled_by: 'pillar',
+        cancelled_at: new Date().toISOString()
+      } : o));
+      fetchOrders(true);
+      return;
+    }
+
     const metadata = {};
     if (newStatus === "accepted" && user?.id) {
       metadata.pillar_id = user.id;
@@ -159,7 +173,7 @@ export default function OrdersList() {
     } else if (newStatus === "completed") {
       setActiveTab("completed");
     }
-    fetchOrders();
+    fetchOrders(true);
   };
 
   const handleAcceptClick = async (bookingId) => {
@@ -173,10 +187,28 @@ export default function OrdersList() {
   const handleCancelConfirm = async (reason) => {
     if (!cancelModalOrder) return;
     setIsCancelling(true);
-    await pillarOrderService.cancelOrder(cancelModalOrder.id, reason, user?.id);
+    const orderIdToCancel = cancelModalOrder.id;
+    await pillarOrderService.cancelOrder(orderIdToCancel, reason, user?.id);
+
+    // Immediately update local orders state to reflect cancellation
+    setOrders(prev => prev.map(o => {
+      if (o.id === orderIdToCancel) {
+        return {
+          ...o,
+          status: 'cancelled',
+          db_status: 'cancelled',
+          cancel_reason: reason,
+          cancelled_by: 'pillar',
+          cancelled_at: new Date().toISOString()
+        };
+      }
+      return o;
+    }));
+
     setIsCancelling(false);
     setCancelModalOrder(null);
-    fetchOrders();
+    setActiveTab("cancelled");
+    fetchOrders(true);
   };
 
   const handleMarkPaymentComplete = async (order) => {
@@ -206,10 +238,11 @@ export default function OrdersList() {
   });
 
   const tabs = [
-    { id: "pending", label: t("orders.pending"), count: orders.filter((o) => o.status === "pending").length },
-    { id: "accepted", label: t("orders.accepted"), count: orders.filter((o) => o.status === "accepted").length },
-    { id: "inProgress", label: t("orders.inProgress"), count: orders.filter((o) => ["onTheWay", "arrived", "inProgress"].includes(o.status)).length },
-    { id: "completed", label: t("orders.completed"), count: orders.filter((o) => o.status === "completed").length },
+    { id: "pending", label: t("orders.pending", "Pending"), count: orders.filter((o) => o.status === "pending").length },
+    { id: "accepted", label: t("orders.accepted", "Accepted"), count: orders.filter((o) => o.status === "accepted").length },
+    { id: "inProgress", label: t("orders.inProgress", "In Progress"), count: orders.filter((o) => ["onTheWay", "arrived", "inProgress"].includes(o.status)).length },
+    { id: "completed", label: t("orders.completed", "Completed"), count: orders.filter((o) => o.status === "completed").length },
+    { id: "cancelled", label: t("orders.cancelled", "Cancelled"), count: orders.filter((o) => o.status === "cancelled").length },
   ];
 
   return (
@@ -485,10 +518,12 @@ export default function OrdersList() {
                           ? "badge-warning"
                           : order.status === "completed"
                           ? "badge-success"
+                          : order.status === "cancelled"
+                          ? "badge-danger"
                           : "badge-info"
                       }`}
                     >
-                      {t(`orders.${order.status}`)}
+                      {order.status === "cancelled" ? t("Cancelled") : t(`orders.${order.status}`)}
                     </span>
                   </div>
                   <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "600" }}>{t(order.service_name)}</h3>
@@ -914,6 +949,42 @@ export default function OrdersList() {
                     >
                       <Printer size={16} /> {t("Generate & View Official Receipt")}
                     </button>
+                  </div>
+                )}
+
+                {order.status === "cancelled" && (
+                  <div
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      border: "1px dashed rgba(239, 68, 68, 0.4)",
+                      borderRadius: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: "8px"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <AlertTriangle size={18} color="#ef4444" />
+                      <div>
+                        <div style={{ fontWeight: "700", fontSize: "13px", color: "#b91c1c" }}>
+                          {t("Order Cancelled")} {order.cancelled_by ? `(${t("by")} ${order.cancelled_by === 'customer' ? t("Customer") : t("Pillar")})` : ""}
+                        </div>
+                        {order.cancel_reason && (
+                          <div style={{ fontSize: "12px", color: "#991b1b", marginTop: "2px" }}>
+                            <strong>{t("Reason")}:</strong> {order.cancel_reason}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {order.cancelled_at && (
+                      <span style={{ fontSize: "11px", color: "#991b1b", opacity: 0.85 }}>
+                        {new Date(order.cancelled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

@@ -61,36 +61,34 @@ async function verifyAIPipeline() {
     console.log(`✓ Found ${eligible.length} eligible workers based on skill and availability.`);
 
     if (eligible.length > 0) {
-      console.log("\n6. Ranking Workers (Matching Service)...");
-      const matchResult = await matchingService.matchWorkforceForRequest(dummyRequest);
-      
-      const rankedCandidates = matchResult.rankedCandidates || matchResult.candidates || [];
-      console.log(`✓ Ranked ${rankedCandidates.length} candidates.`);
-      
-      const bestMatch = matchResult.bestMatch;
-      if (bestMatch) {
-        console.log(`\n🏆 TOP RECOMMENDED WORKER:`);
-        console.log(`   Name: ${bestMatch.fullName}`);
-        console.log(`   Score: ${bestMatch.matchScore}/100`);
-        console.log(`   Distance: ${bestMatch.distanceKm} km`);
-        console.log(`   Rating: ${bestMatch.rating}`);
-        console.log(`   Reasons for Match:`);
-        bestMatch.reasons.forEach(r => console.log(`     - ${r}`));
+      console.log("\n6. Ranking Workers (Matching Service) - COORDINATE TESTS...");
 
-        console.log("\n7. Generating AI Operational Explanation...");
-        const mappedCandidate = {
-          full_name: bestMatch.fullName,
-          pillar_code: bestMatch.pillarCode,
-          score: bestMatch.matchScore,
-          distanceKm: bestMatch.distanceKm,
-          isCertified: bestMatch.isCertified,
-          active_jobs_count: bestMatch.rawPillar?.active_jobs_count || 0,
-          rating: bestMatch.rating,
-          reasons: bestMatch.reasons
-        };
-        const explanation = await workforceAllocationEngine.generateAllocationExplanation(mappedCandidate, dummyRequest);
-        console.log(`   AI Explanation: ${explanation}`);
+      const testCases = [
+        { name: "Test A: Missing Customer Coordinates (Should bypass proximity)", req: { ...dummyRequest, lat: undefined, lng: undefined, latitude: undefined, longitude: undefined } },
+        { name: "Test B: Valid Nearby Customer Coordinates (Guindy)", req: { ...dummyRequest, lat: 13.0070, lng: 80.2030 } },
+        { name: "Test C: Valid Farther Customer Coordinates (Adyar)", req: { ...dummyRequest, lat: 13.0012, lng: 80.2565 } }
+      ];
+
+      for (const tc of testCases) {
+        console.log(`\n--- ${tc.name} ---`);
+        const matchResult = await matchingService.matchWorkforceForRequest(tc.req);
+        
+        const rankedCandidates = matchResult.rankedCandidates || matchResult.candidates || [];
+        console.log(`✓ Ranked ${rankedCandidates.length} candidates.`);
+        
+        const bestMatch = matchResult.bestMatch;
+        if (bestMatch) {
+          console.log(`🏆 TOP RECOMMENDED WORKER:`);
+          console.log(`   Name: ${bestMatch.fullName}`);
+          console.log(`   Score: ${bestMatch.matchScore}/100`);
+          console.log(`   Distance: ${bestMatch.distanceKm !== null ? bestMatch.distanceKm + ' km' : 'Unavailable'}`);
+          console.log(`   Reasons for Match:`);
+          bestMatch.reasons.forEach(r => console.log(`     - ${r}`));
+        } else {
+            console.log(`⚠️ No best match found for test case.`);
+        }
       }
+      
     } else {
       console.log("\n⚠️ No eligible workers found for the requested service and area. Cannot test worker recommendation logic fully.");
     }

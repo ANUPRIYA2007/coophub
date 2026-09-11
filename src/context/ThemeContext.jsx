@@ -7,7 +7,9 @@ const ThemeContext = createContext({
 });
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('coophub_theme') || 'light';
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);

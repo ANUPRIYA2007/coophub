@@ -12,7 +12,7 @@
 //  - Graceful Offline & Error Fallbacks
 // ==============================================================================
 
-import { GOOGLE_MAPS_CONFIG, MAP_STYLES } from "../../config/maps";
+import { GOOGLE_MAPS_CONFIG, MAP_STYLES } from "../../config/maps.js";
 
 class GoogleMapsService {
   constructor() {
@@ -32,6 +32,12 @@ class GoogleMapsService {
    * @returns {Promise<typeof google.maps>}
    */
   async loadGoogleMapsSdk() {
+    // 0. Handle Node.js / CLI environments gracefully
+    if (typeof window === 'undefined') {
+      this.isLoaded = false;
+      return Promise.reject(new Error("Google Maps SDK requires browser environment. Falling back to Haversine."));
+    }
+
     // 1. If already loaded in window
     if (window.google && window.google.maps) {
       this.isLoaded = true;
@@ -600,7 +606,7 @@ class GoogleMapsService {
    * Pure mathematical Haversine distance calculator in KM (Reliable zero-dependency fallback)
    */
   calculateHaversineDistance(lat1, lon1, lat2, lon2) {
-    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 3.5;
+    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -656,13 +662,13 @@ class GoogleMapsService {
     return origins.map(orig =>
       destinations.map(dest => {
         const dist = this.calculateHaversineDistance(orig.lat, orig.lng, dest.lat, dest.lng);
-        const mins = Math.ceil((dist / 25) * 60) + 5;
+        const mins = dist !== null ? Math.ceil((dist / 25) * 60) + 5 : 0;
         return {
           distanceKm: dist,
           durationMins: mins,
-          distanceText: `${dist} km`,
-          durationText: `~${mins} mins`,
-          status: "FALLBACK_OK"
+          distanceText: dist !== null ? `${dist} km` : 'Unavailable',
+          durationText: dist !== null ? `~${mins} mins` : 'Unavailable',
+          status: dist !== null ? "FALLBACK_OK" : "FAILED"
         };
       })
     );
