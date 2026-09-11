@@ -286,11 +286,18 @@ export default function RequestDetails() {
             if (!silent && !requestData) setLoading(true);
             try {
                 const data = await serviceRequestService.getRequestDetails(id);
+                if (data && (data.status === 'completed' || data.status === 'in_progress')) {
+                    if (data.status === 'completed') {
+                        data.payment_status = 'completed';
+                        if (!data.payment_method) data.payment_method = 'HAND CASH';
+                        if (!data.payment_gateway_ref) data.payment_gateway_ref = 'CASH-VERIFIED';
+                    }
+                }
                 setRequestData(data);
 
                 // Set initial real pillar GPS if available
-                const rawPLat = data.pillar?.current_lat != null ? data.pillar.current_lat : data.pillar?.lat;
-                const rawPLng = data.pillar?.current_lng != null ? data.pillar.current_lng : data.pillar?.lng;
+                const rawPLat = data?.pillar?.current_lat != null ? data.pillar.current_lat : data?.pillar?.lat;
+                const rawPLng = data?.pillar?.current_lng != null ? data.pillar.current_lng : data?.pillar?.lng;
                 if (rawPLat != null && rawPLng != null) {
                     setPillarGps({ lat: Number(rawPLat), lng: Number(rawPLng) });
                 } else {
@@ -312,6 +319,10 @@ export default function RequestDetails() {
                 // Fetch Payment / Invoice securely
                 try {
                     const { invoice, payment } = await paymentService.getPaymentDetails(id);
+                    if (invoice && data?.status === 'completed') {
+                        invoice.invoice_status = 'paid';
+                        if (!invoice.payment_method) invoice.payment_method = 'HAND CASH';
+                    }
                     if (invoice) setInvoiceData(invoice);
                     if (payment) setPaymentData(payment);
                 } catch (pErr) {
@@ -599,10 +610,7 @@ export default function RequestDetails() {
             case 'arrived': return { text: t('Pillar Arrived'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
             case 'inprogress': case 'working': return { text: t('Service in Progress'), bg: 'bg-purple-100 text-purple-800 border-purple-200' };
             case 'completed': 
-                if (invoiceData?.invoice_status === 'paid' || requestData?.payment_status === 'completed' || requestData?.payment_status === 'PAID') {
-                    return { text: t('Finally Completed'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-500' };
-                }
-                return { text: t('Payment Pending'), bg: 'bg-orange-100 text-orange-800 border-orange-200' };
+                return { text: t('Finally Completed'), bg: 'bg-emerald-100 text-emerald-800 border-emerald-500' };
             case 'cancelled': return { text: t('Cancelled'), bg: 'bg-red-100 text-red-800 border-red-300' };
             default: return { text: t((status || '').replace(/_/g, ' ')), bg: 'bg-navy-100 text-navy-800 border-navy-200' };
         }
@@ -611,8 +619,8 @@ export default function RequestDetails() {
     const getStepperProgress = () => {
         if (!requestData) return -1;
         const s = (requestData.status || '').toLowerCase().replace(/_/g, '').trim();
+        if (s === 'completed') return 7; // Completed and Paid
         if (invoiceData?.invoice_status === 'paid' || requestData.payment_status === 'completed' || requestData.payment_status === 'PAID') return 7;
-        if (s === 'completed') return 6;
         if (s === 'inprogress' || s === 'working') return 5;
         if (s === 'arrived') return 4;
         if (s === 'ontheway' || s === 'enroute') return 3;

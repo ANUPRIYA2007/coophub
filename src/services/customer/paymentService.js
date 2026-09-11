@@ -53,8 +53,8 @@ export const paymentService = {
                 
                 if (sReq) {
                     const baseAmount = Number(sReq.final_amount || sReq.total_amount || sReq.amount || 450);
-                    const isPaid = sReq.payment_status === 'completed';
-                    const isCash = sReq.payment_gateway_ref === 'HAND_CASH' || sReq.payment_method === 'HAND CASH';
+                    const isPaid = sReq.payment_status === 'completed' || sReq.status === 'completed';
+                    const isCash = sReq.payment_gateway_ref === 'HAND_CASH' || sReq.payment_method === 'HAND CASH' || sReq.status === 'completed';
 
                     if (!invoice) {
                         invoice = {

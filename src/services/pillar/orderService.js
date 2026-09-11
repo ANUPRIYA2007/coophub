@@ -937,6 +937,9 @@ export const pillarOrderService = {
         extra_charge_amount: extraAmount,
         extra_charge_reason: payload.extra_charge_reason || req?.extra_charge_reason || null,
         extra_charge_status: extraAmount > 0 ? 'accepted' : 'none',
+        payment_status: 'completed',
+        payment_method: payload.payment_method || req?.payment_method || 'HAND CASH',
+        payment_gateway_ref: payload.payment_gateway_ref || req?.payment_gateway_ref || 'CASH-VERIFIED',
         completed_at: nowIso,
         updated_at: nowIso
       };
@@ -979,7 +982,8 @@ export const pillarOrderService = {
           tax_amount: taxAmount,
           total_amount: totalAmount,
           currency: 'INR',
-          invoice_status: 'pending'
+          invoice_status: 'paid',
+          payment_method: payload.payment_method || req?.payment_method || 'HAND CASH'
         };
 
         const { data: exInv } = await supabase.from('invoices').select('id').eq('request_id', targetReqId).maybeSingle();
@@ -1012,6 +1016,8 @@ export const pillarOrderService = {
       relatedIds.forEach(idKey => {
         try {
           localStorage.setItem(`coophub_status_${idKey}`, 'completed');
+          localStorage.setItem(`coophub_payment_status_${idKey}`, 'completed');
+          localStorage.setItem(`coophub_payment_method_${idKey}`, 'HAND CASH');
         } catch (e) {}
       });
 
@@ -1022,6 +1028,8 @@ export const pillarOrderService = {
           sharedOrders.forEach(o => {
             if (o.id === orderId || o.booking_code === orderId || (orderId.startsWith('REQ-') && String(o.id).startsWith('REQ-'))) {
               o.status = 'completed';
+              o.payment_status = 'completed';
+              o.payment_method = 'HAND CASH';
               o.final_amount = totalAmount;
               o.completed_at = nowIso;
             }
@@ -1032,6 +1040,8 @@ export const pillarOrderService = {
           custRequests.forEach(o => {
             if (o.id === orderId || o.booking_code === orderId || (orderId.startsWith('REQ-') && String(o.id).startsWith('REQ-'))) {
               o.status = 'completed';
+              o.payment_status = 'completed';
+              o.payment_method = 'HAND CASH';
               o.final_amount = totalAmount;
               o.completed_at = nowIso;
             }
@@ -1047,16 +1057,19 @@ export const pillarOrderService = {
             extra_charges: extraAmount,
             tax_amount: taxAmount,
             total_amount: totalAmount,
-            invoice_status: 'pending'
+            invoice_status: 'paid',
+            payment_method: 'HAND CASH'
           };
           localStorage.setItem(`coophub_invoice_${orderId}`, JSON.stringify(invoiceObj));
           localStorage.setItem(`coophub_invoice_${targetReqId}`, JSON.stringify(invoiceObj));
           localStorage.setItem('coophub_invoice_REQ-8942', JSON.stringify(invoiceObj));
+          localStorage.setItem('coophub_invoice_ORD-9842', JSON.stringify(invoiceObj));
 
           localStorage.setItem('coophub_last_order_event', JSON.stringify({
             id: orderId,
             action: 'completed',
             status: 'completed',
+            payment_status: 'completed',
             final_amount: totalAmount,
             time: Date.now()
           }));

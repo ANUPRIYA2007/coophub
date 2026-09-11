@@ -599,6 +599,12 @@ export const serviceRequestService = {
                     }
                 } catch(e) {}
 
+                if (copy.status === 'completed') {
+                    copy.payment_status = 'completed';
+                    if (!copy.payment_method) copy.payment_method = 'HAND CASH';
+                    if (!copy.payment_gateway_ref) copy.payment_gateway_ref = 'CASH-VERIFIED';
+                }
+
                 return sanitizeRequest(copy);
             }
         }
@@ -706,6 +712,12 @@ export const serviceRequestService = {
                     .maybeSingle();
                 if (pData) data.pillar = pData;
             } catch (pe) {}
+        }
+
+        if (data && data.status === 'completed') {
+            data.payment_status = 'completed';
+            if (!data.payment_method) data.payment_method = 'HAND CASH';
+            if (!data.payment_gateway_ref) data.payment_gateway_ref = 'CASH-VERIFIED';
         }
 
         return sanitizeRequest(data);

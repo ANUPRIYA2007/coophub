@@ -57,6 +57,9 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
       pillar_earnings: pillarEarnings,
       cooperative_commission: coopCommission,
       settlement_status: "Settled",
+      payment_status: "completed",
+      payment_method: order.payment_method || "HAND CASH",
+      payment_gateway_ref: order.payment_gateway_ref || "CASH-VERIFIED",
       completed_at: new Date().toISOString()
     };
 
