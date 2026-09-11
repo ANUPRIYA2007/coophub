@@ -39,6 +39,21 @@ export default function CustomerChatDrawer({
     if (!isOpen || !requestId) return;
     fetchChatMessages();
 
+    // Background silent polling (every 2.5s) to guarantee real-time updates across different browsers
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data } = await jobCommunicationService.getMessages(requestId);
+        if (data && Array.isArray(data)) {
+          setMessages(prev => {
+            if (data.length !== prev.length || (data.length > 0 && prev.length > 0 && data[data.length - 1].id !== prev[prev.length - 1].id)) {
+              return data;
+            }
+            return prev;
+          });
+        }
+      } catch (pe) {}
+    }, 2500);
+
     // Subscribe to realtime messages (INSERT & UPDATE)
     const unsubscribe = subscribeToMessages(requestId, {
       onInsert: (newMsg) => {
@@ -63,6 +78,7 @@ export default function CustomerChatDrawer({
     });
 
     return () => {
+      clearInterval(pollInterval);
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
