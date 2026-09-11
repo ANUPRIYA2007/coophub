@@ -129,13 +129,27 @@ export default function PillarChatDrawer({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e, textOverride = null) => {
     e?.preventDefault();
-    const text = inputContent.trim();
+    const text = (textOverride || inputContent).trim();
     if (!text || submitting || !requestId) return;
 
     setSubmitting(true);
     setInputContent("");
+
+    const optimisticId = 'temp-' + Date.now();
+    const optimisticMsg = {
+      id: optimisticId,
+      request_id: requestId,
+      sender_type: 'pillar',
+      content: text,
+      message: text,
+      message_type: 'TEXT',
+      is_read: false,
+      created_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, optimisticMsg]);
 
     const res = await jobCommunicationService.sendMessage({
       requestId,
@@ -146,18 +160,7 @@ export default function PillarChatDrawer({
     });
 
     if (res?.data) {
-      setMessages(prev => {
-        if (prev.some(m => m.id === res.data.id)) return prev;
-        return [...prev, {
-          id: res.data.id,
-          request_id: requestId,
-          sender_type: 'pillar',
-          content: text,
-          message_type: 'TEXT',
-          is_read: false,
-          created_at: new Date().toISOString()
-        }];
-      });
+      setMessages(prev => prev.map(m => m.id === optimisticId ? res.data : m));
     }
 
     setSubmitting(false);

@@ -73,13 +73,27 @@ export default function CustomerChatDrawer({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e, textOverride = null) => {
     e?.preventDefault();
-    const text = inputContent.trim();
+    const text = (textOverride || inputContent).trim();
     if (!text || submitting) return;
 
     setSubmitting(true);
     setInputContent("");
+
+    const optimisticId = 'temp-' + Date.now();
+    const optimisticMsg = {
+      id: optimisticId,
+      request_id: requestId,
+      sender_type: 'customer',
+      content: text,
+      message: text,
+      message_type: 'TEXT',
+      is_read: false,
+      created_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, optimisticMsg]);
 
     const res = await jobCommunicationService.sendMessage({
       requestId,
@@ -89,19 +103,8 @@ export default function CustomerChatDrawer({
       messageType: 'TEXT'
     });
 
-    if (res.data) {
-      setMessages(prev => {
-        if (prev.some(m => m.id === res.data.id)) return prev;
-        return [...prev, {
-          id: res.data.id,
-          request_id: requestId,
-          sender_type: 'customer',
-          content: text,
-          message_type: 'TEXT',
-          is_read: false,
-          created_at: new Date().toISOString()
-        }];
-      });
+    if (res?.data) {
+      setMessages(prev => prev.map(m => m.id === optimisticId ? res.data : m));
     }
 
     setSubmitting(false);
@@ -358,20 +361,16 @@ export default function CustomerChatDrawer({
         overflowX: "auto"
       }}>
         <button
-          onClick={() => {
-            setInputContent("I am at the main apartment gate / building entrance.");
-          }}
+          onClick={() => handleSendMessage(null, "I am at the main apartment gate / building entrance.")}
           className="btn btn-xs btn-outline"
-          style={{ fontSize: "0.72rem", whiteSpace: "nowrap", borderRadius: "12px" }}
+          style={{ fontSize: "0.72rem", whiteSpace: "nowrap", borderRadius: "12px", cursor: "pointer" }}
         >
           📍 Waiting at Gate
         </button>
         <button
-          onClick={() => {
-            setInputContent("Please call me when you reach the street corner.");
-          }}
+          onClick={() => handleSendMessage(null, "Please call me when you reach the street corner.")}
           className="btn btn-xs btn-outline"
-          style={{ fontSize: "0.72rem", whiteSpace: "nowrap", borderRadius: "12px" }}
+          style={{ fontSize: "0.72rem", whiteSpace: "nowrap", borderRadius: "12px", cursor: "pointer" }}
         >
           📞 Call on Arrival
         </button>
