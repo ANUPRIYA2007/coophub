@@ -4,8 +4,64 @@ import { useTranslation } from "../../../i18n/useTranslation";
 import { 
   Users, Search, UserCheck, Shield, Phone, Mail, MapPin, 
   ShoppingBag, Calendar, ArrowUpDown, Filter, Eye, CheckCircle2, 
-  AlertTriangle, RefreshCw, X, Award, DollarSign, Star, MoreVertical
+  AlertTriangle, RefreshCw, X, Award, DollarSign, Star, MoreVertical, Layers
 } from "lucide-react";
+
+// Chennai Metro Sector Clusters — ward locality → zone mapping
+const CHENNAI_ZONES = [
+  {
+    id: "all",
+    label: "All Zones",
+    code: null,
+    color: "#64748B",
+    wards: []
+  },
+  {
+    id: "ZC-01",
+    label: "Sector 1 · Central-South",
+    code: "ZC-01",
+    color: "#FF7900",
+    wards: ["guindy", "adyar", "velachery", "saidapet", "thiruvanmiyur", "t.nagar", "nungambakkam", "anna salai", "teynampet", "alwarpet", "mylapore", "mandaveli", "besant nagar"]
+  },
+  {
+    id: "ZC-02",
+    label: "Sector 2 · Central-North",
+    code: "ZC-02",
+    color: "#3B82F6",
+    wards: ["anna nagar", "kilpauk", "t. nagar", "nungambakkam", "alwarpet", "chetpet", "ayanavaram", "perambur", "villivakkam", "kolathur", "aminjikarai"]
+  },
+  {
+    id: "ZC-03",
+    label: "Sector 3 · Coastal & OMR",
+    code: "ZC-03",
+    color: "#10B981",
+    wards: ["sholinganallur", "omr", "perungudi", "siruseri", "kelambakkam", "navalur", "thoraipakkam", "karapakkam", "ecr", "kottivakkam", "palavakkam", "injambakkam"]
+  },
+  {
+    id: "ZC-04",
+    label: "Sector 4 · North Industrial",
+    code: "ZC-04",
+    color: "#8B5CF6",
+    wards: ["ambattur", "avadi", "kavaraipettai", "porur", "royapettah", "george town", "tondiarpet", "madhavaram", "red hills", "tiruvottiyur", "manali"]
+  }
+];
+
+// Match a customer address string to a zone
+function resolveCustomerZone(customer) {
+  const addr = [
+    customer.address || "",
+    customer.area || "",
+    customer.city || "",
+    customer.full_address || ""
+  ].join(" ").toLowerCase();
+
+  for (const zone of CHENNAI_ZONES) {
+    if (!zone.wards.length) continue;
+    if (zone.wards.some(ward => addr.includes(ward))) return zone;
+  }
+  // Default fallback: try to guess from customer code suffix or return null
+  return null;
+}
 
 export default function AdminCustomers() {
   const { t } = useTranslation();
@@ -13,6 +69,7 @@ export default function AdminCustomers() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // 'all' | 'active' | 'vip' | 'suspended'
+  const [selectedZone, setSelectedZone] = useState("all"); // zone cluster filter
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
 
@@ -53,7 +110,11 @@ export default function AdminCustomers() {
     const emailMatch = c.email?.toLowerCase().includes(term);
     const codeMatch = c.customer_code?.toLowerCase().includes(term);
     const phoneMatch = c.mobile?.includes(term);
-    return nameMatch || emailMatch || codeMatch || phoneMatch;
+    const textMatch = nameMatch || emailMatch || codeMatch || phoneMatch;
+    if (!textMatch) return false;
+    if (selectedZone === "all") return true;
+    const zone = resolveCustomerZone(c);
+    return zone?.id === selectedZone;
   });
 
   const totalRegistered = customers.length;
@@ -147,6 +208,95 @@ export default function AdminCustomers() {
         </div>
       </div>
 
+      {/* Zone Sector Selector */}
+      <div style={{
+        background: "var(--color-surface)",
+        borderRadius: "var(--radius-lg)",
+        border: "1px solid var(--color-border)",
+        padding: "14px 20px",
+        marginBottom: "var(--space-3)",
+        boxShadow: "var(--shadow-sm)"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+          <Layers size={16} color="#FF7900" />
+          <span style={{ fontSize: "0.82rem", fontWeight: "800", color: "var(--color-text)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Zone · Sub-Region Filter
+          </span>
+          <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>— Southern Zone (SZ) · Chennai Metropolitan Area (CMDA)</span>
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {CHENNAI_ZONES.map(zone => {
+            const zoneCustomers = zone.id === "all" ? customers : customers.filter(c => resolveCustomerZone(c)?.id === zone.id);
+            const isActive = selectedZone === zone.id;
+            return (
+              <button
+                key={zone.id}
+                onClick={() => setSelectedZone(zone.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 14px",
+                  borderRadius: "10px",
+                  border: isActive ? `2px solid ${zone.color}` : "1.5px solid var(--color-border)",
+                  background: isActive ? `${zone.color}18` : "var(--color-surface-hover)",
+                  color: isActive ? zone.color : "var(--color-text-secondary)",
+                  fontWeight: isActive ? "800" : "600",
+                  fontSize: "0.82rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                {zone.code && (
+                  <span style={{
+                    fontSize: "0.7rem",
+                    background: isActive ? zone.color : "var(--color-border)",
+                    color: isActive ? "white" : "var(--color-text-muted)",
+                    padding: "1px 5px",
+                    borderRadius: "5px",
+                    fontWeight: "800",
+                    fontFamily: "monospace"
+                  }}>{zone.code}</span>
+                )}
+                {zone.label}
+                <span style={{
+                  background: isActive ? zone.color : "var(--color-surface)",
+                  color: isActive ? "white" : "var(--color-text-secondary)",
+                  fontSize: "0.7rem",
+                  padding: "1px 6px",
+                  borderRadius: "8px",
+                  fontWeight: "800",
+                  border: `1px solid ${isActive ? zone.color : "var(--color-border)"}`
+                }}>{zoneCustomers.length}</span>
+              </button>
+            );
+          })}
+        </div>
+        {selectedZone !== "all" && (() => {
+          const z = CHENNAI_ZONES.find(z => z.id === selectedZone);
+          return (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginTop: "10px" }}>
+              <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: "600", alignSelf: "center" }}>Wards:</span>
+              {z?.wards.slice(0, 8).map(ward => (
+                <span key={ward} style={{
+                  fontSize: "0.7rem",
+                  background: `${z.color}15`,
+                  color: z.color,
+                  border: `1px solid ${z.color}30`,
+                  padding: "1px 7px",
+                  borderRadius: "6px",
+                  fontWeight: "600",
+                  textTransform: "capitalize"
+                }}>{ward}</span>
+              ))}
+              {z && z.wards.length > 8 && (
+                <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", alignSelf: "center" }}>+{z.wards.length - 8} more</span>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Filter Tabs & Search Toolbar */}
       <div style={{ 
         background: "var(--color-surface)", 
@@ -188,17 +338,40 @@ export default function AdminCustomers() {
           ))}
         </div>
 
-        {/* Search Input */}
-        <div style={{ position: "relative", width: "320px", maxWidth: "100%" }}>
-          <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
-          <input
-            type="text"
-            placeholder="Search by name, email, phone, code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="form-input"
-            style={{ paddingLeft: "36px", height: "38px", fontSize: "0.85rem" }}
-          />
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          {/* Zone active indicator */}
+          {selectedZone !== "all" && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "0.78rem",
+              color: CHENNAI_ZONES.find(z => z.id === selectedZone)?.color,
+              background: `${CHENNAI_ZONES.find(z => z.id === selectedZone)?.color}15`,
+              padding: "4px 10px",
+              borderRadius: "8px",
+              fontWeight: "700"
+            }}>
+              <MapPin size={13} />
+              {CHENNAI_ZONES.find(z => z.id === selectedZone)?.label}
+              <button
+                onClick={() => setSelectedZone("all")}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, fontWeight: "900", fontSize: "0.85rem", lineHeight: 1 }}
+              >×</button>
+            </div>
+          )}
+          {/* Search Input */}
+          <div style={{ position: "relative", width: "280px", maxWidth: "100%" }}>
+            <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
+            <input
+              type="text"
+              placeholder="Search by name, email, phone, code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="form-input"
+              style={{ paddingLeft: "36px", height: "38px", fontSize: "0.85rem" }}
+            />
+          </div>
         </div>
       </div>
 
@@ -226,6 +399,7 @@ export default function AdminCustomers() {
                   <th style={{ padding: "14px 18px" }}>Customer Profile</th>
                   <th style={{ padding: "14px 18px" }}>Contact & Language</th>
                   <th style={{ padding: "14px 18px" }}>Location</th>
+                  <th style={{ padding: "14px 18px" }}>Zone Cluster</th>
                   <th style={{ padding: "14px 18px", textAlign: "center" }}>Bookings</th>
                   <th style={{ padding: "14px 18px", textAlign: "right" }}>Total Spend</th>
                   <th style={{ padding: "14px 18px", textAlign: "center" }}>Status</th>
@@ -280,11 +454,44 @@ export default function AdminCustomers() {
                       </td>
 
                       {/* Location */}
-                      <td style={{ padding: "14px 18px", color: "var(--color-text-secondary)", fontSize: "0.82rem", maxWidth: "200px" }}>
+                      <td style={{ padding: "14px 18px", color: "var(--color-text-secondary)", fontSize: "0.82rem", maxWidth: "180px" }}>
                         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {customer.address || (customer.area && customer.city ? `${customer.area}, ${customer.city}` : customer.area || customer.city || "Chennai")}
                         </div>
                       </td>
+
+                      {/* Zone Cluster */}
+                      {(() => {
+                        const zone = resolveCustomerZone(customer);
+                        return (
+                          <td style={{ padding: "14px 18px" }}>
+                            {zone ? (
+                              <div>
+                                <span style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: "800",
+                                  padding: "2px 7px",
+                                  borderRadius: "6px",
+                                  background: `${zone.color}18`,
+                                  color: zone.color,
+                                  border: `1px solid ${zone.color}35`,
+                                  fontFamily: "monospace"
+                                }}>
+                                  {zone.code}
+                                </span>
+                                <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: "2px", maxWidth: "110px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {zone.label.split(" · ")[1]}
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontStyle: "italic" }}>—</span>
+                            )}
+                          </td>
+                        );
+                      })()}
 
                       {/* Bookings */}
                       <td style={{ padding: "14px 18px", textAlign: "center" }}>
