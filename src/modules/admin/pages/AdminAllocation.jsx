@@ -5,7 +5,7 @@ import { useTranslation } from "../../../i18n/useTranslation";
 import { 
   Zap, Users, MapPin, Wrench, AlertTriangle, 
   CheckCircle2, Sparkles, RefreshCw, Clock, Filter, ShieldAlert,
-  ChevronRight, Calendar, ArrowUpRight, ShieldCheck, Eye, RotateCcw, UserX, UserCheck
+  ChevronRight, Calendar, ArrowUpRight, ShieldCheck, Eye, RotateCcw, UserX, UserCheck, Radio
 } from "lucide-react";
 
 export default function AdminAllocation() {
@@ -22,20 +22,110 @@ export default function AdminAllocation() {
   const [overridePillarId, setOverridePillarId] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
 
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [liveConnected, setLiveConnected] = useState(false);
+
   useEffect(() => {
     loadData();
+
+    // Real-time subscriptions on both source tables
+    const srChannel = supabase
+      .channel('allocation-sr-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_requests' }, () => loadData())
+      .subscribe((status) => { if (status === 'SUBSCRIBED') setLiveConnected(true); });
+
+    const bookingsChannel = supabase
+      .channel('allocation-bookings-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => loadData())
+      .subscribe();
+
+    const allocChannel = supabase
+      .channel('allocation-trail-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workforce_allocations' }, () => loadData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(srChannel);
+      supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(allocChannel);
+    };
   }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch real unallocated or pending bookings
-      const { data: bookingsData } = await supabase
-        .from('bookings')
-        .select('*')
+      // 1. Fetch from service_requests (primary source)
+      const { data: srData } = await supabase
+        .from('service_requests')
+        .select(`
+          *,
+          pillar:pillar_profiles(id, full_name, pillar_code, mobile),
+          service:services(id, name, category)
+        `)
         .order('created_at', { ascending: false });
 
-      // 2. Fetch workforce allocations audit log
+      // 2. Fetch from bookings table
+      const { data: bookingsData } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          pillar:pillar_profiles(id, full_name, pillar_code, mobile)
+        `)
+        .order('created_at', { ascending: false });
+
+      // 3. Normalize both into unified shape
+      const normalizeBooking = (b) => ({
+        id: b.id,
+        _source: 'booking',
+        order_code: b.booking_code || `ORD-${b.id.slice(0, 6).toUpperCase()}`,
+        service_name: b.service_name || 'Service Order',
+        sub_service_name: b.sub_service_name || '',
+        category: b.category || 'General',
+        customer_name: b.customer_name || 'Customer',
+        customer_phone: b.customer_mobile || '—',
+        service_address: b.service_address || b.address_line || 'Chennai',
+        status: b.status || 'pending',
+        amount: b.base_amount || b.amount || 0,
+        pillar_id: b.pillar_id || null,
+        pillar: b.pillar || null,
+        created_at: b.created_at,
+        is_emergency: b.is_emergency || false
+      });
+
+      const normalizeSR = (r) => ({
+        id: r.id,
+        _source: 'service_request',
+        order_code: r.receipt_number || r.payment_gateway_ref ||
+          (r.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) ||
+          r.order_code || `REQ-${r.id.slice(0, 6).toUpperCase()}`,
+        service_name: r.service?.name || r.category || r.service_name || 'Service',
+        sub_service_name: r.sub_service_name || '',
+        category: r.service?.category || r.category || 'Service',
+        customer_name: r.customer_name ||
+          r.customer_description?.match(/Customer:\s*([^|\]]+)/i)?.[1]?.trim() ||
+          'Verified Customer',
+        customer_phone: r.customer_phone ||
+          r.customer_description?.match(/Phone:\s*([^|\]]+)/i)?.[1]?.trim() || '—',
+        service_address: [r.address_line, r.area, r.city].filter(Boolean).join(', ') || 'Chennai Hub',
+        status: r.status || 'pending',
+        amount: r.amount || r.final_amount || 0,
+        pillar_id: r.pillar_id || null,
+        pillar: r.pillar || null,
+        created_at: r.created_at,
+        is_emergency: r.is_emergency || false
+      });
+
+      const srNorm = (srData || []).map(normalizeSR);
+      const bookNorm = (bookingsData || []).map(normalizeBooking);
+
+      // Merge: avoid duplicates by id
+      const srIds = new Set(srNorm.map(r => r.id));
+      const merged = [
+        ...srNorm,
+        ...bookNorm.filter(b => !srIds.has(b.id))
+      ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      // 4. Fetch workforce allocations audit log
       const { data: allocData } = await supabase
         .from('workforce_allocations')
         .select(`
@@ -43,17 +133,18 @@ export default function AdminAllocation() {
           pillar:pillar_profiles(full_name, pillar_code, mobile)
         `)
         .order('allocated_at', { ascending: false })
-        .limit(20);
+        .limit(25);
 
-      // 3. Fetch all verified pillars for override modal
+      // 5. Fetch all verified pillars for override modal
       const { data: pillarsData } = await supabase
         .from('pillar_profiles')
         .select('id, full_name, pillar_code, main_services, service_area, is_available')
         .eq('status', 'verified');
 
-      setRequests(bookingsData || []);
+      setRequests(merged);
       setAllocations(allocData || []);
       setAllVerifiedPillars(pillarsData || []);
+      setLastRefreshed(new Date());
     } catch (err) {
       console.error("Error loading allocation data:", err);
     } finally {
@@ -170,14 +261,27 @@ export default function AdminAllocation() {
           </p>
         </div>
 
-        <button 
-          onClick={loadData} 
-          disabled={loading}
-          className="btn btn-outline btn-sm"
-          style={{ display: "flex", alignItems: "center", gap: "6px" }}
-        >
-          <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh Dispatch Queue
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {liveConnected && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", color: "#10B981", fontWeight: "700" }}>
+              <Radio size={13} style={{ animation: "pulse 2s ease-in-out infinite" }} />
+              Live
+            </div>
+          )}
+          {lastRefreshed && (
+            <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>
+              Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
+          <button 
+            onClick={loadData} 
+            disabled={loading}
+            className="btn btn-outline btn-sm"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh Dispatch Queue
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -245,7 +349,7 @@ export default function AdminAllocation() {
             Live Booking Dispatch & Allocation Queue
           </h3>
           <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-            {requests.length} Total Bookings in Database
+            {requests.length} Total Records (service_requests + bookings)
           </span>
         </div>
 
@@ -275,12 +379,14 @@ export default function AdminAllocation() {
                   const isPending = !req.pillar_id || req.status === 'pending';
                   return (
                     <tr key={req.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                      <td style={{ padding: "12px 16px", fontWeight: "700", fontFamily: "monospace" }}>
-                        {req.booking_code || `ORD-${req.id.slice(0, 6).toUpperCase()}`}
+                      <td style={{ padding: "12px 16px", fontWeight: "700", fontFamily: "monospace", color: "#FF7900", fontSize: "0.82rem" }}>
+                        {req.order_code}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         <div style={{ fontWeight: "700", color: "var(--color-text)" }}>{req.service_name}</div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>{req.sub_service_name || "Standard Service"}</div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                          {req.sub_service_name || req.category || "Standard Service"}
+                        </div>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         <div style={{ fontWeight: "600" }}>{req.customer_name}</div>
@@ -296,10 +402,17 @@ export default function AdminAllocation() {
                         </span>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
-                        {req.pillar_id ? (
-                          <div style={{ fontWeight: "600", color: "#FF7900" }}>
-                            {req.pillar_id.slice(0, 8)}...
+                        {req.pillar ? (
+                          <div>
+                            <div style={{ fontWeight: "700", color: "#FF7900", fontSize: "0.82rem" }}>
+                              {req.pillar.full_name}
+                            </div>
+                            <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontFamily: "monospace" }}>
+                              {req.pillar.pillar_code}
+                            </div>
                           </div>
+                        ) : req.pillar_id ? (
+                          <span style={{ color: "#F59E0B", fontSize: "0.78rem", fontWeight: "700" }}>Assigned (loading…)</span>
                         ) : (
                           <span style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}>Unassigned</span>
                         )}
