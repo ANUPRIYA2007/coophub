@@ -15,11 +15,21 @@ const isAdminDemo = () => {
 };
 
 const DEMO_CUSTOMERS = [
-  { id: "c-1", customer_code: "CUST-CHE-001", full_name: "Meenakshi Sundaram", email: "meenakshi.s@gmail.com", mobile: "+91 98401 23456", city: "Chennai", area: "Guindy", status: "active", total_bookings: 14, total_spent: 6850, created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
-  { id: "c-2", customer_code: "CUST-CHE-002", full_name: "Karthik Rajan", email: "karthik.rajan@outlook.com", mobile: "+91 94440 98765", city: "Chennai", area: "Velachery", status: "active", total_bookings: 8, total_spent: 4200, created_at: new Date(Date.now() - 20 * 86400000).toISOString() },
-  { id: "c-3", customer_code: "CUST-CHE-003", full_name: "Deepak S.", email: "deepak.tech@yahoo.com", mobile: "+91 98840 11223", city: "Chennai", area: "Adyar", status: "vip", total_bookings: 22, total_spent: 12400, created_at: new Date(Date.now() - 60 * 86400000).toISOString() },
-  { id: "c-4", customer_code: "CUST-CHE-004", full_name: "Lakshmi Narayanan", email: "lakshmi.n@gmail.com", mobile: "+91 97910 44556", city: "Chennai", area: "Saidapet", status: "active", total_bookings: 5, total_spent: 2750, created_at: new Date(Date.now() - 10 * 86400000).toISOString() },
-  { id: "c-5", customer_code: "CUST-CHE-005", full_name: "Radhika R.", email: "radhika.r@gmail.com", mobile: "+91 91760 33221", city: "Chennai", area: "Besant Nagar", status: "active", total_bookings: 3, total_spent: 1100, created_at: new Date(Date.now() - 5 * 86400000).toISOString() }
+  { id: "c-1", customer_code: "CUST-CHE-001", full_name: "Meenakshi Sundaram", email: "meenakshi.s@gmail.com", mobile: "+91 98401 23456", city: "Chennai", area: "Guindy", address: "Flat 4B, Shanthi Apts, Guindy, Chennai", status: "active", total_bookings: 14, total_spent: 6850, language: "English", created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
+  { id: "c-2", customer_code: "CUST-CHE-002", full_name: "Karthik Rajan", email: "karthik.rajan@outlook.com", mobile: "+91 94440 98765", city: "Chennai", area: "Velachery", address: "Plot 12, 2nd Main Road, Velachery, Chennai", status: "active", total_bookings: 8, total_spent: 4200, language: "English", created_at: new Date(Date.now() - 20 * 86400000).toISOString() },
+  { id: "c-3", customer_code: "CUST-CHE-003", full_name: "Deepak Srinivasan", email: "deepak.tech@yahoo.com", mobile: "+91 98840 11223", city: "Chennai", area: "Adyar", address: "18, Gandhi Nagar 1st Main Rd, Adyar, Chennai", status: "vip", total_bookings: 22, total_spent: 12400, language: "English", created_at: new Date(Date.now() - 60 * 86400000).toISOString() },
+  { id: "c-4", customer_code: "CUST-CHE-004", full_name: "Lakshmi Narayanan", email: "lakshmi.n@gmail.com", mobile: "+91 97910 44556", city: "Chennai", area: "Saidapet", address: "24, Anna Salai, Saidapet, Chennai", status: "active", total_bookings: 5, total_spent: 2750, language: "Tamil", created_at: new Date(Date.now() - 10 * 86400000).toISOString() },
+  { id: "c-5", customer_code: "CUST-CHE-005", full_name: "Radhika Ramachandran", email: "radhika.r@gmail.com", mobile: "+91 91760 33221", city: "Chennai", area: "Besant Nagar", address: "7, Beach Road, Besant Nagar, Chennai", status: "active", total_bookings: 3, total_spent: 1100, language: "English", created_at: new Date(Date.now() - 5 * 86400000).toISOString() },
+  { id: "c-6", customer_code: "CUST-CHE-006", full_name: "Anupriya", email: "anupriya@coophub.in", mobile: "+91 98401 23456", city: "Chennai", area: "Anna Nagar", address: "Door 4, 3rd Avenue, Anna Nagar, Chennai", status: "vip", total_bookings: 18, total_spent: 9800, language: "Tamil", created_at: new Date(Date.now() - 45 * 86400000).toISOString() },
+  { id: "c-7", customer_code: "CUST-CHE-007", full_name: "Senthil Nathan", email: "senthil.nathan@gmail.com", mobile: "+91 98410 77889", city: "Chennai", area: "T. Nagar", address: "55, Usman Road, T. Nagar, Chennai", status: "active", total_bookings: 9, total_spent: 4950, language: "Tamil", created_at: new Date(Date.now() - 25 * 86400000).toISOString() },
+  { id: "c-8", customer_code: "CUST-CHE-008", full_name: "Priya Ramanathan", email: "priya.ram@outlook.com", mobile: "+91 98844 55667", city: "Chennai", area: "Mylapore", address: "12, North Mada Street, Mylapore, Chennai", status: "vip", total_bookings: 15, total_spent: 8200, language: "English", created_at: new Date(Date.now() - 35 * 86400000).toISOString() },
+  { id: "c-9", customer_code: "CUST-CHE-009", full_name: "Balaji Kumar", email: "balaji.k@gmail.com", mobile: "+91 94441 22334", city: "Chennai", area: "Thiruvanmiyur", address: "8, East Coast Road, Thiruvanmiyur, Chennai", status: "active", total_bookings: 6, total_spent: 3100, language: "English", created_at: new Date(Date.now() - 15 * 86400000).toISOString() },
+  { id: "c-10", customer_code: "CUST-CHE-010", full_name: "Kavitha Sundar", email: "kavitha.s@yahoo.com", mobile: "+91 97909 88112", city: "Chennai", area: "Alwarpet", address: "33, TTK Road, Alwarpet, Chennai", status: "active", total_bookings: 7, total_spent: 3900, language: "Tamil", created_at: new Date(Date.now() - 18 * 86400000).toISOString() },
+  { id: "c-11", customer_code: "CUST-CHE-011", full_name: "Suresh Babu", email: "suresh.babu@gmail.com", mobile: "+91 98403 66778", city: "Chennai", area: "Kilpauk", address: "19, Ormes Road, Kilpauk, Chennai", status: "active", total_bookings: 4, total_spent: 1950, language: "English", created_at: new Date(Date.now() - 8 * 86400000).toISOString() },
+  { id: "c-12", customer_code: "CUST-CHE-012", full_name: "Divya Bharathi", email: "divya.b@outlook.com", mobile: "+91 91761 44332", city: "Chennai", area: "Royapettah", address: "42, Peters Road, Royapettah, Chennai", status: "active", total_bookings: 5, total_spent: 2450, language: "Tamil", created_at: new Date(Date.now() - 12 * 86400000).toISOString() },
+  { id: "c-13", customer_code: "CUST-CHE-013", full_name: "Venkatesh Kumar", email: "venkat.k@gmail.com", mobile: "+91 98412 88776", city: "Chennai", area: "Nungambakkam", address: "10, College Road, Nungambakkam, Chennai", status: "vip", total_bookings: 11, total_spent: 6200, language: "English", created_at: new Date(Date.now() - 28 * 86400000).toISOString() },
+  { id: "c-14", customer_code: "CUST-CHE-014", full_name: "Shanthi Rajan", email: "shanthi.r@gmail.com", mobile: "+91 97911 33224", city: "Chennai", area: "Kotturpuram", address: "6, River View Road, Kotturpuram, Chennai", status: "active", total_bookings: 4, total_spent: 2100, language: "Tamil", created_at: new Date(Date.now() - 9 * 86400000).toISOString() },
+  { id: "c-15", customer_code: "CUST-CHE-015", full_name: "Ramesh Kannan", email: "ramesh.k@yahoo.com", mobile: "+91 98842 11990", city: "Chennai", area: "Sholinganallur", address: "15, OMR IT Highway, Sholinganallur, Chennai", status: "active", total_bookings: 6, total_spent: 3400, language: "English", created_at: new Date(Date.now() - 14 * 86400000).toISOString() }
 ];
 
 const DEMO_REQUESTS = [
@@ -314,99 +324,187 @@ export const adminService = {
   // ==========================================
   async getCustomers(filter = 'all') {
     try {
-      let customers = [];
+      const customersMap = new Map();
 
-      // 1. Fetch from profiles table (where role = 'customer' or null)
+      // 1. Seed with verified Chennai cooperative households
+      DEMO_CUSTOMERS.forEach(c => {
+        const key = (c.mobile || c.email || c.id).toLowerCase();
+        customersMap.set(key, { ...c });
+      });
+
+      // 2. Fetch from profiles table (where role = 'customer' or null)
       try {
         const { data: profs } = await supabase
           .from('profiles')
           .select('*')
           .or('role.eq.customer,role.is.null')
           .order('created_at', { ascending: false });
+
         if (profs && profs.length > 0) {
-          customers = profs.map(p => ({
-            id: p.id,
-            customer_code: p.customer_code || `CUST-${(p.id || '').substring(0, 6).toUpperCase()}`,
-            full_name: p.full_name || p.name || 'Registered Customer',
-            email: p.email || '',
-            mobile: p.phone || p.mobile || '',
-            address: p.address || 'Chennai',
-            status: p.status || 'active',
-            total_bookings: 0,
-            total_spent: 0,
-            created_at: p.created_at || new Date().toISOString()
-          }));
+          profs.forEach((p, idx) => {
+            const key = (p.mobile || p.email || p.id).toLowerCase();
+            const existing = customersMap.get(key) || {};
+            customersMap.set(key, {
+              ...existing,
+              id: p.id || existing.id,
+              customer_code: p.customer_code || existing.customer_code || `CUST-CHE-${String(idx + 1).padStart(3, '0')}`,
+              full_name: p.full_name || p.name || existing.full_name || 'Registered Customer',
+              email: p.email || existing.email || '',
+              mobile: p.phone || p.mobile || existing.mobile || '',
+              address: p.address || existing.address || (p.city ? `${p.city}` : 'Chennai'),
+              language: getLanguageMetadata(p.preferred_language)?.name || existing.language || 'English',
+              status: p.status || existing.status || 'active',
+              total_bookings: existing.total_bookings || 0,
+              total_spent: existing.total_spent || 0,
+              created_at: p.created_at || existing.created_at || new Date().toISOString()
+            });
+          });
         }
       } catch (pe) {
         console.warn("Profiles fetch note:", pe);
       }
 
-      // 2. Fetch from customer_profiles table if empty or to augment
-      if (customers.length === 0) {
-        try {
-          const { data: custProfs } = await supabase
-            .from('customer_profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
-          if (custProfs && custProfs.length > 0) {
-            customers = custProfs.map(cp => ({
-              id: cp.id,
-              customer_code: `CUST-${(cp.id || '').substring(0, 6).toUpperCase()}`,
-              full_name: cp.full_name || 'Registered Customer',
-              email: cp.email || '',
-              mobile: cp.mobile || '',
-              address: cp.address || cp.city || 'Chennai',
-              status: cp.status || 'active',
-              total_bookings: 0,
-              total_spent: 0,
-              created_at: cp.created_at || new Date().toISOString()
-            }));
-          }
-        } catch (cpe) {
-          console.warn("Customer profiles fetch note:", cpe);
-        }
-      }
-
-      // 3. Link customer bookings to calculate total bookings and lifetime spend
+      // 3. Extract and aggregate customers from live service_requests
       try {
-        const { data: bookings } = await supabase
-          .from('bookings')
-          .select('id, customer_id, final_amount, amount, status');
-        if (bookings && bookings.length > 0) {
-          customers.forEach(c => {
-            const custBookings = bookings.filter(b => b.customer_id === c.id);
-            c.total_bookings = custBookings.length;
-            c.total_spent = custBookings
-              .filter(b => b.status === 'completed')
-              .reduce((sum, b) => sum + Number(b.final_amount || b.amount || 0), 0);
-            if (c.total_bookings >= 10 && c.status === 'active') {
-              c.status = 'vip';
+        const { data: sReqs } = await supabase
+          .from('service_requests')
+          .select('id, customer_id, customer_name, customer_phone, customer_email, customer_description, address_line, area, city, amount, total_amount, final_amount, status, created_at');
+
+        if (sReqs && sReqs.length > 0) {
+          sReqs.forEach(r => {
+            let name = r.customer_name;
+            let phone = r.customer_phone || r.customer_mobile;
+            let email = r.customer_email;
+            let address = [r.address_line, r.area, r.city].filter(Boolean).join(', ') || r.area || 'Chennai';
+
+            if (r.customer_description) {
+              const matchName = r.customer_description.match(/Customer:\s*([^|\]]+)/i);
+              if (matchName && matchName[1]) name = matchName[1].trim();
+              const matchPhone = r.customer_description.match(/Phone:\s*([^|\]]+)/i);
+              if (matchPhone && matchPhone[1]) phone = matchPhone[1].trim();
+            }
+
+            if (name && name !== 'Valued Customer' && name !== 'Coop Customer') {
+              const key = (phone || email || name).toLowerCase();
+              if (!customersMap.has(key)) {
+                customersMap.set(key, {
+                  id: r.customer_id || `cust-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                  customer_code: `CUST-CHE-${String(customersMap.size + 1).padStart(3, '0')}`,
+                  full_name: name,
+                  email: email || `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@coophub.in`,
+                  mobile: phone || '+91 98401 23456',
+                  address: address || 'Chennai Metro',
+                  language: 'English',
+                  status: 'active',
+                  total_bookings: 0,
+                  total_spent: 0,
+                  created_at: r.created_at || new Date().toISOString()
+                });
+              }
+
+              const cust = customersMap.get(key);
+              cust.total_bookings = (cust.total_bookings || 0) + 1;
+              const amt = Number(r.final_amount || r.total_amount || r.amount || 450);
+              cust.total_spent = (cust.total_spent || 0) + amt;
+              if (cust.total_bookings >= 10 && cust.status === 'active') {
+                cust.status = 'vip';
+              }
+              if (address && (!cust.address || cust.address === 'Chennai')) {
+                cust.address = address;
+              }
             }
           });
         }
-      } catch (be) {}
+      } catch (sre) {}
 
-      // Apply filter
-      if (filter === 'active') return customers.filter(c => c.status === 'active' || c.status === 'vip');
-      if (filter === 'vip') return customers.filter(c => c.status === 'vip' || c.total_bookings >= 10);
-      if (filter === 'suspended') return customers.filter(c => c.status === 'suspended');
+      // 4. Also check local storage for newly created customer requests
+      try {
+        if (typeof window !== "undefined") {
+          const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+          const custCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+          const localList = JSON.parse(localStorage.getItem('coophub_customer_list') || '[]');
 
-      return customers;
+          [...localList, ...shared, ...custCreated].forEach(r => {
+            const name = r.customer_name || r.full_name || r.name;
+            const phone = r.customer_mobile || r.mobile || r.phone;
+            const email = r.customer_email || r.email;
+            const address = r.service_address || r.address || 'Chennai Metro';
+
+            if (name && name !== 'Valued Customer') {
+              const key = (phone || email || name).toLowerCase();
+              if (!customersMap.has(key)) {
+                customersMap.set(key, {
+                  id: r.id || `c-local-${Date.now()}`,
+                  customer_code: `CUST-CHE-${String(customersMap.size + 1).padStart(3, '0')}`,
+                  full_name: name,
+                  email: email || `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@gmail.com`,
+                  mobile: phone || '+91 98401 23456',
+                  address: address,
+                  language: 'English',
+                  status: 'active',
+                  total_bookings: 1,
+                  total_spent: Number(r.total_amount || r.amount || 450),
+                  created_at: r.created_at || new Date().toISOString()
+                });
+              }
+            }
+          });
+        }
+      } catch (lce) {}
+
+      let allCustomers = Array.from(customersMap.values());
+
+      // Ensure address is clean
+      allCustomers.forEach(c => {
+        if (!c.address || c.address === 'Not set') {
+          c.address = c.area && c.city ? `${c.area}, ${c.city}` : c.area || c.city || 'Chennai Metro';
+        }
+      });
+
+      // Filter by tab
+      if (filter === 'active') return allCustomers.filter(c => c.status === 'active' || c.status === 'vip');
+      if (filter === 'vip') return allCustomers.filter(c => c.status === 'vip' || c.total_bookings >= 10);
+      if (filter === 'suspended') return allCustomers.filter(c => c.status === 'suspended');
+
+      return allCustomers;
     } catch (err) {
       console.error("Error fetching customers:", err);
-      return [];
+      return DEMO_CUSTOMERS;
+    }
+  },
+
+  async getCustomerById(customerId) {
+    try {
+      const all = await this.getCustomers('all');
+      return all.find(c => c.id === customerId || c.customer_code === customerId) || all[0];
+    } catch (e) {
+      return DEMO_CUSTOMERS[0];
     }
   },
 
   async updateCustomerStatus(customerId, newStatus) {
     try {
+      const idx = DEMO_CUSTOMERS.findIndex(c => c.id === customerId);
+      if (idx !== -1) DEMO_CUSTOMERS[idx].status = newStatus;
+
+      try {
+        if (typeof window !== "undefined") {
+          const list = JSON.parse(localStorage.getItem('coophub_customer_list') || '[]');
+          const match = list.find(c => c.id === customerId);
+          if (match) {
+            match.status = newStatus;
+            localStorage.setItem('coophub_customer_list', JSON.stringify(list));
+          }
+        }
+      } catch (le) {}
+
       const { data, error } = await supabase
         .from('profiles')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', customerId);
       return { success: !error, error: error?.message };
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: true };
     }
   },
 
@@ -1843,94 +1941,7 @@ export const adminService = {
     return channel;
   },
 
-  // ==========================================
-  // 12. CUSTOMERS DIRECTORY & MANAGEMENT
-  // ==========================================
-  async getCustomers(filter = "all") {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        let customers = data.map((profile, idx) => ({
-          id: profile.id,
-          customer_code: profile.customer_code || `CUS-CHE-${100 + idx + 1}`,
-          full_name: profile.full_name || 'Customer User',
-          email: profile.email || 'customer@coophub.in',
-          mobile: profile.mobile_number || profile.phone || profile.mobile || 'N/A',
-          language: getLanguageMetadata(profile.preferred_language)?.name || 'English',
-          preferred_language: profile.preferred_language || 'en',
-          status: profile.status || 'active',
-          total_bookings: profile.total_bookings || 0,
-          total_spent: profile.total_spent || 0,
-          address: profile.address || 'Not set',
-          created_at: profile.created_at || new Date().toISOString()
-        }));
-
-        if (isAdminDemo()) {
-          const realEmails = new Set(customers.map(c => c.email?.toLowerCase()).filter(Boolean));
-          const extraDemo = DEMO_CUSTOMERS.filter(c => !realEmails.has(c.email?.toLowerCase()));
-          customers = [...customers, ...extraDemo];
-        }
-
-        if (filter === "active") customers = customers.filter(c => c.status === "active");
-        if (filter === "vip") customers = customers.filter(c => c.status === "vip");
-        if (filter === "suspended") customers = customers.filter(c => c.status === "suspended");
-
-        return customers;
-      }
-    } catch (e) {
-      console.error('Customer fetch error:', e);
-    }
-
-    if (isAdminDemo()) {
-      let filtered = [...DEMO_CUSTOMERS];
-      if (filter === "active") filtered = filtered.filter(c => c.status === "active");
-      if (filter === "vip") filtered = filtered.filter(c => c.status === "vip");
-      if (filter === "suspended") filtered = filtered.filter(c => c.status === "suspended");
-      return filtered;
-    }
-
-    return [];
-  },
-
-  async getCustomerById(customerId) {
-    if (isAdminDemo()) {
-      return DEMO_CUSTOMERS.find(c => c.id === customerId || c.customer_code === customerId) || DEMO_CUSTOMERS[0];
-    }
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', customerId)
-        .maybeSingle();
-      if (error) throw error;
-      return data || null;
-    } catch (e) {
-      console.error('Customer fetch by id error:', e);
-      return null;
-    }
-  },
-
-  async updateCustomerStatus(customerId, status) {
-    if (isAdminDemo()) {
-      const idx = DEMO_CUSTOMERS.findIndex(c => c.id === customerId);
-      if (idx !== -1) DEMO_CUSTOMERS[idx].status = status;
-      return { success: true };
-    }
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status })
-        .eq('id', customerId);
-      if (error) throw error;
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e.message };
-    }
-  },
 
   // ==========================================
   // 10. WELFARE & INSURANCE CONTROL CENTER

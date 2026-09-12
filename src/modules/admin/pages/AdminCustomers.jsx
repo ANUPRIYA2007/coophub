@@ -76,7 +76,7 @@ export default function AdminCustomers() {
             <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>• Platform Consumers</span>
           </div>
           <h1 style={{ fontSize: "1.6rem", fontWeight: "800", color: "var(--color-text)", margin: 0 }}>
-            {t("admin.customers") || "Customers Management"}
+            {t("Customer Management")}
           </h1>
           <p style={{ color: "var(--color-text-secondary)", fontSize: "0.88rem", marginTop: "2px", margin: 0 }}>
             Manage registered households, booking history, lifetime spend, and account clearance.
@@ -282,7 +282,7 @@ export default function AdminCustomers() {
                       {/* Location */}
                       <td style={{ padding: "14px 18px", color: "var(--color-text-secondary)", fontSize: "0.82rem", maxWidth: "200px" }}>
                         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {customer.address}
+                          {customer.address || (customer.area && customer.city ? `${customer.area}, ${customer.city}` : customer.area || customer.city || "Chennai")}
                         </div>
                       </td>
 
@@ -390,7 +390,9 @@ export default function AdminCustomers() {
 
               <div style={{ background: "var(--color-surface-hover)", padding: "12px", borderRadius: "10px", marginBottom: "18px" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", fontWeight: "600" }}>Registered Address</div>
-                <div style={{ fontSize: "0.85rem", color: "var(--color-text)", marginTop: "2px", fontWeight: "500" }}>{selectedCustomer.address}</div>
+                <div style={{ fontSize: "0.85rem", color: "var(--color-text)", marginTop: "2px", fontWeight: "500" }}>
+                  {selectedCustomer.address || (selectedCustomer.area && selectedCustomer.city ? `${selectedCustomer.area}, ${selectedCustomer.city}` : selectedCustomer.area || selectedCustomer.city || "Chennai")}
+                </div>
               </div>
 
               {/* Status Manager */}

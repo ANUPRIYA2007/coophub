@@ -59,6 +59,7 @@ export const CRITICAL_CATALOG = {
     "nav.allocation": "AI Workforce Allocation",
     "nav.tracking": "Live Tracking",
     "nav.finance": "Finance",
+    "nav.customers": "Customers",
     "nav.system_health": "System Management",
     "nav.security_audit": "Security & Audit",
     "kyc.title": "Identity Verification (KYC)",
