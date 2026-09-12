@@ -425,22 +425,27 @@ export default function PillarDetails() {
   };
 
   const handleApprove = async () => {
-    setUpdating(true);
-    const res = await adminService.approvePillar(pillarId);
-    setUpdating(false);
-
-    if (res.success) {
-      setPillar((prev) => ({ 
-        ...prev, 
-        status: "verified",
-        verification_status: "verified",
-        pillar_code: res.pillarCode,
-        is_available: true 
-      }));
-      setApprovedCode(res.pillarCode);
-      setShowApprovalModal(true);
-    } else {
-      alert("Failed to approve pillar: " + (res.error || "Unknown error"));
+    try {
+      setUpdating(true);
+      const res = await adminService.approvePillar(pillarId);
+      if (res.success) {
+        setPillar((prev) => ({ 
+          ...prev, 
+          status: "verified",
+          verification_status: "verified",
+          pillar_code: res.pillarCode,
+          is_available: true 
+        }));
+        setApprovedCode(res.pillarCode);
+        setShowApprovalModal(true);
+      } else {
+        alert("Failed to approve pillar: " + (res.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("handleApprove caught error:", err);
+      alert("Failed to approve pillar: " + (err?.message || "Unknown error"));
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -457,22 +462,28 @@ export default function PillarDetails() {
       ? `${selectedRejectReason}: ${customRejectExplanation}`
       : selectedRejectReason;
 
-    setUpdating(true);
-    const res = await adminService.rejectPillar(pillarId, fullReason);
-    setUpdating(false);
-    setShowRejectModal(false);
+    try {
+      setUpdating(true);
+      const res = await adminService.rejectPillar(pillarId, fullReason);
+      setShowRejectModal(false);
 
-    if (res.success) {
-      setPillar((prev) => ({ 
-        ...prev, 
-        status: "rejected", 
-        verification_status: "rejected",
-        rejection_reason: fullReason,
-        is_available: false 
-      }));
-      alert("Application marked as Rejected. Detailed notification and resubmit instructions dispatched to applicant.");
-    } else {
-      alert("Failed to reject application: " + res.error);
+      if (res.success) {
+        setPillar((prev) => ({ 
+          ...prev, 
+          status: "rejected", 
+          verification_status: "rejected",
+          rejection_reason: fullReason,
+          is_available: false 
+        }));
+        alert("Application marked as Rejected. Detailed notification and resubmit instructions dispatched to applicant.");
+      } else {
+        alert("Failed to reject application: " + (res.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("handleRejectSubmit error:", err);
+      alert("Failed to reject application: " + (err?.message || "Unknown error"));
+    } finally {
+      setUpdating(false);
     }
   };
 

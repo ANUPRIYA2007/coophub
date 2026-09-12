@@ -7,15 +7,82 @@ import { ocrService } from "../../../services/pillar/ocrService";
 import { kycRouter } from "../../../services/kyc/kycRouter";
 import KycConsentModal from "../../../components/kyc/KycConsentModal";
 import UidaiQrScannerModal from "../../../components/kyc/UidaiQrScannerModal";
+import LocationPickerModal from "../../../components/maps/LocationPickerModal";
 import HeroInteractiveAgent from "../../../components/pillar/ai/HeroInteractiveAgent";
 import { 
   Loader2, AlertCircle, CheckCircle, ArrowRight, ArrowLeft, 
-  Globe, ShieldCheck, FileText, UploadCloud, Lock, Sparkles, CheckCircle2, QrCode, Cpu 
+  Globe, ShieldCheck, FileText, UploadCloud, Lock, Sparkles, CheckCircle2, QrCode, Cpu,
+  MapPin, Plus, X, Map, Compass
 } from "lucide-react";
 
 const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
   ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')
   : '';
+
+// Predefined sub-services catalog per skilled trade
+const TRADE_SUBSERVICES_MAP = {
+  "Electrician": [
+    "Ceiling Fan & Switchboard Wiring",
+    "Lighting Installation & Repair",
+    "Electrical Wiring & Rewiring",
+    "MCB & Distribution Board Services",
+    "Power Socket & Switch Repair",
+    "Inverter & UPS Setup",
+    "3-Phase Industrial Wiring",
+    "Short Circuit Troubleshooting",
+    "Earthing & Surge Protection"
+  ],
+  "Plumber": [
+    "Pipe Leakage Repair",
+    "Tap & Faucet Repair",
+    "Sink & Wash Basin Service",
+    "Toilet & Sanitary Repair",
+    "Drainage & Blockage Removal",
+    "Water Tank Cleaning & Installation",
+    "Motor Pump Fitting & Repair",
+    "Bathroom Fitting & Sanitary Ware"
+  ],
+  "AC Technician": [
+    "AC General Service",
+    "AC Repair & Troubleshooting",
+    "AC Installation & Uninstallation",
+    "AC Gas Filling & Leak Check",
+    "AC Deep Cleaning (Jet Wash)",
+    "PCB & Inverter Circuit Repair",
+    "Duct & Split AC Maintenance"
+  ],
+  "Carpenter": [
+    "Furniture Repair & Assembly",
+    "Door & Window Repair",
+    "Modular Furniture & Kitchen",
+    "Custom Woodwork & Shelving",
+    "Wood Polishing & Restoration",
+    "Lock, Latch & Handle Fitting"
+  ],
+  "Appliance Repair": [
+    "Washing Machine Repair",
+    "Refrigerator & Deep Freezer Service",
+    "Microwave & Oven Repair",
+    "Water Purifier (RO/UV) Service",
+    "Geyser & Water Heater Repair",
+    "Kitchen Chimney & Hob Servicing"
+  ],
+  "Home Cleaning": [
+    "Full Home Deep Cleaning",
+    "Kitchen Deep Cleaning & Degreasing",
+    "Bathroom Deep Cleaning & Sanitization",
+    "Sofa, Carpet & Mattress Shampooing",
+    "Floor Scrubbing & Machine Polishing"
+  ],
+  "Painter": [
+    "Interior Wall Painting & Emulsion",
+    "Exterior Weatherproof Painting",
+    "Waterproofing & Leakage Treatment",
+    "Texture & Designer Wall Painting",
+    "Wall Putty & Crack Repair"
+  ],
+  "Others": []
+};
 
 export default function Register() {
   const { t, language, changeLanguage, supportedLanguages } = useTranslation();
@@ -31,6 +98,8 @@ export default function Register() {
   const [success, setSuccess] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [submittedAppId, setSubmittedAppId] = useState("");
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [customSubSkillInput, setCustomSubSkillInput] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -45,6 +114,8 @@ export default function Register() {
     serviceArea: "",
     area: "",
     pincode: "",
+    latitude: null,
+    longitude: null,
     locationSharingEnabled: true,
     preferredLanguage: "en",
     // Step 3: Government ID Verification fields (Mandatory)
@@ -74,6 +145,48 @@ export default function Register() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [digilockerStatus, setDigilockerStatus] = useState({ configured: false });
   const [digilockerNotice, setDigilockerNotice] = useState(null);
+
+  // Sub-skills list management
+  const currentSubSkills = formData.subServices
+    ? formData.subServices.split(",").map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const handleAddSubSkill = (skill) => {
+    if (!skill || !skill.trim()) return;
+    const trimmed = skill.trim();
+    if (!currentSubSkills.includes(trimmed)) {
+      const updated = [...currentSubSkills, trimmed];
+      setFormData(prev => ({ ...prev, subServices: updated.join(", ") }));
+    }
+  };
+
+  const handleRemoveSubSkill = (skillToRemove) => {
+    const updated = currentSubSkills.filter(s => s !== skillToRemove);
+    setFormData(prev => ({ ...prev, subServices: updated.join(", ") }));
+  };
+
+  const handleAddCustomSubSkill = (e) => {
+    if (e) e.preventDefault();
+    if (customSubSkillInput.trim()) {
+      handleAddSubSkill(customSubSkillInput.trim());
+      setCustomSubSkillInput("");
+    }
+  };
+
+  const handleMapLocationConfirmed = (loc) => {
+    const isCoords = (s) => !s || /^Lat:\s*[\d.-]+/i.test(String(s).trim());
+    const cleanArea = loc.area || (!isCoords(loc.address_line) ? loc.address_line.split(',')[0].trim() : formData.area);
+
+    setFormData(prev => ({
+      ...prev,
+      area: cleanArea || prev.area,
+      pincode: loc.postal_code || prev.pincode,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      serviceArea: [cleanArea || prev.area, loc.postal_code || prev.pincode].filter(Boolean)
+    }));
+    setShowMapPicker(false);
+  };
 
   useEffect(() => {
     fetch(`${SERVER_BASE}/api/kyc/digilocker/status`)
@@ -425,6 +538,8 @@ export default function Register() {
       serviceArea: [formData.area.trim(), formData.pincode.trim()].filter(Boolean),
       area: formData.area.trim(),
       pincode: formData.pincode.trim(),
+      latitude: formData.latitude,
+      longitude: formData.longitude,
       location_sharing_enabled: formData.locationSharingEnabled !== false,
       subServices: formData.subServices ? formData.subServices.split(",").map((s) => s.trim()).filter(Boolean) : [],
       // Include OCR / DigiLocker verification metadata
@@ -840,65 +955,242 @@ export default function Register() {
                   </div>
                 )}
 
-                <div className="grid grid-2" style={{ gap: "16px" }}>
-                  <div className="form-group">
-                    <label className="form-label">Years of Experience <span className="required">*</span></label>
-                    <select
-                      name="experience"
-                      className="form-input"
-                      value={formData.experience}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select experience...</option>
-                      <option value="1">1 Year</option>
-                      <option value="2">2 Years</option>
-                      <option value="3">3-5 Years</option>
-                      <option value="6">6-10 Years</option>
-                      <option value="10">10+ Years (Senior Master)</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Sub-Skills (Optional)</label>
-                    <input
-                      type="text"
-                      name="subServices"
-                      className="form-input"
-                      placeholder="e.g. Inverter, MCB, 3-Phase"
-                      value={formData.subServices}
-                      onChange={handleInputChange}
-                    />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Years of Experience <span className="required">*</span></label>
+                  <select
+                    name="experience"
+                    className="form-input"
+                    value={formData.experience}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">Select experience...</option>
+                    <option value="1">1 Year</option>
+                    <option value="2">2 Years</option>
+                    <option value="3">3-5 Years</option>
+                    <option value="6">6-10 Years</option>
+                    <option value="10">10+ Years (Senior Master)</option>
+                  </select>
                 </div>
 
-                <div className="grid grid-2" style={{ gap: "16px" }}>
-                  <div className="form-group">
-                    <label className="form-label">Operating Area / Locality <span className="required">*</span></label>
-                    <input
-                      type="text"
-                      name="area"
-                      className="form-input"
-                      placeholder="e.g. Guindy, Adyar"
-                      value={formData.area}
-                      onChange={handleInputChange}
-                      onFocus={() => setActiveField("area")}
-                      onBlur={() => setActiveField(null)}
-                      required
-                    />
+                {/* Sub-Skills with Dropdown & Optional Type on Own */}
+                <div className="form-group">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <label className="form-label" style={{ margin: 0 }}>
+                      Sub-Skills & Specializations (Optional)
+                    </label>
+                    <span style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                      Dropdown choices + type custom
+                    </span>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Pincode <span className="required">*</span></label>
+
+                  {/* Predefined Sub-Services Dropdown based on Selected Trade */}
+                  {formData.mainServices && TRADE_SUBSERVICES_MAP[formData.mainServices]?.length > 0 && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <select
+                        className="form-input"
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAddSubSkill(e.target.value);
+                            e.target.value = "";
+                          }
+                        }}
+                        style={{ background: "#F8FAFC", borderColor: "#CBD5E1", fontSize: "0.85rem" }}
+                      >
+                        <option value="">➕ Choose Sub-Service for {formData.mainServices}...</option>
+                        {TRADE_SUBSERVICES_MAP[formData.mainServices].map((sub, idx) => (
+                          <option key={idx} value={sub} disabled={currentSubSkills.includes(sub)}>
+                            {currentSubSkills.includes(sub) ? `✓ ${sub} (Already added)` : sub}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Optional: Type your own custom sub-skill */}
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                     <input
                       type="text"
-                      name="pincode"
-                      maxLength={6}
                       className="form-input"
-                      placeholder="600032"
-                      value={formData.pincode}
-                      onChange={handleInputChange}
-                      required
+                      style={{ flex: 1, fontSize: "0.85rem" }}
+                      placeholder="Optional: Type custom sub-skill (e.g. Inverter, MCB)..."
+                      value={customSubSkillInput}
+                      onChange={(e) => setCustomSubSkillInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomSubSkill(e);
+                        }
+                      }}
                     />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomSubSkill}
+                      className="btn btn-outline"
+                      style={{
+                        padding: "0 14px",
+                        borderColor: "#FF7900",
+                        color: "#FF7900",
+                        fontWeight: "600",
+                        whiteSpace: "nowrap",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}
+                    >
+                      <Plus size={15} /> Add
+                    </button>
+                  </div>
+
+                  {/* Selected Sub-Skills Badges */}
+                  {currentSubSkills.length > 0 ? (
+                    <div style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "6px",
+                      padding: "8px 10px",
+                      background: "rgba(255, 121, 0, 0.04)",
+                      borderRadius: "10px",
+                      border: "1px dashed rgba(255, 121, 0, 0.3)"
+                    }}>
+                      {currentSubSkills.map((skill, index) => (
+                        <span
+                          key={index}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            padding: "4px 10px",
+                            borderRadius: "16px",
+                            background: "#FFF",
+                            border: "1px solid rgba(255, 121, 0, 0.4)",
+                            color: "#D97706",
+                            fontSize: "0.78rem",
+                            fontWeight: "600",
+                            boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+                          }}
+                        >
+                          {skill}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSubSkill(skill)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              margin: 0,
+                              cursor: "pointer",
+                              color: "#94A3B8",
+                              display: "flex",
+                              alignItems: "center"
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "#EF4444")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "#94A3B8")}
+                            title="Remove"
+                          >
+                            <X size={13} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: "0.75rem", color: "#94A3B8", margin: 0, fontStyle: "italic" }}>
+                      Pick sub-services from the dropdown or type your own specializations.
+                    </p>
+                  )}
+                </div>
+
+                {/* Operating Area & Pincode with Google Maps */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <label className="form-label" style={{ margin: 0 }}>
+                      Operating Area / Locality & Pincode <span className="required">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowMapPicker(true)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "5px 12px",
+                        borderRadius: "8px",
+                        fontSize: "0.78rem",
+                        fontWeight: "700",
+                        color: "#FF7900",
+                        background: "rgba(255, 121, 0, 0.08)",
+                        border: "1px solid rgba(255, 121, 0, 0.35)",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease"
+                      }}
+                      title="Pin your location on Google Maps"
+                    >
+                      <MapPin size={14} />
+                      <span>📍 Google Location Map</span>
+                    </button>
+                  </div>
+
+                  {formData.latitude && (
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 12px",
+                      borderRadius: "10px",
+                      background: "rgba(16, 185, 129, 0.08)",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                      fontSize: "0.78rem",
+                      color: "#059669"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <CheckCircle2 size={16} color="#10B981" />
+                        <span><strong>Google Maps Pin:</strong> {formData.area || "Selected Area"} {formData.pincode ? `(${formData.pincode})` : ""}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowMapPicker(true)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#FF7900",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                          fontSize: "0.75rem",
+                          textDecoration: "underline"
+                        }}
+                      >
+                        Adjust Pin
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-2" style={{ gap: "16px" }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <input
+                        type="text"
+                        name="area"
+                        className="form-input"
+                        placeholder="e.g. Guindy, Adyar"
+                        value={formData.area}
+                        onChange={handleInputChange}
+                        onFocus={() => setActiveField("area")}
+                        onBlur={() => setActiveField(null)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <input
+                        type="text"
+                        name="pincode"
+                        maxLength={6}
+                        className="form-input"
+                        placeholder="Pincode (e.g. 600032)"
+                        value={formData.pincode}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1446,6 +1738,15 @@ export default function Register() {
           dob: formData.dob
         }}
         onQrSuccess={handleQrSuccess}
+      />
+
+      {/* Google Maps Location Picker Modal */}
+      <LocationPickerModal
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onConfirmLocation={handleMapLocationConfirmed}
+        initialCoords={formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null}
+        initialAddress={formData.area}
       />
 
       <style dangerouslySetInnerHTML={{__html: `

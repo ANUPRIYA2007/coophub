@@ -110,12 +110,15 @@ export const emailService = {
 
     console.log(`[COOP HUB Mailer] ✉️ Pillar Approval & Welcome email dispatched to ${email || pillar_id} (ID: ${pillar_id})`);
 
-    // Dispatch live email to recipient inbox
+    // Dispatch live email to recipient inbox with fast timeout safety
     try {
       if (email && email.includes('@')) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
         await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(email)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             _subject: `🎉 Official COOP HUB Activation: Unique Pillar ID ${pillar_id} Approved`,
             _template: 'table',
@@ -129,7 +132,8 @@ export const emailService = {
             Portal_Login_URL: portal_url,
             Welcome_Message: `Dear ${pillar_name || 'Technician'}, your Pillar application has been verified! Your Unique Pillar ID is ${pillar_id}. Please log in at ${portal_url}`
           })
-        });
+        }).catch(err => console.warn("External mail relay non-blocking note:", err?.message || err));
+        clearTimeout(timeoutId);
       }
     } catch (relayErr) {
       console.warn("External mail relay dispatch notice:", relayErr);

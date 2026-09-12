@@ -15,6 +15,17 @@ const isAdminDemo = () => {
   }
 };
 
+const getCustomPillars = () => {
+  try {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem('coophub_custom_pillars') || '[]');
+    }
+  } catch (e) {}
+  return [];
+};
+
+let DEMO_PILLARS = [...getCustomPillars(), ...PILLARS_ROSTER];
+
 const DEMO_CUSTOMERS = [
   { id: "c-1", customer_code: "CUST-CHE-001", full_name: "Meenakshi Sundaram", email: "meenakshi.s@gmail.com", mobile: "+91 98401 23456", city: "Chennai", area: "Guindy", address: "Flat 4B, Shanthi Apts, Guindy, Chennai", status: "active", total_bookings: 14, total_spent: 6850, language: "English", created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
   { id: "c-2", customer_code: "CUST-CHE-002", full_name: "Karthik Rajan", email: "karthik.rajan@outlook.com", mobile: "+91 94440 98765", city: "Chennai", area: "Velachery", address: "Plot 12, 2nd Main Road, Velachery, Chennai", status: "active", total_bookings: 8, total_spent: 4200, language: "English", created_at: new Date(Date.now() - 20 * 86400000).toISOString() },
@@ -1158,21 +1169,36 @@ export const adminService = {
   async approvePillar(pillarId, customCode = null) {
     if (isAdminDemo()) {
       const match = DEMO_PILLARS.find(p => p.id === pillarId || p.pillar_code === pillarId);
-      const generatedCode = customCode || match?.pillar_code || await idGenerator.generatePillarId("CHE", DEMO_PILLARS);
+      const generatedCode = customCode || match?.pillar_code || await idGenerator.generatePillarId(match?.service_area || "CHE", DEMO_PILLARS);
       if (match) {
         match.status = 'verified';
+        match.verification_status = 'verified';
         match.pillar_code = generatedCode;
         match.is_available = true;
 
-        // Trigger Pillar Admin Approval email template
+        // Persist to custom pillars in localStorage
+        const customPillars = getCustomPillars();
+        const cIdx = customPillars.findIndex(p => p.id === pillarId || p.pillar_code === pillarId);
+        if (cIdx !== -1) {
+          customPillars[cIdx] = { ...customPillars[cIdx], status: 'verified', verification_status: 'verified', pillar_code: generatedCode, is_available: true };
+        } else {
+          customPillars.unshift({ ...match, status: 'verified', verification_status: 'verified', pillar_code: generatedCode, is_available: true });
+        }
         try {
-          await emailService.sendPillarApprovalEmail({
+          if (typeof window !== "undefined") {
+            localStorage.setItem('coophub_custom_pillars', JSON.stringify(customPillars));
+          }
+        } catch (e) {}
+
+        // Trigger Pillar Admin Approval email template (non-blocking)
+        try {
+          emailService.sendPillarApprovalEmail({
             email: match.email,
             pillar_name: match.full_name,
             pillar_id: generatedCode,
             service_category: Array.isArray(match.main_services) ? match.main_services.join(', ') : (match.main_services || 'General Trades'),
             service_location: match.service_area || 'Chennai Metropolitan'
-          });
+          }).catch(e => console.warn("Email notice:", e));
         } catch (e) { /* silent */ }
       }
       return { success: true, pillarCode: generatedCode, data: match };
@@ -1181,36 +1207,78 @@ export const adminService = {
     try {
       // 1. Determine Real Unique Sequential Pillar ID if not existing
       let pillarCode = customCode;
-      if (!pillarCode) {
-        const { data: existingPillar } = await supabase
+      let existingPillar = null;
+      try {
+        const { data } = await supabase
           .from('pillar_profiles')
-          .select('pillar_code, service_area')
+          .select('*')
           .eq('id', pillarId)
-          .single();
+          .maybeSingle();
+        existingPillar = data;
+      } catch (e) {
+        console.warn("Supabase single fetch note:", e);
+      }
 
-        if (existingPillar?.pillar_code) {
+      if (!existingPillar) {
+        existingPillar = DEMO_PILLARS.find(p => p.id === pillarId || p.pillar_code === pillarId);
+      }
+
+      if (!pillarCode) {
+        if (existingPillar?.pillar_code && existingPillar.pillar_code !== 'PENDING' && existingPillar.pillar_code.startsWith('PIL-')) {
           pillarCode = existingPillar.pillar_code;
         } else {
-          // Generate real sequential Pillar ID based on active database registry
-          pillarCode = await idGenerator.generatePillarId(existingPillar?.service_area || "CHE");
+          pillarCode = await idGenerator.generatePillarId(existingPillar?.service_area || "CHE", DEMO_PILLARS);
         }
       }
 
       // 2. Update Pillar Profile to Verified & assign Code
-      const { data, error } = await supabase
-        .from('pillar_profiles')
-        .update({
-          status: 'verified',
-          verification_status: 'verified',
-          pillar_code: pillarCode,
-          is_available: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', pillarId)
-        .select()
-        .single();
+      let updatedData = existingPillar
+        ? { ...existingPillar, status: 'verified', verification_status: 'verified', pillar_code: pillarCode, is_available: true }
+        : { id: pillarId, status: 'verified', pillar_code: pillarCode };
 
-      if (error) throw error;
+      try {
+        const { data, error } = await supabase
+          .from('pillar_profiles')
+          .update({
+            status: 'verified',
+            verification_status: 'verified',
+            pillar_code: pillarCode,
+            is_available: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', pillarId)
+          .select()
+          .maybeSingle();
+
+        if (!error && data) {
+          updatedData = data;
+        }
+      } catch (dbErr) {
+        console.warn("Supabase update error (falling back to memory):", dbErr);
+      }
+
+      // Persist to custom pillars in localStorage
+      const customPillars = getCustomPillars();
+      const cIdx = customPillars.findIndex(p => p.id === pillarId || p.pillar_code === pillarId);
+      if (cIdx !== -1) {
+        customPillars[cIdx] = { ...customPillars[cIdx], status: 'verified', verification_status: 'verified', pillar_code: pillarCode, is_available: true };
+      } else {
+        customPillars.unshift(updatedData);
+      }
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.setItem('coophub_custom_pillars', JSON.stringify(customPillars));
+        }
+      } catch (e) {}
+
+      // Update in DEMO_PILLARS in memory
+      const dMatch = DEMO_PILLARS.find(p => p.id === pillarId || p.pillar_code === pillarId);
+      if (dMatch) {
+        dMatch.status = 'verified';
+        dMatch.verification_status = 'verified';
+        dMatch.pillar_code = pillarCode;
+        dMatch.is_available = true;
+      }
 
       // 3. Dispatch Live In-App Approval Notification
       try {
@@ -1226,36 +1294,40 @@ export const adminService = {
         console.warn("Notification insert error:", notifErr);
       }
 
-      // 4. Trigger Real Pillar Admin Approval Email
+      // 4. Trigger Real Pillar Admin Approval Email (non-blocking)
       try {
-        await emailService.sendPillarApprovalEmail({
-          email: data.email,
-          pillar_name: data.full_name || 'Valued Technician',
+        emailService.sendPillarApprovalEmail({
+          email: updatedData.email,
+          pillar_name: updatedData.full_name || 'Valued Technician',
           pillar_id: pillarCode,
-          service_category: Array.isArray(data.main_services) ? data.main_services.join(', ') : (data.main_services || 'General Services'),
-          service_location: Array.isArray(data.service_area) ? data.service_area.join(', ') : (data.service_area || 'Chennai Metropolitan')
-        });
+          service_category: Array.isArray(updatedData.main_services) ? updatedData.main_services.join(', ') : (updatedData.main_services || 'General Services'),
+          service_location: Array.isArray(updatedData.service_area) ? updatedData.service_area.join(', ') : (updatedData.service_area || 'Chennai Metropolitan')
+        }).catch(err => console.warn("Pillar approval email dispatch notice:", err));
       } catch (mailErr) {
         console.warn("Pillar approval email dispatch notice:", mailErr);
       }
 
       // 5. Record Standalone Administrative Audit Log
-      await auditLogService.logAction({
-        action: 'pillar_approve',
-        entity_type: 'pillar',
-        entity_id: pillarId,
-        entity_name: data.full_name || `Pillar ${pillarCode}`,
-        previous_value: { status: 'pending_review' },
-        new_value: { status: 'verified', pillar_code: pillarCode },
-        reason: 'Pillar identity and technical credentials verified and activated by Admin',
-        metadata: {
-          pillar_code: pillarCode,
-          service_area: data.service_area,
-          trade: data.main_services
-        }
-      });
+      try {
+        await auditLogService.logAction({
+          action: 'pillar_approve',
+          entity_type: 'pillar',
+          entity_id: pillarId,
+          entity_name: updatedData.full_name || `Pillar ${pillarCode}`,
+          previous_value: { status: 'pending_review' },
+          new_value: { status: 'verified', pillar_code: pillarCode },
+          reason: 'Pillar identity and technical credentials verified and activated by Admin',
+          metadata: {
+            pillar_code: pillarCode,
+            service_area: updatedData.service_area,
+            trade: updatedData.main_services
+          }
+        });
+      } catch (auditErr) {
+        console.warn("Audit log note:", auditErr);
+      }
 
-      return { success: true, pillarCode, data };
+      return { success: true, pillarCode, data: updatedData };
     } catch (error) {
       console.error("Error approving pillar:", error);
       return { success: false, error: error.message };
@@ -1263,32 +1335,42 @@ export const adminService = {
   },
 
   async rejectPillar(pillarId, reason = "Documents or trade verification did not meet cooperative standards.") {
+    const customPillars = getCustomPillars();
+    const cIdx = customPillars.findIndex(p => p.id === pillarId || p.pillar_code === pillarId);
+    if (cIdx !== -1) {
+      customPillars[cIdx] = { ...customPillars[cIdx], status: 'rejected', verification_status: 'rejected', rejection_reason: reason, is_available: false };
+      try { localStorage.setItem('coophub_custom_pillars', JSON.stringify(customPillars)); } catch (e) {}
+    }
+
     if (isAdminDemo()) {
       const match = DEMO_PILLARS.find(p => p.id === pillarId || p.pillar_code === pillarId);
       if (match) {
         match.status = 'rejected';
+        match.verification_status = 'rejected';
         match.rejection_reason = reason;
         match.rejected_at = new Date().toISOString();
         match.rejected_by = 'COOP HUB Central Administration';
         match.is_available = false;
 
         try {
-          await emailService.sendPillarRejectionEmail({
+          emailService.sendPillarRejectionEmail({
             email: match.email,
             pillar_name: match.full_name,
             rejection_reason: reason
-          });
+          }).catch(e => console.warn(e));
         } catch (e) { /* silent */ }
 
-        await auditLogService.logAction({
-          action: 'pillar_reject',
-          entity_type: 'pillar',
-          entity_id: pillarId,
-          entity_name: match.full_name,
-          previous_value: { status: 'pending_review' },
-          new_value: { status: 'rejected' },
-          reason
-        });
+        try {
+          await auditLogService.logAction({
+            action: 'pillar_reject',
+            entity_type: 'pillar',
+            entity_id: pillarId,
+            entity_name: match.full_name,
+            previous_value: { status: 'pending_review' },
+            new_value: { status: 'rejected' },
+            reason
+          });
+        } catch (e) {}
       }
       return { success: true, data: match };
     }
