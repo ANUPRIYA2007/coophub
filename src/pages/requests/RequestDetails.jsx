@@ -281,9 +281,16 @@ export default function RequestDetails() {
                     payment_method: 'Online Payment (Razorpay)',
                     payment_gateway_ref: checkoutResult.paymentId
                 }) : prev);
+                setSelectedPaymentMode('razorpay');
                 try {
                     localStorage.setItem(`coophub_payment_status_${id}`, 'completed');
                     localStorage.setItem(`coophub_payment_method_${id}`, 'Online Payment (Razorpay)');
+                    localStorage.setItem(`coophub_selected_payment_mode_${id}`, 'razorpay');
+                    if (requestData?.id) {
+                        localStorage.setItem(`coophub_payment_status_${requestData.id}`, 'completed');
+                        localStorage.setItem(`coophub_payment_method_${requestData.id}`, 'Online Payment (Razorpay)');
+                        localStorage.setItem(`coophub_selected_payment_mode_${requestData.id}`, 'razorpay');
+                    }
                 } catch(e) {}
                 
                 // Show Success Animation
