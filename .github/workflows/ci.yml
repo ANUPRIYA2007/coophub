@@ -12,7 +12,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   # ============================================================================
@@ -43,8 +42,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: 'scripts/requirements.txt'
 
       # Stage 5: Python OCR Component Dependencies
       - name: 5. Verify Python Environment & Minimal OCR Dependencies
@@ -62,11 +59,13 @@ jobs:
 
       # Stage 8: Type Checks
       - name: 8. Package & Configuration Type Audit
-        run: node -e "const pkg = require('./package.json'); if(!pkg.name || !pkg.scripts) throw new Error('Invalid manifest'); console.log('✓ Package schema valid');"
+        run: |
+          node -e "const pkg = require('./package.json'); if(!pkg.name || !pkg.scripts) throw new Error('Invalid manifest'); console.log('Package schema valid');"
 
       # Stage 9: Frontend & Component Compilation Integrity
       - name: 9. Frontend Route & Component Verification
-        run: node -e "const fs = require('fs'); ['src/pages/pillar/auth/Register.jsx', 'src/modules/admin/components/AdminKycDossierPanel.jsx', 'src/components/kyc/UidaiQrScannerModal.jsx'].forEach(f => { if(!fs.existsSync(f)) throw new Error('Missing: ' + f); }); console.log('✓ KYC UI and admin dossier components verified');"
+        run: |
+          node -e "const fs = require('fs'); ['src/pages/pillar/auth/Register.jsx', 'src/modules/admin/components/AdminKycDossierPanel.jsx', 'src/components/kyc/UidaiQrScannerModal.jsx'].forEach(f => { if(!fs.existsSync(f)) throw new Error('Missing file: ' + f); }); console.log('KYC UI and admin dossier components verified');"
 
       # Stage 10: Backend Core & Journey Tests
       - name: 10. Run Backend Platform Journey Tests
