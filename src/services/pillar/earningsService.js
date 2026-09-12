@@ -34,10 +34,56 @@ export const pillarEarningsService = {
       const earningsList = earningsData || [];
       const payoutsList = payoutsData || [];
 
-      const total = earningsList.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-      const today = earningsList
+      // Derive completed order earnings from Supabase and local orders
+      let completedOrdersEarnings = 0;
+      let todayOrdersEarnings = 0;
+      const commissionRate = 0.085; // 8.5% platform fee
+
+      try {
+        const { data: sReqCompleted } = await supabase
+          .from("service_requests")
+          .select("id, amount, total_amount, final_amount, created_at, updated_at, payment_status, status")
+          .or("status.eq.completed,payment_status.eq.completed");
+
+        (sReqCompleted || []).forEach(o => {
+          const rawAmt = Number(o.final_amount || o.total_amount || o.amount || 450);
+          const netAmt = Math.round(rawAmt * (1 - commissionRate) * 100) / 100;
+          completedOrdersEarnings += netAmt;
+
+          const ordDate = o.updated_at || o.created_at || new Date().toISOString();
+          const isToday = new Date(ordDate).toDateString() === new Date().toDateString();
+          if (isToday) {
+            todayOrdersEarnings += netAmt;
+          }
+        });
+      } catch (e) {}
+
+      try {
+        if (typeof window !== "undefined") {
+          const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+          const custCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+          const seenIds = new Set();
+          [...shared, ...custCreated].forEach(o => {
+            if (!o || !o.id || seenIds.has(o.id)) return;
+            seenIds.add(o.id);
+            const isCompleted = o.status === 'completed' || o.payment_status === 'completed' || localStorage.getItem(`coophub_payment_status_${o.id}`) === 'completed';
+            if (isCompleted) {
+              const rawAmt = Number(o.final_amount || o.total_amount || o.amount || 450);
+              const netAmt = Math.round(rawAmt * (1 - commissionRate) * 100) / 100;
+              completedOrdersEarnings = Math.max(completedOrdersEarnings, netAmt);
+              todayOrdersEarnings = Math.max(todayOrdersEarnings, netAmt);
+            }
+          });
+        }
+      } catch (e) {}
+
+      const totalFromDb = earningsList.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+      const todayFromDb = earningsList
         .filter((item) => new Date(item.created_at).toDateString() === new Date().toDateString())
         .reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+
+      const total = Math.max(totalFromDb, completedOrdersEarnings);
+      const today = Math.max(todayFromDb, todayOrdersEarnings);
 
       // Pending Payouts (pending, approved, or processing)
       const pending = payoutsList

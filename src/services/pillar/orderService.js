@@ -718,6 +718,30 @@ export const pillarOrderService = {
           }
         });
       }
+ 
+      // Apply local status & payment overrides for immediate cross-tab reflection
+      try {
+        if (typeof window !== "undefined") {
+          combinedOrders.forEach(o => {
+            const localStatus = localStorage.getItem(`coophub_status_${o.id}`) ||
+              (o.booking_code ? localStorage.getItem(`coophub_status_${o.booking_code}`) : null) ||
+              (o.order_id ? localStorage.getItem(`coophub_status_${o.order_id}`) : null);
+            if (localStatus) {
+              o.db_status = localStatus;
+              if (localStatus === 'completed') o.status = 'completed';
+              else if (localStatus === 'in_progress') o.status = 'inProgress';
+              else if (localStatus === 'on_the_way') o.status = 'onTheWay';
+              else if (localStatus === 'cancelled') o.status = 'cancelled';
+            }
+            const localPay = localStorage.getItem(`coophub_payment_status_${o.id}`) ||
+              (o.booking_code ? localStorage.getItem(`coophub_payment_status_${o.booking_code}`) : null) ||
+              (o.order_id ? localStorage.getItem(`coophub_payment_status_${o.order_id}`) : null);
+            if (localPay === 'completed') {
+              o.payment_status = 'completed';
+            }
+          });
+        }
+      } catch (e) {}
 
       let finalResult = combinedOrders;
       if (status) {
