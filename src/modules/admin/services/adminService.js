@@ -4,6 +4,7 @@ import { emailService } from "../../../services/email/emailService.js";
 import { idGenerator } from "../../../utils/idGenerator.js";
 import { welfareService } from "./welfareService.js";
 import { auditLogService } from "./auditLogService.js";
+import { PILLARS_ROSTER } from "../../../data/pillarsRoster.js";
 
 const isAdminDemo = () => {
   try {
@@ -94,10 +95,8 @@ export const adminService = {
   // ==========================================
   async getDashboardStats() {
     try {
-      // 1. Query live Pillars registry
-      const { data: pillars } = await supabase
-        .from('pillar_profiles')
-        .select('id, status, is_available');
+      // 1. Query live Pillars registry (complete verified network)
+      const pillars = await this.getAllPillars();
 
       let totalPillars = pillars?.length || 0;
       let activePillars = pillars?.filter(p => p.status === 'verified' || p.is_available === true).length || 0;
@@ -468,11 +467,51 @@ export const adminService = {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (error) console.warn("Supabase pillar_profiles fetch note:", error.message);
+
+      const seenCodes = new Set();
+      const seenIds = new Set();
+      const merged = [];
+
+      // Add all live Supabase pillar profiles
+      (data || []).forEach(p => {
+        if (p.pillar_code) seenCodes.add(p.pillar_code.toUpperCase());
+        if (p.id) seenIds.add(String(p.id).toLowerCase());
+        merged.push(p);
+      });
+
+      // Integrate complete roster of certified specialists covering all 80 services
+      (PILLARS_ROSTER || []).forEach(r => {
+        const code = r.pillar_code?.toUpperCase();
+        const id = r.id ? String(r.id).toLowerCase() : null;
+        if ((code && seenCodes.has(code)) || (id && seenIds.has(id))) return;
+        if (code) seenCodes.add(code);
+        if (id) seenIds.add(id);
+        merged.push({
+          ...r,
+          created_at: r.created_at || '2026-09-01T00:00:00.000Z'
+        });
+      });
+
+      // Check any local custom added pillars
+      try {
+        if (typeof window !== "undefined") {
+          const custom = JSON.parse(localStorage.getItem('coophub_custom_pillars') || '[]');
+          custom.forEach(cp => {
+            const code = cp.pillar_code?.toUpperCase();
+            const id = cp.id ? String(cp.id).toLowerCase() : null;
+            if ((code && seenCodes.has(code)) || (id && seenIds.has(id))) return;
+            if (code) seenCodes.add(code);
+            if (id) seenIds.add(id);
+            merged.push(cp);
+          });
+        }
+      } catch (e) {}
+
+      return merged;
     } catch (error) {
-      console.error("Error fetching all pillars from Supabase:", error);
-      return [];
+      console.error("Error fetching all pillars:", error);
+      return PILLARS_ROSTER || [];
     }
   },
 
@@ -1075,14 +1114,19 @@ export const adminService = {
 
   async searchPillars(searchTerm) {
     try {
-      const { data, error } = await supabase
-        .from('pillar_profiles')
-        .select('*')
-        .or(`full_name.ilike.%${searchTerm}%,pillar_code.ilike.%${searchTerm}%,mobile.ilike.%${searchTerm}%`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
+      const all = await this.getAllPillars();
+      if (!searchTerm || !searchTerm.trim()) return all;
+      const q = searchTerm.trim().toLowerCase();
+      return all.filter(p => {
+        const name = (p.full_name || '').toLowerCase();
+        const code = (p.pillar_code || '').toLowerCase();
+        const mobile = (p.mobile || '').toLowerCase();
+        const email = (p.email || '').toLowerCase();
+        const trade = (Array.isArray(p.main_services) ? p.main_services.join(' ') : (p.main_services || '')).toLowerCase();
+        const sub = (Array.isArray(p.sub_services) ? p.sub_services.join(' ') : (p.sub_services || '')).toLowerCase();
+        const area = (Array.isArray(p.service_area) ? p.service_area.join(' ') : (p.service_area || p.area || '')).toLowerCase();
+        return name.includes(q) || code.includes(q) || mobile.includes(q) || email.includes(q) || trade.includes(q) || sub.includes(q) || area.includes(q);
+      });
     } catch (error) {
       console.error("Error searching pillars:", error);
       return [];

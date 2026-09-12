@@ -506,7 +506,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
         {/* Portal Label */}
         <div style={{ padding: "8px var(--space-4)", borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)" }}>
           <div style={{ fontWeight: "bold", color: "#FF7900", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "monospace" }}>
-            {t("admin.portal_label") || "ADMIN MANAGEMENT PORTAL"}
+            {t("Admin Portal")}
           </div>
         </div>
 

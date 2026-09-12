@@ -12,7 +12,7 @@ export default function Header({ toggleSidebar }) {
   const { user, profile, isAvailable } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const isSuperAdmin = location.pathname.startsWith('/superadmin');
+  const isSuperAdmin = location.pathname.startsWith('/superadmin') || location.pathname.startsWith('/super-admin') || location.pathname.includes('super-admin');
   const isAdmin = location.pathname.startsWith('/admin') || isSuperAdmin;
   const portalRole = isAdmin ? 'admin' : 'pillar';
 
@@ -214,11 +214,31 @@ export default function Header({ toggleSidebar }) {
           <Menu size={24} />
         </button>
         
-        {/* Pillar Code Pill */}
+        {/* Role ID Pill (Admin ID for Admin portal, Pillar Code for Pillar portal) */}
         <div className="hide-on-mobile" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "rgba(249, 115, 22, 0.12)", color: "var(--color-secondary, #f97316)", fontWeight: "700" }}>
-            {profile?.pillar_code || "PIL-CHE-042"}
-          </span>
+          {isAdmin ? (
+            <span style={{ 
+              fontSize: "11px", 
+              padding: "3px 10px", 
+              borderRadius: "10px", 
+              background: isSuperAdmin ? "rgba(139, 92, 246, 0.15)" : "rgba(249, 115, 22, 0.15)", 
+              color: isSuperAdmin ? "#8b5cf6" : "var(--color-secondary, #f97316)", 
+              fontWeight: "700",
+              letterSpacing: "0.5px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}>
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: isSuperAdmin ? "#8b5cf6" : "var(--color-secondary, #f97316)" }}></span>
+              {isSuperAdmin 
+                ? (JSON.parse(localStorage.getItem('coophub_super_admin_session') || '{}')?.admin_id || "SA-000001") 
+                : (profile?.admin_code || profile?.admin_id || localStorage.getItem('coophub_admin_id') || "ADM-CHE-001")}
+            </span>
+          ) : (
+            <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", background: "rgba(249, 115, 22, 0.12)", color: "var(--color-secondary, #f97316)", fontWeight: "700" }}>
+              {profile?.pillar_code || "PIL-CHE-042"}
+            </span>
+          )}
         </div>
       </div>
 
