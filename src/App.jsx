@@ -46,6 +46,7 @@ import AdminCertifications from './modules/admin/pages/AdminCertifications';
 import AdminAllocation from './modules/admin/pages/AdminAllocation';
 import AdminLiveOperations from './modules/admin/pages/AdminLiveOperations';
 import AdminChatAI from './modules/admin/pages/AdminChatAI';
+import AdminProfile from './modules/admin/pages/AdminProfile';
 
 // --- SUPER ADMIN APEX MODULE ---
 import SuperAdminLayout from './modules/admin/layouts/SuperAdminLayout';
@@ -298,6 +299,8 @@ export default function App() {
                 <AdminLayout>
                   <Routes>
                     <Route path="/" element={<AdminOverview />} />
+                    <Route path="/profile" element={<AdminProfile />} />
+                    <Route path="/zone" element={<AdminProfile />} />
                     <Route path="/chatai" element={<AdminChatAI />} />
                     <Route path="/chat" element={<AdminChatAI />} />
                     <Route path="/forecast" element={<AdminForecast />} />

@@ -122,6 +122,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     "/admin/messages": { emoji: "💬", mood: "helpful", greeting: `Cooperative announcements and broadcast center.` },
     "/admin/support": { emoji: "🆘", mood: "helpful", greeting: `Support dispute tickets needing review.` },
     "/admin/settings": { emoji: "⚙️", mood: "helpful", greeting: `Admin platform configuration settings.` },
+    "/admin/profile": { emoji: "🛡️", mood: "happy", greeting: `Administrator Profile & Zone Jurisdiction details.` },
   };
 
   // Get personality for current route
@@ -432,6 +433,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
   ];
 
   const bottomNavItems = [
+    { name: "Admin Profile & Zone", path: "/admin/profile", icon: ShieldCheck },
     { name: "Help & Support", path: "/admin/support", icon: HelpCircle },
     { name: "Welfare & PF", path: "/admin/welfare", icon: Shield },
     { name: "Settings", path: "/admin/settings", icon: Settings },
@@ -512,20 +514,29 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
 
         {/* Profile Summary with Cooperative Admin ID */}
         <div style={{ padding: "12px var(--space-4)", display: "flex", alignItems: "center", gap: "var(--space-3)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ 
-            width: "42px", height: "42px", borderRadius: "50%", 
-            background: "var(--color-secondary)", display: "flex", 
-            alignItems: "center", justifyContent: "center",
-            fontWeight: "800", fontSize: "1.1rem", color: "#050A12", flexShrink: 0
-          }}>
-            {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "A"}
-          </div>
+          <Link 
+            to="/admin/profile" 
+            title="View Administrator Profile & Zone Jurisdiction"
+            style={{ 
+              width: "42px", height: "42px", borderRadius: "50%", 
+              background: "var(--color-secondary)", display: "flex", 
+              alignItems: "center", justifyContent: "center",
+              fontWeight: "800", fontSize: "1.1rem", color: "#050A12", flexShrink: 0,
+              textDecoration: "none", cursor: "pointer"
+            }}
+          >
+            {(profile?.full_name || localStorage.getItem('coophub_admin_name') || "Anupriya").charAt(0).toUpperCase()}
+          </Link>
           <div style={{ overflow: "hidden" }}>
-            <div style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "13.5px", color: "#FFFFFF" }}>
-              {profile?.full_name || (user ? user.email?.split('@')[0] : "Cooperative Admin")}
-            </div>
+            <Link 
+              to="/admin/profile" 
+              title="View Administrator Profile & Zone Jurisdiction"
+              style={{ fontWeight: "700", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: "13.5px", color: "#FFFFFF", textDecoration: "none", display: "block" }}
+            >
+              {profile?.full_name || localStorage.getItem('coophub_admin_name') || (user ? user.email?.split('@')[0] : "Anupriya")}
+            </Link>
             <div style={{ fontSize: "10.5px", color: "var(--color-secondary)", fontWeight: "700", letterSpacing: "0.5px", marginTop: "1px" }}>
-              {profile?.admin_code ? `ID: ${profile.admin_code}` : "ID: ADM-CHE-001"}
+              {profile?.admin_code ? `ID: ${profile.admin_code}` : `ID: ${localStorage.getItem('coophub_admin_id') || "ADM-CHE-001"}`}
             </div>
             <div style={{ marginTop: "3px" }}>
               <button

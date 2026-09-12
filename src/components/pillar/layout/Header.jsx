@@ -320,17 +320,20 @@ export default function Header({ toggleSidebar }) {
           )}
         </button>
 
-        {/* Profile Avatar Button (Customer Portal Styled) */}
+        {/* Profile Avatar Button (Routes to /admin/profile for Admin, /dashboard/profile for Pillar) */}
         <button
-          onClick={() => navigate('/dashboard/profile')}
-          title={`Profile: ${profile?.full_name || 'Technician'} (${isAvailable ? 'Online' : 'Offline'})`}
+          onClick={() => navigate(isAdmin ? '/admin/profile' : '/dashboard/profile')}
+          title={isAdmin 
+            ? `Admin Profile: ${profile?.full_name || localStorage.getItem('coophub_admin_name') || 'Anupriya'} (Regional Zonal Administrator)`
+            : `Profile: ${profile?.full_name || 'Technician'} (${isAvailable ? 'Online' : 'Offline'})`
+          }
           style={{
             width: "36px",
             height: "36px",
             borderRadius: "50%",
-            background: "rgba(249, 115, 22, 0.15)",
-            color: "var(--color-secondary, #f97316)",
-            border: "2px solid var(--color-border, #e2e8f0)",
+            background: isAdmin ? "rgba(245, 124, 32, 0.15)" : "rgba(249, 115, 22, 0.15)",
+            color: isAdmin ? "#FF7900" : "var(--color-secondary, #f97316)",
+            border: isAdmin ? "2px solid #FF7900" : "2px solid var(--color-border, #e2e8f0)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -342,8 +345,10 @@ export default function Header({ toggleSidebar }) {
             boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
           }}
         >
-          {profile?.full_name?.charAt(0)?.toUpperCase() || "P"}
-          {/* Online / Offline status badge on avatar */}
+          {isAdmin 
+            ? ((profile?.full_name || localStorage.getItem('coophub_admin_name') || "Anupriya").charAt(0).toUpperCase()) 
+            : (profile?.full_name?.charAt(0)?.toUpperCase() || "P")}
+          {/* Online / Status badge on avatar */}
           <span
             style={{
               position: "absolute",
@@ -352,9 +357,9 @@ export default function Header({ toggleSidebar }) {
               width: "10px",
               height: "10px",
               borderRadius: "50%",
-              backgroundColor: isAvailable ? "#10B981" : "#EF4444",
+              backgroundColor: isAdmin ? "#10B981" : (isAvailable ? "#10B981" : "#EF4444"),
               border: "2px solid var(--color-surface, #ffffff)",
-              boxShadow: isAvailable ? "0 0 6px #10B981" : "none"
+              boxShadow: (isAdmin || isAvailable) ? "0 0 6px #10B981" : "none"
             }}
           />
         </button>
