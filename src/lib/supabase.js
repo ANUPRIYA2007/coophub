@@ -24,6 +24,7 @@ const rawSupabase = createClient(
 
 // Intercept auth methods to return demo session if demo flag is enabled in localStorage
 const getDemoSession = () => {
+    if (typeof localStorage === 'undefined') return null;
     if (localStorage.getItem("coophub_demo_user") === "true" || localStorage.getItem("coophub_demo_admin") === "true") {
         return {
             session: {

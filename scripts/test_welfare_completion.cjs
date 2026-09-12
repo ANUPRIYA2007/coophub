@@ -80,10 +80,15 @@ async function runWelfareTestSuite() {
   };
   mockDb.welfare_schemes.set(pmjjbyScheme.id, pmjjbyScheme);
 
-  // Dynamic modules import
-  const { pfContributionService } = await import('../src/services/welfare/pfContributionService.js');
-  const { welfareEligibilityEngine } = await import('../src/services/welfare/welfareEligibilityEngine.js');
-  const { welfareAssistanceService } = await import('../src/services/welfare/welfareAssistanceService.js');
+  // Dynamic modules import with portable file URLs
+  const { pathToFileURL } = require('url');
+  const path = require('path');
+  const pfPath = pathToFileURL(path.resolve(__dirname, '../src/services/welfare/pfContributionService.js')).href;
+  const enginePath = pathToFileURL(path.resolve(__dirname, '../src/services/welfare/welfareEligibilityEngine.js')).href;
+  const assistPath = pathToFileURL(path.resolve(__dirname, '../src/services/welfare/welfareAssistanceService.js')).href;
+  const { pfContributionService } = await import(pfPath);
+  const { welfareEligibilityEngine } = await import(enginePath);
+  const { welfareAssistanceService } = await import(assistPath);
 
   const testPillarId = 'pillar-welfare-test-101';
   const testBookingId = 'booking-welfare-job-202';
@@ -274,8 +279,8 @@ async function runWelfareTestSuite() {
   assert(pmjjbyScheme.is_official_integrated === false && pmjjbyScheme.official_source_url.includes('jansuraksha'), "Government schemes directory truthfully indicates external application required");
 
   // Test 20: Preservation of insurance membership, claims, and withdrawals
-  const migration24 = require('fs').readFileSync('supabase/migrations/24_welfare_automation_and_assistance.sql', 'utf8');
-  const schema05 = require('fs').readFileSync('supabase/migrations/05_welfare_and_insurance_schema.sql', 'utf8');
+  const migration24 = require('fs').readFileSync(path.resolve(__dirname, '../supabase/migrations/24_welfare_automation_and_assistance.sql'), 'utf8');
+  const schema05 = require('fs').readFileSync(path.resolve(__dirname, '../supabase/migrations/05_welfare_and_insurance_schema.sql'), 'utf8');
   const preservesInsurance = schema05.includes('insurance_policies') && schema05.includes('insurance_claims') && schema05.includes('pf_withdrawals');
   const nonDestructive = !migration24.includes('DROP TABLE') && migration24.includes('welfare_assistance_requests');
   assert(preservesInsurance && nonDestructive, "Preserves existing insurance membership, claims, and withdrawal systems");
