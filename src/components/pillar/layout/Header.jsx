@@ -48,7 +48,8 @@ export default function Header({ toggleSidebar }) {
 
     const fetchLiveNotifications = async (withChime = false) => {
       try {
-        const res = await notificationSyncService.getPortalNotifications(portalRole, user?.id);
+        const activeId = profile?.pillar_code || profile?.id || user?.id || (portalRole === 'pillar' ? "PIL-CHE-042" : "admin");
+        const res = await notificationSyncService.getPortalNotifications(portalRole, activeId, profile);
         if (isMounted) {
           setNotifications(res.notifications || []);
           setUnreadCount(res.unreadCount || 0);
@@ -94,6 +95,18 @@ export default function Header({ toggleSidebar }) {
     const channel = supabase
       .channel(`header_notifs_sync_${portalRole}_${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        const activeId = profile?.pillar_code || profile?.id || user?.id || (portalRole === 'pillar' ? "PIL-CHE-042" : "admin");
+        if (portalRole === 'pillar') {
+          const n = payload.new;
+          const isTargeted = 
+            n.type === 'admin_broadcast' || 
+            (n.user_id && (n.user_id === activeId || n.user_id === user?.id || n.user_id === profile?.id || n.user_id === profile?.pillar_code)) ||
+            (n.customer_id && (n.customer_id === activeId || n.customer_id === profile?.id || n.customer_id === profile?.pillar_code)) ||
+            (n.pillar_id && (n.pillar_id === activeId || n.pillar_id === profile?.id)) ||
+            (n.pillar_code && n.pillar_code === profile?.pillar_code);
+          if (!isTargeted) return;
+        }
+
         fetchLiveNotifications(true);
         
         const derivedTitle = payload.new.title || (payload.new.type ? payload.new.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'System Alert');
@@ -123,7 +136,7 @@ export default function Header({ toggleSidebar }) {
       supabase.removeChannel(channel);
       clearInterval(pollInterval);
     };
-  }, [portalRole, user?.id]);
+  }, [portalRole, user?.id, profile?.pillar_code, profile?.id]);
 
   // Sync theme with document
   useEffect(() => {

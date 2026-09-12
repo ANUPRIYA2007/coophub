@@ -149,27 +149,25 @@ export const notificationSyncService = {
       }
 
       // 2. Check service_requests lifecycle alerts
-      let sReqQuery = supabase
-        .from('service_requests')
-        .select('id, status, updated_at, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
       if (customerId) {
-        sReqQuery = sReqQuery.or(`customer_id.eq.${customerId},customer_id.is.null`);
-      }
+        const { data: reqs } = await supabase
+          .from('service_requests')
+          .select('id, status, updated_at, created_at')
+          .eq('customer_id', customerId)
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-      const { data: reqs } = await sReqQuery;
-      if (reqs && reqs.length > 0) {
-        reqs.forEach(r => {
-          const statusNotifId = `req-status-${r.id}`;
-          if (!seenIds.has(statusNotifId)) {
-            seenIds.add(statusNotifId);
-            if (!readIds.has(statusNotifId) && !dismissedIds.has(statusNotifId)) {
-              unreadCount += 1;
+        if (reqs && reqs.length > 0) {
+          reqs.forEach(r => {
+            const statusNotifId = `req-status-${r.id}`;
+            if (!seenIds.has(statusNotifId)) {
+              seenIds.add(statusNotifId);
+              if (!readIds.has(statusNotifId) && !dismissedIds.has(statusNotifId)) {
+                unreadCount += 1;
+              }
             }
-          }
-        });
+          });
+        }
       }
 
       // 3. If zero notifications from DB and requests, check demo baseline
@@ -188,20 +186,93 @@ export const notificationSyncService = {
     }
   },
 
-  async getPortalNotifications(portalRole, userId) {
+  async getPortalNotifications(portalRole, userId, userProfile = null) {
     const readIds = new Set(this.getReadIds());
     const dismissedIds = new Set(this.getDismissedIds());
 
+    // Collect all valid target identifiers for this pillar to isolate notifications strictly
+    const targetIds = new Set();
+    const targetCodes = new Set();
+    let pillarDisplayName = 'Technician';
+
+    if (portalRole === 'pillar') {
+      if (userId) {
+        targetIds.add(String(userId).toLowerCase());
+        targetCodes.add(String(userId).toUpperCase());
+      }
+      if (userProfile) {
+        if (userProfile.id) {
+          targetIds.add(String(userProfile.id).toLowerCase());
+          targetCodes.add(String(userProfile.id).toUpperCase());
+        }
+        if (userProfile.user_id) {
+          targetIds.add(String(userProfile.user_id).toLowerCase());
+        }
+        if (userProfile.pillar_code) {
+          targetCodes.add(String(userProfile.pillar_code).toUpperCase());
+          targetIds.add(String(userProfile.pillar_code).toLowerCase());
+        }
+        if (userProfile.alias_id) {
+          targetIds.add(String(userProfile.alias_id).toLowerCase());
+        }
+        if (userProfile.alias_code) {
+          targetCodes.add(String(userProfile.alias_code).toUpperCase());
+          targetIds.add(String(userProfile.alias_code).toLowerCase());
+        }
+        if (userProfile.full_name) {
+          pillarDisplayName = userProfile.full_name;
+        }
+      }
+
+      // Check localStorage active pillar items
+      try {
+        const storedCode = localStorage.getItem('coophub_active_pillar_code');
+        if (storedCode) {
+          targetCodes.add(storedCode.toUpperCase());
+          targetIds.add(storedCode.toLowerCase());
+        }
+        const storedId = localStorage.getItem('coophub_active_pillar_id');
+        if (storedId) targetIds.add(storedId.toLowerCase());
+        const storedName = localStorage.getItem('coophub_demo_user_name');
+        if (storedName && (!userProfile || !userProfile.full_name)) {
+          pillarDisplayName = storedName;
+        }
+      } catch (e) {}
+
+      // Check if current user is demo pillar Raj Kumar (PIL-CHE-042)
+      const isRaj = Array.from(targetCodes).some(c => c === 'PIL-CHE-042' || c === 'PIL-CHE-111') ||
+                    Array.from(targetIds).some(id => id === 'pil-che-042' || id === 'pil-che-111' || id === '7842d4fd-ac93-4014-93ed-001c0237a36c') ||
+                    (targetIds.size === 0 && localStorage.getItem('coophub_demo_user') === 'true');
+
+      if (isRaj) {
+        targetIds.add('7842d4fd-ac93-4014-93ed-001c0237a36c');
+        targetIds.add('c0000000-0000-0000-0000-000000000011');
+        targetIds.add('pil-che-042');
+        targetIds.add('pil-che-111');
+        targetCodes.add('PIL-CHE-042');
+        targetCodes.add('PIL-CHE-111');
+      }
+    }
+
+    const matchesPillar = (idOrCode) => {
+      if (!idOrCode) return false;
+      const strLower = String(idOrCode).toLowerCase();
+      const strUpper = String(idOrCode).toUpperCase();
+      return targetIds.has(strLower) || targetCodes.has(strUpper);
+    };
+
+    const targetCodeStr = Array.from(targetCodes)[0] || 'Active';
     const initialPillar = [
       {
-        id: 'pillar-alert-1',
-        title: 'Welcome to Pillar Workspace',
-        message: 'Your service technician profile is verified and active for incoming orders.',
+        id: `pillar-welcome-${targetCodeStr.toLowerCase()}`,
+        title: `Welcome, ${pillarDisplayName}!`,
+        message: `Your service technician profile (${targetCodeStr}) is verified and ready for assigned bookings.`,
         created_at: 'Just now',
-        is_read: readIds.has('pillar-alert-1') || dismissedIds.has('pillar-alert-1'),
+        is_read: readIds.has(`pillar-welcome-${targetCodeStr.toLowerCase()}`) || dismissedIds.has(`pillar-welcome-${targetCodeStr.toLowerCase()}`),
         type: 'system'
       }
     ];
+
     const initialAdmin = [
       {
         id: 'admin-alert-1',
@@ -217,16 +288,48 @@ export const notificationSyncService = {
     try {
       let items = [];
 
-      // 1. Fetch from Supabase notifications table
+      // 1. Fetch from Supabase notifications table (Strictly filtered by pillar or role)
       try {
-        const { data, error } = await supabase
+        let dbQuery = supabase
           .from('notifications')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(15);
+          .limit(25);
+
+        if (portalRole === 'pillar') {
+          // Build query filters for this pillar specifically or broadcast announcements
+          const orConditions = [];
+          targetIds.forEach(id => {
+            orConditions.push(`user_id.eq.${id}`);
+            orConditions.push(`customer_id.eq.${id}`);
+          });
+          targetCodes.forEach(code => {
+            orConditions.push(`user_id.eq.${code}`);
+            orConditions.push(`customer_id.eq.${code}`);
+          });
+          orConditions.push('type.eq.admin_broadcast');
+
+          if (orConditions.length > 0) {
+            dbQuery = dbQuery.or(orConditions.join(','));
+          }
+        } else if (portalRole === 'admin') {
+          dbQuery = dbQuery.or('type.eq.admin_broadcast,type.eq.system,type.eq.pillar_approval,type.eq.pillar_rejected,type.eq.certification_submitted');
+        }
+
+        const { data, error } = await dbQuery;
 
         if (!error && data && data.length > 0) {
-          items = data.map(n => {
+          // Additional safety isolation: reject items explicitly targeted to other users
+          const filteredData = portalRole === 'pillar' ? data.filter(n => {
+            if (n.type === 'admin_broadcast') return true;
+            if (n.user_id && matchesPillar(n.user_id)) return true;
+            if (n.customer_id && matchesPillar(n.customer_id)) return true;
+            if (n.pillar_id && matchesPillar(n.pillar_id)) return true;
+            if (n.pillar_code && matchesPillar(n.pillar_code)) return true;
+            return false;
+          }) : data;
+
+          items = filteredData.map(n => {
             let derivedTitle = n.title;
             if (!derivedTitle && n.type) {
               derivedTitle = n.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -258,7 +361,25 @@ export const notificationSyncService = {
         try {
           const storedPillarNotifs = JSON.parse(localStorage.getItem('coophub_pillar_notifications') || '[]');
           storedPillarNotifs.forEach(pNotif => {
-            if (!existingIds.has(pNotif.id)) {
+            if (!pNotif || !pNotif.id || existingIds.has(pNotif.id)) return;
+
+            // STRICT ISOLATION: Only include if this notification belongs to THIS pillar
+            const isForThisPillar = 
+              pNotif.type === 'admin_broadcast' ||
+              matchesPillar(pNotif.pillar_id) ||
+              matchesPillar(pNotif.pillar_code) ||
+              matchesPillar(pNotif.user_id) ||
+              matchesPillar(pNotif.order?.pillar_id) ||
+              matchesPillar(pNotif.order?.assigned_pillar_id) ||
+              matchesPillar(pNotif.order?.pillar_code) ||
+              matchesPillar(pNotif.order?.assigned_pillar_code);
+
+            // If it explicitly belongs to another pillar, reject it
+            const isExplicitlyForOther = 
+              (pNotif.pillar_id && !matchesPillar(pNotif.pillar_id)) ||
+              (pNotif.pillar_code && !matchesPillar(pNotif.pillar_code));
+
+            if (isForThisPillar && !isExplicitlyForOther) {
               existingIds.add(pNotif.id);
               items.unshift({
                 ...pNotif,
@@ -269,16 +390,46 @@ export const notificationSyncService = {
           });
         } catch (spErr) {}
 
-        // Also synthesize notification items from shared live orders if any pending request exists
+        // Also synthesize notification items from shared live orders if any request exists ASSIGNED to this pillar
         try {
           const liveOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
           const custOrders = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
           const combinedLocal = [...liveOrders, ...custOrders];
 
+          const isRaj = Array.from(targetCodes).some(c => c === 'PIL-CHE-042' || c === 'PIL-CHE-111');
+
           combinedLocal.forEach(ord => {
             if (!ord || !ord.id) return;
             const notifId = `notif-booking-${ord.id}`;
-            if (!existingIds.has(notifId)) {
+            if (existingIds.has(notifId)) return;
+
+            // STRICT ISOLATION: Check if order is assigned specifically to this pillar
+            const isOrderAssignedToThisPillar = 
+              matchesPillar(ord.pillar_id) ||
+              matchesPillar(ord.assigned_pillar_id) ||
+              matchesPillar(ord.pillar_code) ||
+              matchesPillar(ord.assigned_pillar_code) ||
+              (ord.pillar && (matchesPillar(ord.pillar.id) || matchesPillar(ord.pillar.pillar_code)));
+
+            // If not explicitly assigned to another pillar and status is pending, check trade match
+            let isTradeMatch = false;
+            const hasOtherPillarAssigned = (ord.pillar_id && !matchesPillar(ord.pillar_id)) || (ord.pillar_code && !matchesPillar(ord.pillar_code));
+
+            if (!hasOtherPillarAssigned && (ord.status === 'pending' || ord.status === 'assigned')) {
+              if (userProfile?.main_services) {
+                const servicesList = Array.isArray(userProfile.main_services) ? userProfile.main_services : [userProfile.main_services];
+                isTradeMatch = servicesList.some(s => 
+                  ord.service_name?.toLowerCase().includes(s.toLowerCase()) || 
+                  ord.service?.category?.toLowerCase().includes(s.toLowerCase()) ||
+                  s.toLowerCase().includes(ord.service_name?.toLowerCase() || '')
+                );
+              } else if (isRaj) {
+                const sName = (ord.service_name || '').toLowerCase();
+                isTradeMatch = sName.includes('electric') || sName.includes('wiring') || sName.includes('fan') || sName.includes('ac') || sName.includes('mcb');
+              }
+            }
+
+            if (isOrderAssignedToThisPillar || isTradeMatch) {
               existingIds.add(notifId);
               items.unshift({
                 id: notifId,

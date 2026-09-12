@@ -8,20 +8,27 @@ import { Bell, Check, CheckCheck, Trash2, X, ArrowLeft } from "lucide-react";
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     async function load() {
-      const res = await notificationSyncService.getPortalNotifications('pillar', user?.id);
+      const activeId = profile?.pillar_code || profile?.id || user?.id || "PIL-CHE-042";
+      const res = await notificationSyncService.getPortalNotifications('pillar', activeId, profile);
       setNotifications(res.notifications || []);
     }
     load();
 
     const handleSync = () => load();
     window.addEventListener('coophub_notifications_updated', handleSync);
-    return () => window.removeEventListener('coophub_notifications_updated', handleSync);
-  }, [user]);
+    window.addEventListener('coophub_order_created', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('coophub_notifications_updated', handleSync);
+      window.removeEventListener('coophub_order_created', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, [user, profile]);
 
   const markAllRead = async () => {
     const ids = notifications.map((n) => n.id);

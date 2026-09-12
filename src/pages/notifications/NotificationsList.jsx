@@ -43,17 +43,16 @@ export default function NotificationsList() {
                 }
 
                 // 2. Fetch customer's real service_requests to generate live lifecycle alerts
-                let sReqQuery = supabase
-                    .from('service_requests')
-                    .select('*, services(name, category), sub_services(name)')
-                    .order('created_at', { ascending: false })
-                    .limit(10);
-
+                let reqs = [];
                 if (customerId) {
-                    sReqQuery = sReqQuery.or(`customer_id.eq.${customerId},customer_id.is.null`);
+                    const { data: sData } = await supabase
+                        .from('service_requests')
+                        .select('*, services(name, category), sub_services(name)')
+                        .eq('customer_id', customerId)
+                        .order('created_at', { ascending: false })
+                        .limit(10);
+                    reqs = sData || [];
                 }
-
-                const { data: reqs } = await sReqQuery;
 
                 if (reqs && reqs.length > 0) {
                     reqs.forEach((r) => {
