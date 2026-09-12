@@ -584,9 +584,7 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
             })}
           </ul>
 
-          <div style={{ margin: "var(--space-4) var(--space-4) var(--space-2)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.5, fontWeight: "bold", fontFamily: "Geist Mono, monospace" }}>
-            {t("Settings & Help")}
-          </div>
+          <div style={{ margin: "var(--space-3) var(--space-4)", borderTop: "1px solid rgba(255,255,255,0.08)" }} />
 
           <ul style={{ display: "flex", flexDirection: "column", gap: "3px", padding: "0 var(--space-4)" }}>
             {bottomNavItems.map((item) => {
