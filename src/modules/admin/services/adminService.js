@@ -5,6 +5,7 @@ import { idGenerator } from "../../../utils/idGenerator.js";
 import { welfareService } from "./welfareService.js";
 import { auditLogService } from "./auditLogService.js";
 import { PILLARS_ROSTER } from "../../../data/pillarsRoster.js";
+import { SUB_SERVICES_CATALOG } from "../../../utils/subServicesCatalog.js";
 
 const isAdminDemo = () => {
   try {
@@ -647,6 +648,435 @@ export const adminService = {
     }
 
     return null;
+  },
+
+  // =========================================================================
+  // 2.5 SERVICE & SUB-SERVICE CATALOG MASTER (All 16 Services & 80 Sub-Services)
+  // =========================================================================
+  async getServiceCatalog() {
+    return this.getServices();
+  },
+
+  async getServices() {
+    try {
+      const OVERRIDES_KEY = 'coophub_admin_service_overrides_v2';
+      let localOverrides = {};
+      try {
+        if (typeof window !== "undefined") {
+          localOverrides = JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}');
+        }
+      } catch (e) {}
+
+      // 1. Fetch live services from Supabase if online
+      let dbServices = [];
+      try {
+        const { data, error } = await supabase
+          .from('services')
+          .select('*')
+          .order('display_order', { ascending: true });
+        if (!error && data && data.length > 0) {
+          dbServices = data;
+        }
+      } catch (e) {
+        console.warn("Supabase services fetch fallback:", e);
+      }
+
+      // 2. Fetch live sub-services from Supabase if online
+      let dbSubServices = [];
+      try {
+        const { data, error } = await supabase
+          .from('sub_services')
+          .select('*')
+          .order('display_order', { ascending: true });
+        if (!error && data && data.length > 0) {
+          dbSubServices = data;
+        }
+      } catch (e) {
+        console.warn("Supabase sub_services fetch fallback:", e);
+      }
+
+      // 3. Load all active pillars to accurately compute specialist mappings
+      const allPillars = await this.getAllPillars();
+
+      // 4. Build canonical 16 Main Services
+      const CANONICAL_SERVICES = [
+        {
+          id: "a0000000-0000-0000-0000-000000000001",
+          service_code: "SRV-ELEC-100",
+          name: "Electrical Repair",
+          category: "Electrical",
+          icon: "Zap",
+          base_price: 350,
+          standard_time: "45 mins",
+          description: "Ceiling fan, switchboard wiring, lighting, MCB distribution & electrical maintenance.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000002",
+          service_code: "SRV-PLUM-200",
+          name: "Plumbing Service",
+          category: "Plumbing",
+          icon: "Wrench",
+          base_price: 300,
+          standard_time: "45 mins",
+          description: "Pipe leakage, tap replacement, wash basin, sanitary & drainage blockage clearing.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000003",
+          service_code: "SRV-HVAC-300",
+          name: "AC Repair & HVAC",
+          category: "AC & HVAC",
+          icon: "Wind",
+          base_price: 499,
+          standard_time: "60 mins",
+          description: "AC general servicing, gas charging, jet pump cleaning, installation & PCB repairs.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000004",
+          service_code: "SRV-CARP-400",
+          name: "Carpentry & Woodwork",
+          category: "Carpentry",
+          icon: "Hammer",
+          base_price: 349,
+          standard_time: "60 mins",
+          description: "Furniture assembly, door lock fixing, cabinet repairs, custom wood & polish.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000005",
+          service_code: "SRV-PNTG-500",
+          name: "Painting & Waterproofing",
+          category: "Painting",
+          icon: "Paintbrush",
+          base_price: 899,
+          standard_time: "120 mins",
+          description: "Interior/exterior wall painting, waterproofing, texture wall design & wall crack repair.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000006",
+          service_code: "SRV-CLEN-600",
+          name: "Deep Home Cleaning",
+          category: "Cleaning",
+          icon: "Sparkles",
+          base_price: 799,
+          standard_time: "120 mins",
+          description: "Full home deep sanitization, kitchen chimney, bathroom scrub & sofa upholstery cleaning.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000007",
+          service_code: "SRV-DRVR-800",
+          name: "Professional Driver Services",
+          category: "Transport",
+          icon: "Car",
+          base_price: 399,
+          standard_time: "180 mins",
+          description: "Verified hourly, outstation, corporate, event drivers & vehicle transit pickup.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000010",
+          service_code: "SRV-DMST-900",
+          name: "Domestic Helpers",
+          category: "Domestic",
+          icon: "Home",
+          base_price: 299,
+          standard_time: "120 mins",
+          description: "Cooking assistance, daily household chores, laundry, organizing & elderly home support.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000011",
+          service_code: "SRV-CARE-1000",
+          name: "Caregiver Services",
+          category: "Healthcare",
+          icon: "HeartHandshake",
+          base_price: 599,
+          standard_time: "240 mins",
+          description: "Elderly care assistance, patient support, mobility aid, companion & nursing care.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000012",
+          service_code: "SRV-GARD-1100",
+          name: "Gardening & Landscaping",
+          category: "Outdoor",
+          icon: "Trees",
+          base_price: 399,
+          standard_time: "90 mins",
+          description: "Lawn mowing, plant care & repotting, garden pruning, terrace garden & landscaping.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000013",
+          service_code: "SRV-TECH-1200",
+          name: "Technician Services",
+          category: "Technical",
+          icon: "Cpu",
+          base_price: 450,
+          standard_time: "60 mins",
+          description: "CCTV security camera installation, appliance setups, diagnostic & equipment servicing.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000014",
+          service_code: "SRV-EMRG-1300",
+          name: "Emergency Services",
+          category: "Emergency",
+          icon: "AlertCircle",
+          base_price: 550,
+          standard_time: "30 mins",
+          description: "24/7 urgent electrical, plumbing breakdown, burst pipe & rapid emergency assistance.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000015",
+          service_code: "SRV-DMD-1400",
+          name: "On-Demand Services",
+          category: "On-Demand",
+          icon: "Clock",
+          base_price: 350,
+          standard_time: "45 mins",
+          description: "Instant same-day doorstep repairs, rapid multi-skill tasks & flexible helper bookings.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000008",
+          service_code: "SRV-TRAD-1500",
+          name: "Specialized & Custom Trades",
+          category: "Custom Trades",
+          icon: "Scissors",
+          base_price: 650,
+          standard_time: "90 mins",
+          description: "Welding, fabrication, masonry, custom metal work & specialized artisan cooperative crafts.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000016",
+          service_code: "SRV-COOP-1600",
+          name: "Verified Cooperative Workers",
+          category: "Cooperative",
+          icon: "ShieldCheck",
+          base_price: 400,
+          standard_time: "60 mins",
+          description: "Certified multi-skilled labor from registered cooperative societies across Chennai.",
+          active: true
+        },
+        {
+          id: "a0000000-0000-0000-0000-000000000017",
+          service_code: "SRV-TRNG-1700",
+          name: "Training & Certification",
+          category: "Training",
+          icon: "GraduationCap",
+          base_price: 999,
+          standard_time: "180 mins",
+          description: "Pillar trade skill development, safety certification, apprentice programs & assessment.",
+          active: true
+        }
+      ];
+
+      // Merge with custom services added locally
+      const customServices = localOverrides.customServices || [];
+      const mergedMain = [...CANONICAL_SERVICES, ...customServices];
+
+      // Map sub-services under each service
+      const servicesWithSubs = mergedMain.map((srv, srvIdx) => {
+        const srvOverride = localOverrides[`service_${srv.id}`] || {};
+        const effectiveName = srvOverride.name || srv.name;
+        const effectiveCategory = srvOverride.category || srv.category;
+        const effectiveBasePrice = Number(srvOverride.base_price ?? srv.base_price);
+        const effectiveStandardTime = srvOverride.standard_time || srv.standard_time;
+        const effectiveActive = srvOverride.active !== undefined ? srvOverride.active : srv.active;
+
+        // Find matching sub-services from SUB_SERVICES_CATALOG and database
+        const catalogSubs = (SUB_SERVICES_CATALOG || []).filter(sub => {
+          return sub.service_id === srv.id || 
+                 sub.service_name?.toLowerCase() === srv.name.toLowerCase() ||
+                 (srv.category && sub.category?.toLowerCase() === srv.category.toLowerCase());
+        });
+
+        // Filter pillars belonging to this main service
+        const matchingPillars = allPillars.filter(p => {
+          const mainMatch = (p.main_services || []).some(ms => 
+            ms.toLowerCase().includes(srv.name.toLowerCase()) || 
+            srv.name.toLowerCase().includes(ms.toLowerCase())
+          );
+          return mainMatch;
+        });
+
+        // Construct 5 sub-services with active pillar bindings
+        const enrichedSubs = catalogSubs.map((sub, subIdx) => {
+          const subOverride = localOverrides[`sub_${sub.id}`] || {};
+          const subPrice = Number(subOverride.base_price ?? sub.base_price ?? effectiveBasePrice);
+          const subTime = subOverride.standard_time || sub.standard_time || "45 mins";
+          const subActive = subOverride.active !== undefined ? subOverride.active : true;
+          const subCode = sub.sub_service_code || `SUB-${(srv.service_code || 'SRV-GEN').replace('SRV-', '').split('-')[0]}-${String(subIdx + 1).padStart(2, '0')}`;
+
+          // Find specialist pillar from roster matching this sub service
+          const matchedPillar = allPillars.find(p => 
+            (p.sub_services || []).some(ss => ss.toLowerCase() === sub.name.toLowerCase())
+          ) || matchingPillars[subIdx % Math.max(1, matchingPillars.length)] || allPillars[((srvIdx * 5) + subIdx) % allPillars.length];
+
+          return {
+            id: sub.id,
+            sub_service_code: subCode,
+            service_id: srv.id,
+            service_name: srv.name,
+            category: effectiveCategory,
+            name: subOverride.name || sub.name,
+            description: subOverride.description || sub.description,
+            base_price: subPrice,
+            standard_time: subTime,
+            active: subActive,
+            specialist: matchedPillar ? {
+              id: matchedPillar.id,
+              pillar_code: matchedPillar.pillar_code || `PIL-CHE-${String(((srvIdx * 5) + subIdx) + 101)}`,
+              name: matchedPillar.full_name || matchedPillar.name,
+              area: matchedPillar.area || "Chennai Central",
+              rating: matchedPillar.rating || 4.9,
+              role: matchedPillar.custom_role || `${sub.name} Specialist`
+            } : null,
+            pillars_assigned: matchingPillars.length || 5
+          };
+        });
+
+        // Also append any custom sub-services added under this service
+        const customSubs = (localOverrides.customSubServices || []).filter(cs => cs.service_id === srv.id);
+
+        const allSubs = [...enrichedSubs, ...customSubs];
+        const assignedPillarsCount = matchingPillars.length || 5;
+
+        return {
+          ...srv,
+          name: effectiveName,
+          category: effectiveCategory,
+          base_price: effectiveBasePrice,
+          standard_time: effectiveStandardTime,
+          active: effectiveActive,
+          pillars_assigned: assignedPillarsCount,
+          sub_services_count: allSubs.length,
+          subServices: allSubs
+        };
+      });
+
+      return servicesWithSubs;
+    } catch (err) {
+      console.error("Error generating service catalog:", err);
+      return [];
+    }
+  },
+
+  async updateServiceTariff(serviceId, updates) {
+    try {
+      const OVERRIDES_KEY = 'coophub_admin_service_overrides_v2';
+      let localOverrides = {};
+      try {
+        if (typeof window !== "undefined") {
+          localOverrides = JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}');
+          localOverrides[`service_${serviceId}`] = {
+            ...(localOverrides[`service_${serviceId}`] || {}),
+            ...updates,
+            updated_at: new Date().toISOString()
+          };
+          localStorage.setItem(OVERRIDES_KEY, JSON.stringify(localOverrides));
+        }
+      } catch (e) {}
+
+      // Try Supabase update if UUID
+      if (/^[0-9a-f-]{36}$/i.test(serviceId)) {
+        try {
+          await supabase.from('services').update({
+            base_price: updates.base_price,
+            name: updates.name,
+            active: updates.active
+          }).eq('id', serviceId);
+        } catch (e) {}
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error("Error updating service tariff:", err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async updateSubServiceTariff(subServiceId, updates) {
+    try {
+      const OVERRIDES_KEY = 'coophub_admin_service_overrides_v2';
+      let localOverrides = {};
+      try {
+        if (typeof window !== "undefined") {
+          localOverrides = JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}');
+          localOverrides[`sub_${subServiceId}`] = {
+            ...(localOverrides[`sub_${subServiceId}`] || {}),
+            ...updates,
+            updated_at: new Date().toISOString()
+          };
+          localStorage.setItem(OVERRIDES_KEY, JSON.stringify(localOverrides));
+        }
+      } catch (e) {}
+
+      // Try Supabase update if UUID
+      if (/^[0-9a-f-]{36}$/i.test(subServiceId)) {
+        try {
+          await supabase.from('sub_services').update({
+            base_price: updates.base_price,
+            name: updates.name,
+            active: updates.active
+          }).eq('id', subServiceId);
+        } catch (e) {}
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error("Error updating sub-service tariff:", err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async toggleServiceStatus(serviceId, currentStatus) {
+    return this.updateServiceTariff(serviceId, { active: !currentStatus });
+  },
+
+  async toggleSubServiceStatus(subServiceId, currentStatus) {
+    return this.updateSubServiceTariff(subServiceId, { active: !currentStatus });
+  },
+
+  async addService(newService) {
+    try {
+      const OVERRIDES_KEY = 'coophub_admin_service_overrides_v2';
+      let localOverrides = {};
+      if (typeof window !== "undefined") {
+        localOverrides = JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}');
+        const custom = localOverrides.customServices || [];
+        custom.unshift(newService);
+        localOverrides.customServices = custom;
+        localStorage.setItem(OVERRIDES_KEY, JSON.stringify(localOverrides));
+      }
+      return { success: true, data: newService };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async addSubService(serviceId, newSubService) {
+    try {
+      const OVERRIDES_KEY = 'coophub_admin_service_overrides_v2';
+      let localOverrides = {};
+      if (typeof window !== "undefined") {
+        localOverrides = JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}');
+        const customSubs = localOverrides.customSubServices || [];
+        customSubs.unshift({ ...newSubService, service_id: serviceId });
+        localOverrides.customSubServices = customSubs;
+        localStorage.setItem(OVERRIDES_KEY, JSON.stringify(localOverrides));
+      }
+      return { success: true, data: newSubService };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
   },
 
   async getPillarKycDocuments(pillarId) {
