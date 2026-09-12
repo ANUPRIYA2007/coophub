@@ -273,8 +273,20 @@ export default function RequestDetails() {
             if (verifyResult.verified) {
                 // Refresh payment & invoice data
                 const { invoice: updatedInvoice, payment } = await paymentService.getPaymentDetails(id);
-                setInvoiceData(updatedInvoice);
-                setPaymentData(payment);
+                const finalizedInvoice = updatedInvoice ? { ...updatedInvoice, invoice_status: 'paid' } : {
+                    id: `INV-${String(id).slice(0, 8)}`,
+                    request_id: requestData?.id || id,
+                    total_amount: Number(requestData?.final_amount || 450),
+                    invoice_status: 'paid',
+                    payment_method: 'Online Payment (Razorpay)'
+                };
+                setInvoiceData(finalizedInvoice);
+                setPaymentData(payment ? { ...payment, payment_status: 'completed' } : {
+                    id: `PAY-${String(id).slice(0, 8)}`,
+                    payment_status: 'completed',
+                    payment_method: 'Online Payment (Razorpay)',
+                    amount: Number(requestData?.final_amount || 450)
+                });
                 setRequestData(prev => prev ? ({
                     ...prev,
                     payment_status: 'completed',
@@ -290,6 +302,11 @@ export default function RequestDetails() {
                         localStorage.setItem(`coophub_payment_status_${requestData.id}`, 'completed');
                         localStorage.setItem(`coophub_payment_method_${requestData.id}`, 'Online Payment (Razorpay)');
                         localStorage.setItem(`coophub_selected_payment_mode_${requestData.id}`, 'razorpay');
+                    }
+                    if (requestData?.booking_code) {
+                        localStorage.setItem(`coophub_payment_status_${requestData.booking_code}`, 'completed');
+                        localStorage.setItem(`coophub_payment_method_${requestData.booking_code}`, 'Online Payment (Razorpay)');
+                        localStorage.setItem(`coophub_selected_payment_mode_${requestData.booking_code}`, 'razorpay');
                     }
                 } catch(e) {}
                 
@@ -418,20 +435,25 @@ export default function RequestDetails() {
             try {
                 const data = await serviceRequestService.getRequestDetails(id);
                 if (data) {
-                    if (data.status === 'completed') {
-                        // If database or order record says payment_status === 'pending', respect it and remove any stale 'completed' in localStorage
-                        if (data.payment_status === 'pending') {
-                            try {
-                                localStorage.removeItem(`coophub_payment_status_${id}`);
-                                if (data?.id) localStorage.removeItem(`coophub_payment_status_${data.id}`);
-                            } catch(e) {}
+                    const lsPayStatus = (typeof window !== 'undefined') ? (
+                        localStorage.getItem(`coophub_payment_status_${id}`) ||
+                        (data?.id ? localStorage.getItem(`coophub_payment_status_${data.id}`) : null) ||
+                        (data?.booking_code ? localStorage.getItem(`coophub_payment_status_${data.booking_code}`) : null)
+                    ) : null;
+                    const lsPayMethod = (typeof window !== 'undefined') ? (
+                        localStorage.getItem(`coophub_payment_method_${id}`) ||
+                        (data?.id ? localStorage.getItem(`coophub_payment_method_${data.id}`) : null)
+                    ) : null;
+
+                    const isActuallyPaid = data.payment_status === 'completed' || lsPayStatus === 'completed';
+
+                    if (isActuallyPaid) {
+                        data.payment_status = 'completed';
+                        if (!data.payment_method) {
+                            data.payment_method = lsPayMethod || (data.payment_gateway_ref === 'HAND_CASH' ? 'HAND CASH' : 'Online Payment (Razorpay)');
                         }
-                        const lsPayStatus = localStorage.getItem(`coophub_payment_status_${id}`) || (data?.id ? localStorage.getItem(`coophub_payment_status_${data.id}`) : null);
-                        const isActuallyPaid = data.payment_status === 'completed' || (lsPayStatus === 'completed' && data.payment_status !== 'pending');
-                        data.payment_status = isActuallyPaid ? 'completed' : 'pending';
-                        if (isActuallyPaid && !data.payment_method) data.payment_method = 'HAND CASH';
-                    } else {
-                        // Before completing the order, payment cannot be completed
+                    } else if (data.status !== 'completed') {
+                        // Only clear stale payment status if the job is not yet completed by technician
                         data.payment_status = 'pending';
                         try {
                             localStorage.removeItem(`coophub_payment_status_${id}`);
@@ -941,10 +963,11 @@ export default function RequestDetails() {
     const isPaymentCompleted = Boolean(
         requestData?.payment_status === 'completed' ||
         paymentData?.payment_status === 'completed' ||
-        (invoiceData?.invoice_status === 'paid' && requestData?.payment_status !== 'pending') ||
-        (typeof window !== 'undefined' && requestData?.payment_status !== 'pending' && (
+        invoiceData?.invoice_status === 'paid' ||
+        (typeof window !== 'undefined' && (
             (id && localStorage.getItem(`coophub_payment_status_${id}`) === 'completed') ||
-            (requestData?.id && localStorage.getItem(`coophub_payment_status_${requestData.id}`) === 'completed')
+            (requestData?.id && localStorage.getItem(`coophub_payment_status_${requestData.id}`) === 'completed') ||
+            (requestData?.booking_code && localStorage.getItem(`coophub_payment_status_${requestData.booking_code}`) === 'completed')
         ))
     );
 

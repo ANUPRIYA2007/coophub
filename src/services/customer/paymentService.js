@@ -144,11 +144,18 @@ export const paymentService = {
                 }
             }
 
-            if (invoice && localPaymentStatus) {
-                invoice.invoice_status = localPaymentStatus === 'completed' ? (invoice.invoice_status === 'paid' ? 'paid' : 'pending') : localPaymentStatus;
-            }
-            if (invoice && localPaymentMethod) {
-                invoice.payment_method = localPaymentMethod;
+            if (localPaymentStatus === 'completed') {
+                if (invoice) {
+                    invoice.invoice_status = 'paid';
+                    if (localPaymentMethod) invoice.payment_method = localPaymentMethod;
+                }
+                if (payment) {
+                    payment.payment_status = 'completed';
+                    if (localPaymentMethod) payment.payment_method = localPaymentMethod;
+                }
+            } else if (invoice && localPaymentStatus) {
+                invoice.invoice_status = localPaymentStatus;
+                if (localPaymentMethod) invoice.payment_method = localPaymentMethod;
             }
 
             return { invoice, payment };

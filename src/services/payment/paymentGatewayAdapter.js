@@ -727,10 +727,17 @@ export const paymentGatewayAdapter = {
       }
 
       if (requestId && !isUuid(requestId)) {
-        await supabase
-          .from('service_requests')
-          .update(srUpdates)
-          .or(`receipt_number.eq.${requestId},payment_gateway_ref.eq.${requestId},customer_description.ilike.%${requestId}%`);
+        try {
+          const { data: matchedRows } = await supabase
+            .from('service_requests')
+            .select('id')
+            .or(`receipt_number.eq.${requestId},payment_gateway_ref.eq.${requestId},customer_description.ilike.%${requestId}%`);
+          if (matchedRows && matchedRows.length > 0) {
+            const ids = matchedRows.map(r => r.id);
+            await supabase.from('service_requests').update(srUpdates).in('id', ids);
+            if (!targetUuid) targetUuid = ids[0];
+          }
+        } catch (e) {}
 
         await supabase
           .from('bookings')
@@ -788,6 +795,24 @@ export const paymentGatewayAdapter = {
         localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'Online Payment (Razorpay)');
         localStorage.setItem(`coophub_status_${targetUuid}`, 'completed');
       }
+
+      // Update customer created orders
+      try {
+        const custCreated = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+        let updatedCust = false;
+        custCreated.forEach(o => {
+          if (o.id === requestId || o.booking_code === requestId || (targetUuid && (o.id === targetUuid || o.db_id === targetUuid))) {
+            o.payment_status = 'completed';
+            o.payment_method = 'Online Payment (Razorpay)';
+            o.payment_gateway_ref = paymentId;
+            o.status = 'completed';
+            updatedCust = true;
+          }
+        });
+        if (updatedCust) {
+          localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(custCreated));
+        }
+      } catch (e) {}
 
       // Update shared live orders for Pillar Portal
       const shared = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
