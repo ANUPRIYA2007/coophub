@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { 
   ShieldCheck, MapPin, Globe, Users, Phone, Mail, Building, 
   CheckCircle2, Clock, Award, Activity, Edit3, Save, Compass, 
-  Layers, Radio, AlertTriangle, Shield, Check, RefreshCw, ChevronRight
+  Layers, Radio, AlertTriangle, Shield, Check, RefreshCw, ChevronRight, Lock
 } from "lucide-react";
 
 export default function AdminProfile() {
@@ -105,11 +105,18 @@ export default function AdminProfile() {
 
   const handleSaveProfile = (e) => {
     e.preventDefault();
-    setProfileData({ ...formData });
+    // Enforce business rule: only mobile number and operational language are editable
+    const updated = {
+      ...profileData,
+      mobile: formData.mobile || profileData.mobile,
+      language: formData.language || profileData.language
+    };
+    setProfileData(updated);
+    setFormData(updated);
     try {
-      localStorage.setItem("coophub_admin_profile", JSON.stringify(formData));
-      localStorage.setItem("coophub_admin_name", formData.full_name);
-      localStorage.setItem("coophub_admin_id", formData.admin_id);
+      localStorage.setItem("coophub_admin_profile", JSON.stringify(updated));
+      localStorage.setItem("coophub_admin_mobile", updated.mobile);
+      localStorage.setItem("coophub_admin_language", updated.language);
       window.dispatchEvent(new Event("coophub_admin_profile_updated"));
     } catch (err) {}
 
@@ -306,97 +313,240 @@ export default function AdminProfile() {
           boxShadow: "var(--shadow-md)",
           marginBottom: "var(--space-4)"
         }}>
-          <h3 style={{ fontSize: "1.1rem", fontWeight: "800", color: "var(--color-text)", marginTop: 0, marginBottom: "var(--space-3)", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Edit3 size={18} color="#FF7900" />
-            Edit Administrator Personal & Official Profile
-          </h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px", marginBottom: "var(--space-3)" }}>
+            <div>
+              <h3 style={{ fontSize: "1.15rem", fontWeight: "800", color: "var(--color-text)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                <Edit3 size={18} color="#FF7900" />
+                Edit Administrator Contact & Language
+              </h3>
+              <p style={{ color: "var(--color-text-secondary)", fontSize: "0.82rem", margin: "4px 0 0 0" }}>
+                Under cooperative governance policy, official authority credentials and jurisdiction are sovereign and locked.
+              </p>
+            </div>
+            <span style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "12px", background: "rgba(59, 130, 246, 0.12)", color: "#3B82F6", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              <Shield size={12} /> Authority Protected
+            </span>
+          </div>
+
+          {/* Security Notice Banner */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "10px 14px",
+            borderRadius: "8px",
+            background: "rgba(245, 124, 32, 0.08)",
+            border: "1px solid rgba(245, 124, 32, 0.25)",
+            color: "var(--color-text)",
+            fontSize: "0.82rem",
+            marginBottom: "var(--space-4)"
+          }}>
+            <Lock size={15} color="#FF7900" style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Administrative Policy Notice:</strong> You can only edit your <strong>Contact Mobile Number</strong> and <strong>Operational Language</strong>. All official identity, ID, email, hotline, and regional headquarters fields are permanently locked.
+            </span>
+          </div>
 
           <form onSubmit={handleSaveProfile} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "var(--space-3)" }}>
+            {/* Full Name - LOCKED */}
             <div>
-              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
-                Full Name
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Lock size={12} color="var(--color-text-muted)" /> Full Name
+                </label>
+                <span style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", background: "var(--color-surface-hover)", padding: "1px 6px", borderRadius: "6px", fontWeight: "600" }}>
+                  Locked
+                </span>
+              </div>
               <input
                 type="text"
                 className="form-input"
                 value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                required
+                readOnly
+                disabled
+                style={{
+                  background: "var(--color-surface-hover)",
+                  cursor: "not-allowed",
+                  opacity: 0.75,
+                  border: "1px dashed var(--color-border)",
+                  color: "var(--color-text-secondary)"
+                }}
               />
             </div>
 
+            {/* Official Admin Code - LOCKED */}
             <div>
-              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
-                Official Admin Code
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Lock size={12} color="var(--color-text-muted)" /> Official Admin Code
+                </label>
+                <span style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", background: "var(--color-surface-hover)", padding: "1px 6px", borderRadius: "6px", fontWeight: "600" }}>
+                  Locked
+                </span>
+              </div>
               <input
                 type="text"
                 className="form-input"
                 value={formData.admin_id}
-                onChange={(e) => setFormData({ ...formData, admin_id: e.target.value })}
-                required
+                readOnly
+                disabled
+                style={{
+                  background: "var(--color-surface-hover)",
+                  cursor: "not-allowed",
+                  opacity: 0.75,
+                  border: "1px dashed var(--color-border)",
+                  color: "var(--color-text-secondary)",
+                  fontFamily: "monospace"
+                }}
               />
             </div>
 
+            {/* Official Email - LOCKED */}
             <div>
-              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
-                Official Email
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Lock size={12} color="var(--color-text-muted)" /> Official Email
+                </label>
+                <span style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", background: "var(--color-surface-hover)", padding: "1px 6px", borderRadius: "6px", fontWeight: "600" }}>
+                  Locked
+                </span>
+              </div>
               <input
                 type="email"
                 className="form-input"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
+                readOnly
+                disabled
+                style={{
+                  background: "var(--color-surface-hover)",
+                  cursor: "not-allowed",
+                  opacity: 0.75,
+                  border: "1px dashed var(--color-border)",
+                  color: "var(--color-text-secondary)"
+                }}
               />
             </div>
 
+            {/* Contact Mobile Number - EDITABLE */}
             <div>
-              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
-                Contact Mobile Number
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Phone size={13} color="#10B981" /> Contact Mobile Number
+                </label>
+                <span style={{ fontSize: "0.68rem", color: "#10B981", background: "rgba(16, 185, 129, 0.12)", padding: "1px 6px", borderRadius: "6px", fontWeight: "700" }}>
+                  ✓ Allowed Edit
+                </span>
+              </div>
               <input
                 type="text"
                 className="form-input"
                 value={formData.mobile}
                 onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                 required
+                placeholder="+91 98401 23456"
+                style={{
+                  border: "1.5px solid #10B981",
+                  background: "var(--color-surface)",
+                  fontWeight: "600"
+                }}
               />
             </div>
 
+            {/* Emergency Hotline - LOCKED */}
             <div>
-              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
-                Emergency Hotline
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Lock size={12} color="var(--color-text-muted)" /> Emergency Hotline
+                </label>
+                <span style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", background: "var(--color-surface-hover)", padding: "1px 6px", borderRadius: "6px", fontWeight: "600" }}>
+                  Locked
+                </span>
+              </div>
               <input
                 type="text"
                 className="form-input"
                 value={formData.emergency_phone}
-                onChange={(e) => setFormData({ ...formData, emergency_phone: e.target.value })}
+                readOnly
+                disabled
+                style={{
+                  background: "var(--color-surface-hover)",
+                  cursor: "not-allowed",
+                  opacity: 0.75,
+                  border: "1px dashed var(--color-border)",
+                  color: "var(--color-text-secondary)"
+                }}
               />
             </div>
 
+            {/* Operational Language - EDITABLE */}
             <div>
-              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
-                Operational Language
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Globe size={13} color="#10B981" /> Operational Language
+                </label>
+                <span style={{ fontSize: "0.68rem", color: "#10B981", background: "rgba(16, 185, 129, 0.12)", padding: "1px 6px", borderRadius: "6px", fontWeight: "700" }}>
+                  ✓ Allowed Edit
+                </span>
+              </div>
               <input
                 type="text"
                 className="form-input"
                 value={formData.language}
                 onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                required
+                placeholder="e.g. English / Tamil"
+                style={{
+                  border: "1.5px solid #10B981",
+                  background: "var(--color-surface)",
+                  fontWeight: "600"
+                }}
               />
+              <div style={{ display: "flex", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
+                {["English / Tamil", "Tamil", "English", "Tamil / English / Hindi"].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, language: preset })}
+                    style={{
+                      fontSize: "0.72rem",
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      border: formData.language === preset ? "1px solid #10B981" : "1px solid var(--color-border)",
+                      background: formData.language === preset ? "rgba(16, 185, 129, 0.15)" : "var(--color-surface-hover)",
+                      color: formData.language === preset ? "#10B981" : "var(--color-text-secondary)",
+                      cursor: "pointer",
+                      fontWeight: formData.language === preset ? "700" : "500"
+                    }}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
             </div>
 
+            {/* Official Regional Headquarters Address - LOCKED */}
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
-                Official Regional Headquarters Address
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Lock size={12} color="var(--color-text-muted)" /> Official Regional Headquarters Address
+                </label>
+                <span style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", background: "var(--color-surface-hover)", padding: "1px 6px", borderRadius: "6px", fontWeight: "600" }}>
+                  Locked
+                </span>
+              </div>
               <input
                 type="text"
                 className="form-input"
                 value={formData.office_address}
-                onChange={(e) => setFormData({ ...formData, office_address: e.target.value })}
+                readOnly
+                disabled
+                style={{
+                  background: "var(--color-surface-hover)",
+                  cursor: "not-allowed",
+                  opacity: 0.75,
+                  border: "1px dashed var(--color-border)",
+                  color: "var(--color-text-secondary)"
+                }}
               />
             </div>
 
@@ -405,7 +555,7 @@ export default function AdminProfile() {
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                <Save size={15} /> Save Profile Changes
+                <Save size={15} /> Save Changes
               </button>
             </div>
           </form>
