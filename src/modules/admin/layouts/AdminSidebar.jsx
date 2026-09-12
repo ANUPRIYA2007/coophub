@@ -19,7 +19,6 @@ import {
   Users,
   Wrench,
   Star,
-  Settings,
   HelpCircle,
   MessageSquare,
   Bell,
@@ -436,7 +435,6 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { name: "Admin Profile & Zone", path: "/admin/profile", icon: ShieldCheck },
     { name: "Help & Support", path: "/admin/support", icon: HelpCircle },
     { name: "Welfare & PF", path: "/admin/welfare", icon: Shield },
-    { name: "Settings", path: "/admin/settings", icon: Settings },
     { name: "Portal Hub (Home)", path: "/", icon: Layers },
   ];
 
