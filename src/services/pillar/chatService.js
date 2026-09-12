@@ -79,7 +79,7 @@ export const pillarChatService = {
             id: r.id,
             booking_code: orderCode,
             service_name: serviceTitle,
-            customer_name: cust.name || "Customer (" + (r.area || r.city || "Client") + ")",
+            customer_name: (cust.name === "Anupriya Murugan" || cust.name === "Anupriya Sundaram" || cust.name === "Valued Customer") ? (localStorage.getItem('coophub_customer_name') || "Anupriya") : (cust.name || "Customer (" + (r.area || r.city || "Client") + ")"),
             customer_mobile: cust.mobile || "+91 98401 23456",
             status: r.status || "in_progress",
             created_at: r.created_at
@@ -97,7 +97,7 @@ export const pillarChatService = {
                 id: item.id,
                 booking_code: item.booking_code || (String(item.id).startsWith('REQ-') ? item.id : `REQ-${String(item.id).slice(0, 6).toUpperCase()}`),
                 service_name: item.service_name || item.service?.name || "Electrical Repair",
-                customer_name: item.customer_name || item.customer?.full_name || "Anupriya Murugan",
+                customer_name: item.customer_name || item.customer?.full_name || "Anupriya",
                 customer_mobile: item.customer_mobile || item.customer_phone || "+91 98401 23456",
                 status: item.status || "in_progress",
                 created_at: item.created_at || new Date().toISOString()
@@ -143,7 +143,7 @@ export const pillarChatService = {
               id: item.id,
               booking_code: item.booking_code || (String(item.id).startsWith('REQ-') ? item.id : `REQ-${String(item.id).slice(0, 6).toUpperCase()}`),
               service_name: item.service_name || item.service?.name || "Electrical Repair",
-              customer_name: item.customer_name || item.customer?.full_name || "Anupriya Murugan",
+              customer_name: item.customer_name || item.customer?.full_name || "Anupriya",
               customer_mobile: item.customer_mobile || item.customer_phone || "+91 98401 23456",
               status: item.status || "in_progress",
               created_at: item.created_at || new Date().toISOString()

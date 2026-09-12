@@ -100,11 +100,12 @@ export function AuthProvider({ children }) {
               access_token: 'dummy'
             };
             const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+            const savedName = localStorage.getItem('coophub_customer_name');
             setSession(customerDemoSession);
             setUser(customerDemoSession.user);
             setProfile({
               user_id: customerDemoSession.user.id,
-              full_name: savedDemo.full_name || 'Anupriya Murugan',
+              full_name: savedDemo.full_name || savedName || 'Anupriya',
               role: 'customer',
               email: savedDemo.email || 'customer@coophub.in',
               phone: savedDemo.phone || savedDemo.mobile || '+91 98401 23456',
@@ -216,13 +217,20 @@ export function AuthProvider({ children }) {
       user: { id: '11111111-1111-1111-1111-111111111111', email: 'customer@coophub.in' },
       access_token: 'dummy'
     };
+    const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+    const customUser = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
+    const savedName = localStorage.getItem('coophub_customer_name');
+    const resolvedName = savedDemo.full_name || savedName || customUser.full_name || customUser.name || 'Anupriya';
+
     setSession(customerDemoSession);
     setUser(customerDemoSession.user);
     setProfile({
       user_id: customerDemoSession.user.id,
-      full_name: 'Anupriya Murugan',
+      full_name: resolvedName,
       role: 'customer',
-      email: 'customer@coophub.in'
+      email: savedDemo.email || customUser.email || 'customer@coophub.in',
+      phone: savedDemo.phone || savedDemo.mobile || customUser.phone || customUser.mobile || '+91 98401 23456',
+      ...savedDemo
     });
   };
 

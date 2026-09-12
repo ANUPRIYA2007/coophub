@@ -66,7 +66,7 @@ export default function ProfileIndex() {
             if (isDemo) {
                 const demoP = {
                     id: 'CUST-CHE-DEMO01',
-                    full_name: savedDemo.full_name || authProfile?.full_name || 'Anupriya Murugan',
+                    full_name: savedDemo.full_name || authProfile?.full_name || 'Anupriya',
                     email: savedDemo.email || authProfile?.email || 'customer@coophub.in',
                     phone: savedDemo.phone || savedDemo.mobile || '+91 98401 23456',
                     address: savedDemo.address || 'Flat 4B, Shanthi Apts, 5th Cross St, Guindy',
@@ -131,7 +131,7 @@ export default function ProfileIndex() {
             const finalProfile = {
                 id: resolvedProfile?.id || currentUserId || 'CUST-CHE-0001',
                 user_id: currentUserId,
-                full_name: resolvedProfile?.full_name || user?.user_metadata?.full_name || authProfile?.full_name || currentUserEmail?.split('@')[0] || 'Anupriya Murugan',
+                full_name: resolvedProfile?.full_name || user?.user_metadata?.full_name || authProfile?.full_name || currentUserEmail?.split('@')[0] || 'Anupriya',
                 email: resolvedProfile?.email || currentUserEmail || 'customer@coophub.in',
                 phone: resolvedProfile?.mobile || resolvedProfile?.phone || user?.user_metadata?.mobile_number || user?.user_metadata?.mobile || '+91 98401 23456',
                 address: resolvedProfile?.address || user?.user_metadata?.address || savedDemo.address || 'Flat 4B, Shanthi Apts, 5th Cross St, Guindy',
@@ -202,6 +202,10 @@ export default function ProfileIndex() {
             const mergedDemo = { ...currentDemo, ...updatedFields, email: profile?.email || 'customer@coophub.in' };
             localStorage.setItem('coophub_demo_profile', JSON.stringify(mergedDemo));
             localStorage.setItem('coophub_customer_name', updatedFields.full_name);
+            localStorage.setItem('coophub_customer_user', JSON.stringify(mergedDemo));
+            try {
+                window.dispatchEvent(new CustomEvent('coophub_customer_profile_updated', { detail: mergedDemo }));
+            } catch(e) {}
 
             // 2. Reflect in Supabase database tables
             const currentUserId = user?.id || profile?.user_id;
@@ -417,7 +421,7 @@ export default function ProfileIndex() {
                                 <div className="text-center sm:text-left flex-1 space-y-2">
                                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                                         <h2 className="text-2xl sm:text-3xl font-bold text-navy-900">
-                                            {profile?.full_name || 'Anupriya Murugan'}
+                                            {profile?.full_name || 'Anupriya'}
                                         </h2>
                                         <span className="bg-orange-50 text-orange-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-orange-200">
                                             Cooperative Customer
@@ -605,7 +609,7 @@ export default function ProfileIndex() {
                                         value={formData.fullName}
                                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                                         className="w-full px-4 py-3 bg-white border border-navy-200 rounded-xl text-sm font-medium text-navy-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all shadow-2xs"
-                                        placeholder="e.g. Anupriya Murugan"
+                                        placeholder="e.g. Anupriya"
                                         required
                                     />
                                 </div>

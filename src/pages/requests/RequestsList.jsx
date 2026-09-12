@@ -437,7 +437,7 @@ export default function RequestsList() {
                         service_name: selectedReceiptOrder.services?.name || selectedReceiptOrder.service_name || selectedReceiptOrder.category || 'Cooperative Service',
                         sub_service_name: selectedReceiptOrder.sub_services?.name || selectedReceiptOrder.sub_service_name || '',
                         service_id: resolveServiceCode(selectedReceiptOrder),
-                        customer_name: profile?.full_name || 'Anupriya Sundaram',
+                        customer_name: (profile?.full_name && profile.full_name !== 'Anupriya Murugan' && profile.full_name !== 'Anupriya Sundaram' ? profile.full_name : null) || localStorage.getItem('coophub_customer_name') || 'Anupriya',
                         customer_mobile: profile?.phone || '+91 98401 23456',
                         service_address: selectedReceiptOrder.address_line || 'Guindy, Chennai',
                         base_amount: selectedReceiptOrder.amount || 450,

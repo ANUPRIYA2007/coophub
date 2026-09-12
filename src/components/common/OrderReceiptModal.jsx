@@ -30,9 +30,9 @@ export default function OrderReceiptModal({ order, onClose, isPillarView = false
       const gstVal = order.gst_amount != null ? Number(order.gst_amount) : Math.round(subTot * 0.18 * 100) / 100;
       const totVal = order.final_amount != null ? Number(order.final_amount) : (order.total_amount != null ? Number(order.total_amount) : Math.round((subTot + gstVal) * 100) / 100);
 
-      const resolvedCustomer = (order.customer_name && order.customer_name !== 'Valued Customer' && order.customer_name !== 'Coop Customer' && order.customer_name !== '[Customer Name]') 
+      const resolvedCustomer = (order.customer_name && order.customer_name !== 'Valued Customer' && order.customer_name !== 'Coop Customer' && order.customer_name !== '[Customer Name]' && order.customer_name !== 'Anupriya Murugan' && order.customer_name !== 'Anupriya Sundaram') 
         ? order.customer_name 
-        : (order.customer?.full_name || 'Anupriya Sundaram');
+        : ((order.customer?.full_name && order.customer.full_name !== 'Anupriya Murugan' && order.customer.full_name !== 'Anupriya Sundaram' ? order.customer.full_name : null) || localStorage.getItem('coophub_customer_name') || 'Anupriya');
 
       const resolveModalServiceId = () => {
         if (order.service_id && !order.service_id.includes('a0000') && !order.service_id.includes('000000')) return order.service_id;

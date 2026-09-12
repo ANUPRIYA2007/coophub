@@ -1,4 +1,5 @@
 import { supabase } from "../../lib/supabase.js";
+import { registerOrderUuid } from "../communication/jobCommunicationService.js";
 
 const DEMO_ORDERS = [
   {
@@ -156,7 +157,7 @@ export function formatOrderTime(timestamp) {
 }
 
 const KNOWN_CUSTOMERS = [
-  { full_name: "Anupriya Sundaram", mobile: "+91 98401 23456", email: "anupriya.s@gmail.com" },
+  { full_name: "Anupriya", mobile: "+91 98401 23456", email: "anupriya@coophub.in" },
   { full_name: "Karthik Rajan", mobile: "+91 94440 98765", email: "karthik.rajan@outlook.com" },
   { full_name: "Meenakshi Sundaram", mobile: "+91 97910 44556", email: "meenakshi.s@gmail.com" },
   { full_name: "Deepak Srinivasan", mobile: "+91 98840 11223", email: "deepak.srini@yahoo.com" },
@@ -347,17 +348,21 @@ export const pillarOrderService = {
             if (matchPhone && matchPhone[1]) custMobile = matchPhone[1].trim();
           }
 
-          if (!custName || custName === 'Valued Customer' || custName === 'Coop Customer') {
+          if (!custName || custName === 'Valued Customer' || custName === 'Coop Customer' || custName === 'Anupriya Murugan' || custName === 'Anupriya Sundaram') {
             try {
               const demoProf = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
-              if (demoProf.full_name && demoProf.full_name !== 'Valued Customer') {
+              if (demoProf.full_name && demoProf.full_name !== 'Valued Customer' && demoProf.full_name !== 'Anupriya Murugan' && demoProf.full_name !== 'Anupriya Sundaram') {
                 custName = demoProf.full_name;
+              }
+              const savedName = localStorage.getItem('coophub_customer_name');
+              if (savedName && savedName !== 'Anupriya Murugan' && savedName !== 'Anupriya Sundaram') {
+                custName = savedName;
               }
             } catch(e) {}
           }
 
-          if (!custName || custName === 'Valued Customer' || custName === 'Coop Customer') {
-            custName = defaultCust.full_name;
+          if (!custName || custName === 'Valued Customer' || custName === 'Coop Customer' || custName === 'Anupriya Murugan' || custName === 'Anupriya Sundaram') {
+            custName = 'Anupriya';
           }
           if (!custMobile || custMobile.includes('1234567890')) custMobile = defaultCust.mobile;
           if (!custEmail) custEmail = defaultCust.email;
@@ -377,6 +382,10 @@ export const pillarOrderService = {
                             r.payment_gateway_ref || 
                             (r.customer_description?.match(/\[Order:\s*([^|\]]+)/i)?.[1]?.trim()) || 
                             (String(r.id).startsWith("REQ-") || String(r.id).startsWith("ORD-") ? r.id : "REQ-" + r.id.substring(0, 6).toUpperCase());
+
+          registerOrderUuid(orderCode, r.id);
+          if (r.receipt_number) registerOrderUuid(r.receipt_number, r.id);
+          if (r.payment_gateway_ref) registerOrderUuid(r.payment_gateway_ref, r.id);
 
           combinedOrders.push({
             id: r.id,
@@ -906,7 +915,7 @@ export const pillarOrderService = {
       console.warn("Update order status localStorage note:", lsErr);
     }
 
-    // 4. Multi-channel broadcast
+    // 4. Multi-channel broadcast across tabs and browsers
     try {
       if (typeof BroadcastChannel !== 'undefined') {
         const bc = new BroadcastChannel('coophub_orders_sync');
@@ -923,6 +932,23 @@ export const pillarOrderService = {
         setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
       }
     } catch (bcErr) {}
+
+    // Global Supabase Realtime Broadcast (reaches other browsers like Chrome <-> Edge)
+    try {
+      const globalOrderChannel = supabase.channel('coophub_global_orders');
+      globalOrderChannel.send({
+        type: 'broadcast',
+        event: 'ORDER_UPDATED',
+        payload: {
+          orderId: bookingId,
+          targetUuid,
+          relatedIds: relatedKeys,
+          status: dbStatus,
+          uiStatus: status,
+          timestamp: Date.now()
+        }
+      });
+    } catch (be) {}
 
     try {
       window.dispatchEvent(new CustomEvent('coophub_order_updated', {
@@ -1076,7 +1102,7 @@ export const pillarOrderService = {
         try {
           const { data: matched } = await supabase
             .from("service_requests")
-            .select("id, amount, extra_charge_status, extra_charge_amount, payment_method, payment_gateway_ref, customer_id, pillar_id")
+            .select("id, amount, extra_charge_status, extra_charge_amount, payment_gateway_ref, customer_id, pillar_id")
             .or(`receipt_number.eq.${orderId},payment_gateway_ref.eq.${orderId},customer_description.ilike.%${orderId}%`)
             .limit(1)
             .maybeSingle();
@@ -1097,13 +1123,21 @@ export const pillarOrderService = {
         } catch (e) {}
       }
 
-      const baseAmount = Number(payload.amount || req?.amount || 450);
+      const humanCode = req?.receipt_number || req?.payment_gateway_ref || (orderId !== targetReqId ? orderId : null);
+
+      const baseAmount = Number(payload.amount || payload.service_charge || req?.amount || 350);
       const isExtraApproved = req?.extra_charge_status === 'accepted' || payload.extra_charge_status === 'accepted';
-      const extraAmount = Number(payload.extra_charge_amount || req?.extra_charge_amount || 0);
+      const extraAmount = Number(payload.extra_charge_amount || (payload.materials_parts ? Number(payload.materials_parts) + Number(payload.additional_charges || 0) : 0) || req?.extra_charge_amount || 0);
       const taxAmount = Number(payload.gst_amount) || Math.round((baseAmount + extraAmount) * 0.18 * 100) / 100;
       const totalAmount = Number(payload.final_amount) || Math.round((baseAmount + extraAmount + taxAmount) * 100) / 100;
       const nowIso = new Date().toISOString();
 
+      // Only mark payment completed if explicitly prepaid or confirmed; otherwise it remains 'pending'
+      const isAlreadyPrepaid = req?.payment_status === 'completed' && req?.payment_method !== 'HAND CASH' && req?.payment_gateway_ref && req?.payment_gateway_ref !== 'HAND_CASH';
+      const paymentStatus = isAlreadyPrepaid ? 'completed' : 'pending';
+      const paymentGatewayRef = paymentStatus === 'completed' ? (req?.payment_gateway_ref || null) : null;
+
+      // Note: payment_method is NOT a column on service_requests; payment_status & payment_gateway_ref are.
       const updates = {
         status: "completed",
         final_amount: totalAmount,
@@ -1112,26 +1146,37 @@ export const pillarOrderService = {
         subtotal: baseAmount + extraAmount,
         gst_amount: taxAmount,
         extra_charge_amount: extraAmount,
-        extra_charge_reason: payload.extra_charge_reason || req?.extra_charge_reason || null,
+        extra_charge_reason: payload.extra_charge_reason || (payload.work_summary ? `Work Done: ${payload.work_summary}` : null) || req?.extra_charge_reason || null,
         extra_charge_status: extraAmount > 0 ? 'accepted' : 'none',
-        payment_status: 'completed',
-        payment_method: payload.payment_method || req?.payment_method || 'HAND CASH',
-        payment_gateway_ref: payload.payment_gateway_ref || req?.payment_gateway_ref || 'CASH-VERIFIED',
+        payment_status: paymentStatus,
+        payment_gateway_ref: paymentGatewayRef,
         completed_at: nowIso,
         updated_at: nowIso
       };
 
-      // 1. Update in service_requests directly using resolved UUID
+      // 1. Update in service_requests directly using resolved UUID or booking code
       let sData = null;
       try {
-        const { data, error: sErr } = await supabase
-          .from("service_requests")
-          .update(updates)
-          .eq("id", targetReqId)
-          .select()
-          .maybeSingle();
-        sData = data;
-        if (sErr) console.warn("Supabase complete service_requests note:", sErr?.message);
+        if (targetReqId) {
+          const { data, error: sErr } = await supabase
+            .from("service_requests")
+            .update(updates)
+            .eq("id", targetReqId)
+            .select()
+            .maybeSingle();
+          sData = data;
+          if (sErr) console.warn("Supabase complete service_requests note:", sErr?.message);
+        }
+        if (!sData && orderId) {
+          const { data, error: sErr } = await supabase
+            .from("service_requests")
+            .update(updates)
+            .or(`receipt_number.eq.${orderId},payment_gateway_ref.eq.${orderId},customer_description.ilike.%${orderId}%`)
+            .select()
+            .maybeSingle();
+          sData = data;
+          if (sErr) console.warn("Supabase complete service_requests fallback note:", sErr?.message);
+        }
       } catch (e) {
         console.warn("Supabase complete service_requests exception:", e);
       }
@@ -1159,8 +1204,8 @@ export const pillarOrderService = {
           tax_amount: taxAmount,
           total_amount: totalAmount,
           currency: 'INR',
-          invoice_status: 'paid',
-          payment_method: payload.payment_method || req?.payment_method || 'HAND CASH'
+          invoice_status: paymentStatus === 'completed' ? 'paid' : 'pending',
+          payment_method: paymentStatus === 'completed' ? (payload.payment_method || req?.payment_method || null) : null
         };
 
         const { data: exInv } = await supabase.from('invoices').select('id').eq('request_id', targetReqId).maybeSingle();
@@ -1177,9 +1222,11 @@ export const pillarOrderService = {
       const match = DEMO_ORDERS.find(o => o.id === orderId || o.booking_code === orderId || (orderId === 'REQ-8942' && o.id === 'ORD-9842'));
       if (match) {
         match.status = "completed";
+        match.payment_status = paymentStatus;
         match.final_amount = totalAmount;
         match.extra_charge_amount = extraAmount;
         match.extra_charge_reason = payload.extra_charge_reason;
+        if (payload.work_summary) match.work_summary = payload.work_summary;
       }
 
       // 5. Update localStorage status overrides across all related IDs
@@ -1193,8 +1240,15 @@ export const pillarOrderService = {
       relatedIds.forEach(idKey => {
         try {
           localStorage.setItem(`coophub_status_${idKey}`, 'completed');
-          localStorage.setItem(`coophub_payment_status_${idKey}`, 'completed');
-          localStorage.setItem(`coophub_payment_method_${idKey}`, 'HAND CASH');
+          localStorage.setItem(`coophub_payment_status_${idKey}`, paymentStatus);
+          if (payload.work_summary) {
+            localStorage.setItem(`coophub_work_summary_${idKey}`, payload.work_summary);
+          }
+          if (paymentStatus === 'completed' && payload.payment_method) {
+            localStorage.setItem(`coophub_payment_method_${idKey}`, payload.payment_method);
+          } else {
+            localStorage.removeItem(`coophub_payment_method_${idKey}`);
+          }
         } catch (e) {}
       });
 
@@ -1205,8 +1259,13 @@ export const pillarOrderService = {
           sharedOrders.forEach(o => {
             if (o.id === orderId || o.booking_code === orderId || (isDemoOrder && (o.id === 'ORD-9842' || o.id === 'REQ-8942'))) {
               o.status = 'completed';
-              o.payment_status = 'completed';
-              o.payment_method = 'HAND CASH';
+              o.payment_status = paymentStatus;
+              if (payload.work_summary) o.work_summary = payload.work_summary;
+              if (paymentStatus === 'completed' && payload.payment_method) {
+                o.payment_method = payload.payment_method;
+              } else {
+                delete o.payment_method;
+              }
               o.final_amount = totalAmount;
               o.completed_at = nowIso;
             }
@@ -1217,8 +1276,13 @@ export const pillarOrderService = {
           custRequests.forEach(o => {
             if (o.id === orderId || o.booking_code === orderId || (isDemoOrder && (o.id === 'ORD-9842' || o.id === 'REQ-8942'))) {
               o.status = 'completed';
-              o.payment_status = 'completed';
-              o.payment_method = 'HAND CASH';
+              o.payment_status = paymentStatus;
+              if (payload.work_summary) o.work_summary = payload.work_summary;
+              if (paymentStatus === 'completed' && payload.payment_method) {
+                o.payment_method = payload.payment_method;
+              } else {
+                delete o.payment_method;
+              }
               o.final_amount = totalAmount;
               o.completed_at = nowIso;
             }
@@ -1234,8 +1298,9 @@ export const pillarOrderService = {
             extra_charges: extraAmount,
             tax_amount: taxAmount,
             total_amount: totalAmount,
-            invoice_status: 'paid',
-            payment_method: 'HAND CASH'
+            invoice_status: paymentStatus === 'completed' ? 'paid' : 'pending',
+            payment_method: paymentStatus === 'completed' ? (payload.payment_method || 'HAND CASH') : null,
+            work_summary: payload.work_summary || null
           };
           localStorage.setItem(`coophub_invoice_${orderId}`, JSON.stringify(invoiceObj));
           if (targetReqId && (targetReqId !== '00000000-0000-0000-0000-000000008942' || isDemoOrder)) {
@@ -1250,7 +1315,8 @@ export const pillarOrderService = {
             id: orderId,
             action: 'completed',
             status: 'completed',
-            payment_status: 'completed',
+            payment_status: paymentStatus,
+            work_summary: payload.work_summary || null,
             final_amount: totalAmount,
             time: Date.now()
           }));
@@ -1265,9 +1331,9 @@ export const pillarOrderService = {
         await jobCommunicationService.sendMessage({
           requestId: orderId,
           senderType: 'system',
-          content: `🎉 Service completed! Final bill of ₹${totalAmount} generated. Please proceed to payment.`,
+          content: `🎉 Service completed! Final bill of ₹${totalAmount} generated. Please review work summary and proceed to payment.`,
           messageType: 'SYSTEM',
-          metadata: { event_type: 'SERVICE_COMPLETED', final_amount: totalAmount }
+          metadata: { event_type: 'SERVICE_COMPLETED', final_amount: totalAmount, work_summary: payload.work_summary }
         });
       } catch(me) {}
 
@@ -1278,6 +1344,9 @@ export const pillarOrderService = {
           bc.postMessage({
             type: 'ORDER_COMPLETED',
             status: 'completed',
+            payment_status: paymentStatus,
+            work_summary: payload.work_summary,
+            extra_charge_reason: payload.extra_charge_reason,
             orderId,
             targetReqId,
             finalAmount: totalAmount,
@@ -1286,6 +1355,30 @@ export const pillarOrderService = {
           setTimeout(() => { try { bc.close(); } catch(e){} }, 500);
         }
       } catch (bcErr) {}
+
+      // Global Supabase Realtime Broadcast (reaches other browsers like Chrome <-> Edge instantly)
+      try {
+        const globalOrderChannel = supabase.channel('coophub_global_orders');
+        globalOrderChannel.send({
+          type: 'broadcast',
+          event: 'ORDER_COMPLETED',
+          payload: {
+            orderId,
+            targetReqId,
+            humanCode,
+            status: 'completed',
+            payment_status: paymentStatus,
+            work_summary: payload.work_summary,
+            extra_charge_reason: payload.extra_charge_reason,
+            final_amount: totalAmount,
+            subtotal: baseAmount + extraAmount,
+            service_charge: baseAmount,
+            extra_charge_amount: extraAmount,
+            gst_amount: taxAmount,
+            timestamp: Date.now()
+          }
+        });
+      } catch (be) {}
 
       try {
         window.dispatchEvent(new CustomEvent('coophub_order_updated', {
@@ -1663,6 +1756,21 @@ export const pillarOrderService = {
           if (callback) callback(payload);
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'invoices' },
+        (payload) => {
+          if (callback) callback(payload);
+        }
+      )
+      .subscribe();
+
+    // 1.5 Global Realtime Broadcast listener (Chrome <-> Edge cross-browser sync)
+    const globalOrderSub = supabase
+      .channel(`pillar-global-orders-${Date.now()}`)
+      .on('broadcast', { event: 'ORDER_PAID' }, (e) => { if (callback) callback(e.payload); })
+      .on('broadcast', { event: 'ORDER_COMPLETED' }, (e) => { if (callback) callback(e.payload); })
+      .on('broadcast', { event: 'ORDER_UPDATED' }, (e) => { if (callback) callback(e.payload); })
       .subscribe();
 
     // 2. Cross-tab BroadcastChannel for instantaneous reflection across browser tabs
@@ -1710,6 +1818,9 @@ export const pillarOrderService = {
     return {
       unsubscribe: () => {
         supabase.removeChannel(channel);
+        if (globalOrderSub) {
+          try { supabase.removeChannel(globalOrderSub); } catch(ge) {}
+        }
         if (bc) {
           try { bc.close(); } catch (bce) {}
         }

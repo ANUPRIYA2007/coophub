@@ -310,14 +310,16 @@ export default function ServiceRequest() {
                 ? formData.address_line
                 : [formData.area, formData.city].filter(Boolean).join(', ');
 
-            const resolvedCustomerName = profile?.full_name || profile?.name || (() => {
+            const resolvedCustomerName = (profile?.full_name && profile.full_name !== 'Valued Customer' && profile.full_name !== 'Anupriya Murugan' && profile.full_name !== 'Anupriya Sundaram' ? profile.full_name : null) || (() => {
                 try {
                     const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
-                    if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer') return savedDemo.full_name;
+                    if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer' && savedDemo.full_name !== 'Anupriya Murugan' && savedDemo.full_name !== 'Anupriya Sundaram') return savedDemo.full_name;
                     const custUser = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
-                    if (custUser.full_name && custUser.full_name !== 'Valued Customer') return custUser.full_name;
+                    if (custUser.full_name && custUser.full_name !== 'Valued Customer' && custUser.full_name !== 'Anupriya Murugan' && custUser.full_name !== 'Anupriya Sundaram') return custUser.full_name;
+                    const savedName = localStorage.getItem('coophub_customer_name');
+                    if (savedName && savedName !== 'Anupriya Murugan' && savedName !== 'Anupriya Sundaram') return savedName;
                 } catch(e) {}
-                return 'Anupriya Sundaram';
+                return 'Anupriya';
             })();
 
             const payload = {

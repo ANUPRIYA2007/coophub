@@ -1,15 +1,16 @@
 import { supabase } from '../../lib/supabase.js';
 import { emailService } from '../email/emailService.js';
 import { idGenerator } from '../../utils/idGenerator.js';
+import { PILLARS_ROSTER } from '../../data/pillarsRoster.js';
 
 // Rich Demo Requests for Customer Demo Login mode
 const DEMO_REQUESTS = [
     {
         id: "REQ-8942",
         service_code: "SRV-ELEC-101",
-        customer_name: "Anupriya Sundaram",
+        customer_name: "Anupriya",
         customer_mobile: "+91 98401 23456",
-        customer_email: "anupriya@coophub.in",
+        customer_email: "customer@coophub.in",
         status: "on_the_way", // pending, assigned, accepted, on_the_way, arrived, in_progress, completed, cancelled
         created_at: new Date().toISOString(),
         preferred_date: new Date().toISOString().split("T")[0],
@@ -204,7 +205,7 @@ export const serviceRequestService = {
         // 3. Resolve customer details & authenticate safely
         let validCustomerId = null;
         let customerName = requestData.customer_name;
-        if (!customerName || customerName === 'Valued Customer' || customerName === 'Coop Customer') {
+        if (!customerName || customerName === 'Valued Customer' || customerName === 'Coop Customer' || customerName === 'Anupriya Murugan' || customerName === 'Anupriya Sundaram') {
             try {
                 const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
                 if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer') customerName = savedDemo.full_name;
@@ -212,8 +213,10 @@ export const serviceRequestService = {
                     const custUser = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
                     if (custUser.full_name && custUser.full_name !== 'Valued Customer') customerName = custUser.full_name;
                 }
+                const savedName = localStorage.getItem('coophub_customer_name');
+                if (!customerName && savedName) customerName = savedName;
             } catch (e) {}
-            if (!customerName) customerName = 'Anupriya Sundaram';
+            if (!customerName) customerName = 'Anupriya';
         }
         let customerPhone = requestData.customer_phone || requestData.customer_mobile || '+91 98401 23456';
         let customerEmail = requestData.customer_email || requestData.email || 'customer@coophub.in';
@@ -536,24 +539,30 @@ export const serviceRequestService = {
     getRequestDetails: async (requestId) => {
         const sanitizeRequest = (item) => {
             if (!item) return item;
-            if (!item.customer_name || item.customer_name === 'Valued Customer' || item.customer_name === 'Coop Customer') {
+            if (!item.customer_name || item.customer_name === 'Valued Customer' || item.customer_name === 'Coop Customer' || item.customer_name === 'Anupriya Murugan' || item.customer_name === 'Anupriya Sundaram') {
                 try {
                     const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
                     if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer') {
                         item.customer_name = savedDemo.full_name;
                     }
+                    const savedName = localStorage.getItem('coophub_customer_name');
+                    if (!item.customer_name && savedName) {
+                        item.customer_name = savedName;
+                    }
                 } catch(e) {}
-                if (!item.customer_name || item.customer_name === 'Valued Customer' || item.customer_name === 'Coop Customer') {
-                    item.customer_name = 'Anupriya Sundaram';
+                if (!item.customer_name || item.customer_name === 'Valued Customer' || item.customer_name === 'Coop Customer' || item.customer_name === 'Anupriya Murugan' || item.customer_name === 'Anupriya Sundaram') {
+                    item.customer_name = 'Anupriya';
                 }
             }
-            if (item.customer && (!item.customer.full_name || item.customer.full_name === 'Valued Customer')) {
+            if (item.customer && (!item.customer.full_name || item.customer.full_name === 'Valued Customer' || item.customer.full_name === 'Anupriya Murugan' || item.customer.full_name === 'Anupriya Sundaram')) {
                 item.customer.full_name = item.customer_name;
             }
             if (item.customer_description) {
                 item.customer_description = item.customer_description
                     .replace(/Valued Customer/g, item.customer_name)
-                    .replace(/Coop Customer/g, item.customer_name);
+                    .replace(/Coop Customer/g, item.customer_name)
+                    .replace(/Anupriya Murugan/g, item.customer_name)
+                    .replace(/Anupriya Sundaram/g, item.customer_name);
             }
             if (!item.service_code || item.service_code.includes('a0000') || item.service_code.includes('000000')) {
                 const raw = String(item.service_id || item.services?.id || item.service?.id || '').toLowerCase();
@@ -772,16 +781,66 @@ export const serviceRequestService = {
             } catch (se) {}
         }
 
-        // Fetch pillar profile if pillar_id is present
-        if (data && data.pillar_id && !data.pillar) {
-            try {
-                const { data: pData } = await supabase
-                    .from('pillar_profiles')
-                    .select('id, full_name, role, mobile, pillar_id, current_lat, current_lng')
-                    .eq('id', data.pillar_id)
-                    .maybeSingle();
-                if (pData) data.pillar = pData;
-            } catch (pe) {}
+        // Fetch pillar profile if assigned or pillar_id is present
+        const normStatusStr = (data?.status || '').toLowerCase().replace(/_/g, '').trim();
+        const isJobAssigned = ['assigned', 'accepted', 'ontheway', 'enroute', 'arrived', 'inprogress', 'working', 'completed'].includes(normStatusStr) || !!data?.pillar_id;
+
+        if (data && isJobAssigned && !data.pillar) {
+            // 1. Try Supabase query
+            if (data.pillar_id) {
+                try {
+                    const { data: pData } = await supabase
+                        .from('pillar_profiles')
+                        .select('id, full_name, role, mobile, pillar_id, pillar_code, current_lat, current_lng')
+                        .or(`id.eq.${data.pillar_id},pillar_code.eq.${data.pillar_id},pillar_id.eq.${data.pillar_id}`)
+                        .maybeSingle();
+                    if (pData) data.pillar = pData;
+                } catch (pe) {}
+            }
+
+            // 2. Try shared order or local customer request match
+            if (!data.pillar && sharedOrderMatch?.pillar) {
+                data.pillar = sharedOrderMatch.pillar;
+            }
+
+            // 3. Try finding in PILLARS_ROSTER by id, code, or name
+            if (!data.pillar) {
+                const targetPillarId = data.pillar_id || data.pillar_code;
+                const foundRoster = PILLARS_ROSTER.find(p => 
+                    (targetPillarId && (p.id === targetPillarId || p.pillar_code === targetPillarId)) ||
+                    (data.pillar_name && p.full_name?.toLowerCase() === data.pillar_name.toLowerCase())
+                );
+                if (foundRoster) {
+                    data.pillar = {
+                        id: foundRoster.id,
+                        pillar_code: foundRoster.pillar_code,
+                        full_name: foundRoster.full_name,
+                        role: foundRoster.custom_role || (foundRoster.main_services?.[0] ? `${foundRoster.main_services[0]} Specialist` : 'Certified Cooperative Technician'),
+                        mobile: foundRoster.mobile,
+                        rating: foundRoster.rating || 4.9,
+                        reviews_count: foundRoster.total_reviews || 128,
+                        total_completed_jobs: foundRoster.completed_jobs || 88,
+                        avatar_url: foundRoster.avatar_url || '/assets/images/mascot-hero.png',
+                        current_lat: foundRoster.current_lat,
+                        current_lng: foundRoster.current_lng
+                    };
+                }
+            }
+
+            // 4. Guaranteed fallback for assigned order so pillar card never vanishes
+            if (!data.pillar) {
+                data.pillar = {
+                    id: data.pillar_id || "PIL-CHE-042",
+                    pillar_code: data.pillar_code || "PIL-CHE-042",
+                    full_name: data.pillar_name || "Raj Kumar",
+                    role: data.services?.name ? `Certified ${data.services.name} Specialist` : "Certified Senior Electrician",
+                    rating: 4.9,
+                    reviews_count: 128,
+                    total_completed_jobs: 128,
+                    avatar_url: "/assets/images/mascot-hero.png",
+                    mobile: "+91 94440 12345"
+                };
+            }
         }
 
         if (data) {

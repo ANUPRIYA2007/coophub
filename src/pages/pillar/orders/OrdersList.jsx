@@ -39,8 +39,14 @@ import ErrorBoundary from "../../../components/common/ErrorBoundary";
 
 function resolveCustomerName(order) {
   const name = order?.customer_name || order?.customer?.full_name;
-  if (!name || name === "Valued Customer" || name === "Coop Customer") {
-    return "Anupriya Sundaram";
+  if (!name || name === "Valued Customer" || name === "Coop Customer" || name === "Anupriya Murugan" || name === "Anupriya Sundaram") {
+    try {
+      const savedDemo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
+      if (savedDemo.full_name && savedDemo.full_name !== 'Valued Customer') return savedDemo.full_name;
+      const savedName = localStorage.getItem('coophub_customer_name');
+      if (savedName) return savedName;
+    } catch(e) {}
+    return "Anupriya";
   }
   return name;
 }
@@ -547,6 +553,19 @@ export default function OrdersList() {
                     >
                       {order.status === "cancelled" ? t("Cancelled") : t(`orders.${order.status}`)}
                     </span>
+                    {order.status === "completed" && (
+                      <span
+                        className="badge"
+                        style={{
+                          background: order.payment_status === "completed" ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                          color: order.payment_status === "completed" ? "#059669" : "#D97706",
+                          border: `1px solid ${order.payment_status === "completed" ? "rgba(16, 185, 129, 0.3)" : "rgba(245, 158, 11, 0.3)"}`,
+                          fontWeight: "700"
+                        }}
+                      >
+                        {order.payment_status === "completed" ? "PAID & SETTLED" : "AWAITING PAYMENT"}
+                      </span>
+                    )}
                   </div>
                   <h3 style={{ fontSize: "var(--font-size-lg)", fontWeight: "600" }}>{t(order.service_name)}</h3>
                   {order.sub_service_name && (

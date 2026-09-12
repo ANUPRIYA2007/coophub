@@ -66,15 +66,17 @@ export default function CoopHubServiceReceipt({
 
   const resolveCustomerName = () => {
     if (customerName && customerName !== 'Valued Customer' && customerName !== 'Coop Customer' && customerName !== '[Customer Name]') return customerName;
-    if (order?.customer_name && order.customer_name !== 'Valued Customer' && order.customer_name !== 'Coop Customer') return order.customer_name;
-    if (order?.customer?.full_name && order.customer.full_name !== 'Valued Customer' && order.customer.full_name !== 'Coop Customer') return order.customer.full_name;
+    if (order?.customer_name && order.customer_name !== 'Valued Customer' && order.customer_name !== 'Coop Customer' && order.customer_name !== 'Anupriya Murugan' && order.customer_name !== 'Anupriya Sundaram') return order.customer_name;
+    if (order?.customer?.full_name && order.customer.full_name !== 'Valued Customer' && order.customer.full_name !== 'Coop Customer' && order.customer.full_name !== 'Anupriya Murugan' && order.customer.full_name !== 'Anupriya Sundaram') return order.customer.full_name;
     try {
       const demo = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
-      if (demo.full_name && demo.full_name !== 'Valued Customer') return demo.full_name;
+      if (demo.full_name && demo.full_name !== 'Valued Customer' && demo.full_name !== 'Anupriya Murugan' && demo.full_name !== 'Anupriya Sundaram') return demo.full_name;
       const cust = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
-      if (cust.full_name && cust.full_name !== 'Valued Customer') return cust.full_name;
+      if (cust.full_name && cust.full_name !== 'Valued Customer' && cust.full_name !== 'Anupriya Murugan' && cust.full_name !== 'Anupriya Sundaram') return cust.full_name;
+      const savedName = localStorage.getItem('coophub_customer_name');
+      if (savedName && savedName !== 'Anupriya Murugan' && savedName !== 'Anupriya Sundaram') return savedName;
     } catch(e) {}
-    return 'Anupriya Sundaram';
+    return 'Anupriya';
   };
   const displayCustomerName = resolveCustomerName();
   const displayCustomerPhone = customerPhone || order?.customer_mobile || order?.customer_phone || order?.customer?.mobile || order?.customer?.phone || "+91 98401 23456";

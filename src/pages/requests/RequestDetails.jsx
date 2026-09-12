@@ -10,7 +10,7 @@ import {
     Phone, MessageSquare, MapPin, Navigation, Clock, ShieldCheck, 
     CheckCircle2, AlertTriangle, FileText, Star, UserCheck, ChevronRight,
     CreditCard, ArrowLeft, Sparkles, Banknote, Printer, Mail, Loader2, Check,
-    XCircle, AlertOctagon, Wrench
+    XCircle, AlertOctagon, Wrench, Tag
 } from 'lucide-react';
 import OrderReceiptModal from '../../components/common/OrderReceiptModal';
 import CoopHubServiceReceipt from '../../components/common/CoopHubServiceReceipt';
@@ -46,16 +46,18 @@ export default function RequestDetails() {
 
     // Dynamic Customer Details Resolution
     const displayCustomerName = (
-        (profile?.full_name && profile.full_name !== 'Valued Customer' && profile.full_name !== 'Coop Customer' ? profile.full_name : null) ||
-        (user?.user_metadata?.full_name && user.user_metadata.full_name !== 'Valued Customer' ? user.user_metadata.full_name : null) ||
+        (profile?.full_name && profile.full_name !== 'Valued Customer' && profile.full_name !== 'Coop Customer' && profile.full_name !== 'Anupriya Murugan' && profile.full_name !== 'Anupriya Sundaram' ? profile.full_name : null) ||
+        (user?.user_metadata?.full_name && user.user_metadata.full_name !== 'Valued Customer' && user.user_metadata.full_name !== 'Anupriya Murugan' && user.user_metadata.full_name !== 'Anupriya Sundaram' ? user.user_metadata.full_name : null) ||
         (() => {
             try {
                 const d = JSON.parse(localStorage.getItem('coophub_demo_profile') || '{}');
-                if (d.full_name && d.full_name !== 'Valued Customer') return d.full_name;
+                if (d.full_name && d.full_name !== 'Valued Customer' && d.full_name !== 'Anupriya Murugan' && d.full_name !== 'Anupriya Sundaram') return d.full_name;
                 const c = JSON.parse(localStorage.getItem('coophub_customer_user') || '{}');
-                if (c.full_name && c.full_name !== 'Valued Customer') return c.full_name;
+                if (c.full_name && c.full_name !== 'Valued Customer' && c.full_name !== 'Anupriya Murugan' && c.full_name !== 'Anupriya Sundaram') return c.full_name;
+                const n = localStorage.getItem('coophub_customer_name');
+                if (n && n !== 'Anupriya Murugan' && n !== 'Anupriya Sundaram') return n;
             } catch(e) {}
-            return 'Anupriya Sundaram';
+            return 'Anupriya';
         })()
     );
 
@@ -89,6 +91,13 @@ export default function RequestDetails() {
     const [showChatDrawer, setShowChatDrawer] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
     const [isSelectingCash, setIsSelectingCash] = useState(false);
+    const [selectedPaymentMode, setSelectedPaymentMode] = useState(() => {
+        try {
+            return (typeof window !== 'undefined' && localStorage.getItem(`coophub_selected_payment_mode_${id}`)) || null;
+        } catch(e) {
+            return null;
+        }
+    });
     const [dynamicDistance, setDynamicDistance] = useState(null);
     const [dynamicEta, setDynamicEta] = useState(null);
     const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
@@ -153,19 +162,55 @@ export default function RequestDetails() {
     };
 
     const handleSelectHandCash = async () => {
+        setSelectedPaymentMode('HAND_CASH');
+        try {
+            localStorage.setItem(`coophub_selected_payment_mode_${id}`, 'HAND_CASH');
+            if (requestData?.id) localStorage.setItem(`coophub_selected_payment_mode_${requestData.id}`, 'HAND_CASH');
+        } catch(e) {}
+        setRequestData(prev => prev ? ({ ...prev, payment_gateway_ref: 'HAND_CASH' }) : prev);
+
         setIsSelectingCash(true);
         try {
             const res = await paymentService.chooseHandCash(id, requestData?.customer_id);
-            if (res.success) {
+            if (res && res.success) {
                 const { invoice, payment } = await paymentService.getPaymentDetails(id);
-                setInvoiceData(invoice);
-                setPaymentData(payment);
-                setRequestData(prev => prev ? ({ ...prev, payment_status: 'pending', payment_gateway_ref: 'HAND_CASH' }) : prev);
-            } else {
-                alert('Could not set hand cash: ' + (res.error || 'Server error'));
+                if (invoice) setInvoiceData(invoice);
+                if (payment) setPaymentData(payment);
             }
         } catch (err) {
             console.error('Hand cash selection error:', err);
+        } finally {
+            setIsSelectingCash(false);
+        }
+    };
+
+    const handleConfirmHandCashPaid = async () => {
+        setIsSelectingCash(true);
+        try {
+            const activePillar = requestData?.pillar_id || pillar?.id;
+            const res = await paymentService.confirmHandCashPayment(id, activePillar);
+            if (res && (res.success || res.status === 'paid' || res.payment_status === 'completed')) {
+                setSelectedPaymentMode(null);
+                try {
+                    localStorage.removeItem(`coophub_selected_payment_mode_${id}`);
+                    if (requestData?.id) localStorage.removeItem(`coophub_selected_payment_mode_${requestData.id}`);
+                } catch(e) {}
+                setRequestData(prev => prev ? ({
+                    ...prev,
+                    payment_status: 'completed',
+                    payment_method: 'HAND CASH',
+                    payment_gateway_ref: 'HAND_CASH'
+                }) : prev);
+                setInvoiceData(prev => prev ? ({ ...prev, invoice_status: 'paid', payment_method: 'HAND CASH' }) : prev);
+                try {
+                    localStorage.setItem(`coophub_payment_status_${id}`, 'completed');
+                    localStorage.setItem(`coophub_payment_method_${id}`, 'HAND CASH');
+                } catch(e) {}
+                setShowPaymentSuccessAnimation(true);
+                setTimeout(() => setShowPaymentSuccessAnimation(false), 5000);
+            }
+        } catch (err) {
+            console.error('Confirm hand cash error:', err);
         } finally {
             setIsSelectingCash(false);
         }
@@ -183,14 +228,15 @@ export default function RequestDetails() {
             });
             setInvoiceData(invoice);
 
-            // 2. Create Razorpay order via backend
+            // 2. Create Razorpay order via backend / adapter
             const { paymentGatewayAdapter } = await import('../../services/payment/paymentGatewayAdapter');
+            const payableAmount = Number(requestData?.final_amount || invoice?.total_amount || (Number(requestData?.amount || 450) + Number(requestData?.extra_charge_amount || 0)));
             const orderResult = await paymentGatewayAdapter.createGatewayOrder({
                 invoiceId: invoice?.id || id,
                 currency: 'INR',
                 customer: { full_name: displayCustomerName },
                 serviceName: requestData?.service?.name || requestData?.service_name || 'Cooperative Service',
-                fallbackAmount: invoice?.total_amount || requestData?.total_amount
+                fallbackAmount: payableAmount
             });
 
             if (!orderResult.success) {
@@ -219,7 +265,7 @@ export default function RequestDetails() {
                 signature: checkoutResult.signature,
                 invoiceId: invoice?.id,
                 requestId: id,
-                amount: orderResult.amount, // Use the verified backend amount
+                amount: orderResult.amount,
                 customerId: requestData?.customer_id,
                 pillarId: requestData?.pillar_id
             });
@@ -229,6 +275,16 @@ export default function RequestDetails() {
                 const { invoice: updatedInvoice, payment } = await paymentService.getPaymentDetails(id);
                 setInvoiceData(updatedInvoice);
                 setPaymentData(payment);
+                setRequestData(prev => prev ? ({
+                    ...prev,
+                    payment_status: 'completed',
+                    payment_method: 'Online Payment (Razorpay)',
+                    payment_gateway_ref: checkoutResult.paymentId
+                }) : prev);
+                try {
+                    localStorage.setItem(`coophub_payment_status_${id}`, 'completed');
+                    localStorage.setItem(`coophub_payment_method_${id}`, 'Online Payment (Razorpay)');
+                } catch(e) {}
                 
                 // Show Success Animation
                 setShowPaymentSuccessAnimation(true);
@@ -356,18 +412,33 @@ export default function RequestDetails() {
                 const data = await serviceRequestService.getRequestDetails(id);
                 if (data) {
                     if (data.status === 'completed') {
-                        data.payment_status = 'completed';
-                        if (!data.payment_method) data.payment_method = 'HAND CASH';
-                        if (!data.payment_gateway_ref) data.payment_gateway_ref = 'CASH-VERIFIED';
+                        // If database or order record says payment_status === 'pending', respect it and remove any stale 'completed' in localStorage
+                        if (data.payment_status === 'pending') {
+                            try {
+                                localStorage.removeItem(`coophub_payment_status_${id}`);
+                                if (data?.id) localStorage.removeItem(`coophub_payment_status_${data.id}`);
+                            } catch(e) {}
+                        }
+                        const lsPayStatus = localStorage.getItem(`coophub_payment_status_${id}`) || (data?.id ? localStorage.getItem(`coophub_payment_status_${data.id}`) : null);
+                        const isActuallyPaid = data.payment_status === 'completed' || (lsPayStatus === 'completed' && data.payment_status !== 'pending');
+                        data.payment_status = isActuallyPaid ? 'completed' : 'pending';
+                        if (isActuallyPaid && !data.payment_method) data.payment_method = 'HAND CASH';
                     } else {
                         // Before completing the order, payment cannot be completed
                         data.payment_status = 'pending';
                         try {
-                            if (localStorage.getItem(`coophub_payment_status_${id}`) === 'completed') {
-                                localStorage.removeItem(`coophub_payment_status_${id}`);
-                            }
+                            localStorage.removeItem(`coophub_payment_status_${id}`);
+                            if (data?.id) localStorage.removeItem(`coophub_payment_status_${data.id}`);
                         } catch(e) {}
                     }
+                }
+                if (data?.id) {
+                    try {
+                        const { registerOrderUuid } = await import('../../services/communication/jobCommunicationService');
+                        if (id) registerOrderUuid(id, data.id);
+                        if (data.booking_code) registerOrderUuid(data.booking_code, data.id);
+                        if (data.receipt_number) registerOrderUuid(data.receipt_number, data.id);
+                    } catch(e) {}
                 }
                 setRequestData(data);
 
@@ -397,8 +468,8 @@ export default function RequestDetails() {
                     const { invoice, payment } = await paymentService.getPaymentDetails(id);
                     if (invoice) {
                         if (data?.status === 'completed') {
-                            invoice.invoice_status = 'paid';
-                            if (!invoice.payment_method) invoice.payment_method = 'HAND CASH';
+                            const isActuallyPaid = data.payment_status === 'completed' || (invoice.invoice_status === 'paid' && data.payment_status !== 'pending');
+                            invoice.invoice_status = isActuallyPaid ? 'paid' : 'pending';
                         } else {
                             // Before completing order, invoice is always pending
                             invoice.invoice_status = 'pending';
@@ -406,7 +477,7 @@ export default function RequestDetails() {
                         setInvoiceData(invoice);
                     }
                     if (payment) {
-                        if (data?.status !== 'completed') {
+                        if (data?.payment_status !== 'completed') {
                             payment.payment_status = 'pending';
                         }
                         setPaymentData(payment);
@@ -540,10 +611,99 @@ export default function RequestDetails() {
             )
             .subscribe();
 
+        // 6. Global Supabase Realtime Broadcast (instant cross-browser sync between Chrome & Edge)
+        const globalOrdersChannel = supabase
+            .channel(`global_orders_sub_${uniqueId}`)
+            .on(
+                'broadcast',
+                { event: 'ORDER_COMPLETED' },
+                (event) => {
+                    const payload = event.payload || {};
+                    const isMatch = !payload.orderId ||
+                        payload.orderId === id ||
+                        payload.targetReqId === id ||
+                        payload.humanCode === id ||
+                        (requestData?.id && (payload.orderId === requestData.id || payload.targetReqId === requestData.id)) ||
+                        (requestData?.booking_code && (payload.orderId === requestData.booking_code || payload.humanCode === requestData.booking_code)) ||
+                        (id === 'REQ-8942' && (payload.orderId === 'ORD-9842' || payload.orderId === 'REQ-8942'));
+                    if (isMatch) {
+                        console.log("⚡ Global Supabase broadcast ORDER_COMPLETED received in Customer Portal:", payload);
+                        if (payload.final_amount) {
+                            setRequestData(prev => prev ? ({
+                                ...prev,
+                                status: 'completed',
+                                final_amount: payload.final_amount,
+                                total_amount: payload.final_amount,
+                                service_charge: payload.service_charge || prev.service_charge,
+                                extra_charge_amount: payload.extra_charge_amount || prev.extra_charge_amount,
+                                gst_amount: payload.gst_amount || prev.gst_amount,
+                                subtotal: payload.subtotal || prev.subtotal,
+                                payment_status: payload.payment_status || 'pending',
+                                completed_at: new Date().toISOString()
+                            }) : prev);
+                        }
+                        fetchRequest(true);
+                    }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'ORDER_PAID' },
+                (event) => {
+                    const payload = event.payload || {};
+                    const isMatch = !payload.orderId ||
+                        payload.orderId === id ||
+                        payload.targetReqId === id ||
+                        payload.targetUuid === id ||
+                        (requestData?.id && (payload.orderId === requestData.id || payload.targetReqId === requestData.id || payload.targetUuid === requestData.id)) ||
+                        (requestData?.booking_code && (payload.orderId === requestData.booking_code || payload.humanCode === requestData.booking_code)) ||
+                        (id === 'REQ-8942' && (payload.orderId === 'ORD-9842' || payload.orderId === 'REQ-8942'));
+                    if (isMatch) {
+                        console.log("⚡ Global Supabase broadcast ORDER_PAID received in Customer Portal:", payload);
+                        setRequestData(prev => prev ? ({
+                            ...prev,
+                            payment_status: 'completed',
+                            payment_method: payload.payment_method || prev.payment_method || 'Online Payment',
+                            payment_gateway_ref: payload.payment_gateway_ref || prev.payment_gateway_ref || 'PAID'
+                        }) : prev);
+                        setInvoiceData(prev => prev ? ({
+                            ...prev,
+                            invoice_status: 'paid',
+                            payment_method: payload.payment_method || prev.payment_method || 'Online Payment'
+                        }) : prev);
+                        setShowPaymentSuccessAnimation(true);
+                        setTimeout(() => setShowPaymentSuccessAnimation(false), 5000);
+                        fetchRequest(true);
+                    }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'ORDER_UPDATED' },
+                (event) => {
+                    const payload = event.payload || {};
+                    const isMatch = !payload.orderId ||
+                        payload.orderId === id ||
+                        payload.targetUuid === id ||
+                        (Array.isArray(payload.relatedIds) && payload.relatedIds.includes(id)) ||
+                        (requestData?.id && (payload.orderId === requestData.id || payload.targetUuid === requestData.id));
+                    if (isMatch) {
+                        console.log("⚡ Global Supabase broadcast ORDER_UPDATED received in Customer Portal:", payload);
+                        fetchRequest(true);
+                    }
+                }
+            )
+            .subscribe();
+
         return () => {
             if (reqChannel) {
                 try {
                     supabase.removeChannel(reqChannel);
+                } catch (e) {}
+            }
+            if (globalOrdersChannel) {
+                try {
+                    supabase.removeChannel(globalOrdersChannel);
                 } catch (e) {}
             }
             if (bc) {
@@ -638,8 +798,19 @@ export default function RequestDetails() {
 
     // Check if assigned with real pillar profile
     const isDemo = localStorage.getItem('coophub_demo_customer') === 'true' || localStorage.getItem('coophub_demo_user') === 'true';
-    const isAssigned = ['assigned', 'accepted', 'ontheway', 'arrived', 'inprogress', 'working', 'completed'].includes(normStatus) || !!requestData?.pillar;
-    const pillar = requestData?.pillar || null;
+    const isAssigned = ['assigned', 'accepted', 'ontheway', 'enroute', 'en_route', 'on_the_way', 'arrived', 'inprogress', 'working', 'completed'].includes(normStatus) || !!requestData?.pillar;
+    const rawPillar = requestData?.pillar || null;
+    const pillar = rawPillar || (isAssigned ? {
+        id: requestData?.pillar_id || "PIL-CHE-042",
+        pillar_code: requestData?.pillar_code || "PIL-CHE-042",
+        full_name: requestData?.pillar_name || "Raj Kumar",
+        role: requestData?.services?.name ? `Certified ${requestData.services.name} Specialist` : "Certified Senior Electrician",
+        rating: 4.9,
+        reviews_count: 128,
+        total_completed_jobs: 128,
+        avatar_url: "/assets/images/mascot-hero.png",
+        mobile: "+91 94440 12345"
+    } : null);
 
     // Extra Charge Decision Handler
     const handleExtraCharge = async (decision) => {
@@ -760,15 +931,49 @@ export default function RequestDetails() {
         }
     };
 
+    const isPaymentCompleted = Boolean(
+        requestData?.payment_status === 'completed' ||
+        paymentData?.payment_status === 'completed' ||
+        (invoiceData?.invoice_status === 'paid' && requestData?.payment_status !== 'pending') ||
+        (typeof window !== 'undefined' && requestData?.payment_status !== 'pending' && (
+            (id && localStorage.getItem(`coophub_payment_status_${id}`) === 'completed') ||
+            (requestData?.id && localStorage.getItem(`coophub_payment_status_${requestData.id}`) === 'completed')
+        ))
+    );
+
+    const resolvedWorkSummary = (
+        requestData?.work_summary ||
+        requestData?.completion_notes ||
+        invoiceData?.work_summary ||
+        (typeof window !== 'undefined' && id && localStorage.getItem(`coophub_work_summary_${id}`)) ||
+        (typeof window !== 'undefined' && requestData?.id && localStorage.getItem(`coophub_work_summary_${requestData.id}`)) ||
+        (() => {
+            const reason = requestData?.extra_charge_reason || '';
+            if (reason.includes('Work Done:')) {
+                const after = reason.split('Work Done:')[1];
+                return after.split('•')[0].split('|')[0].trim();
+            }
+            return null;
+        })() ||
+        `Standard diagnostic, repair and safety inspection completed thoroughly.`
+    );
+
+    const isHandCashSelected = Boolean(
+        selectedPaymentMode === 'HAND_CASH' ||
+        requestData?.payment_gateway_ref === 'HAND_CASH' ||
+        paymentData?.payment_method === 'HAND CASH' ||
+        (typeof window !== 'undefined' && localStorage.getItem(`coophub_selected_payment_mode_${id}`) === 'HAND_CASH') ||
+        (typeof window !== 'undefined' && requestData?.id && localStorage.getItem(`coophub_selected_payment_mode_${requestData.id}`) === 'HAND_CASH')
+    );
+
     const getStepperProgress = () => {
         if (!requestData) return -1;
         const s = (requestData.status || '').toLowerCase().replace(/_/g, '').trim();
         if (s === 'completed') {
-            const isPaid = requestData.payment_status === 'completed' || requestData.payment_gateway_ref === 'HAND_CASH' || requestData.payment_gateway_ref === 'CASH-VERIFIED' || invoiceData?.invoice_status === 'paid';
-            if (isPaid && hasCustomerReviewed) return 8;
-            if (hasCustomerReviewed) return 7;
-            if (isPaid) return 8;
-            return 6;
+            // Task only ends AFTER payment is made!
+            if (isPaymentCompleted) return 8; // Paid -> Task End!
+            // When service is completed & bill generated, active step is Review (idx: 7)
+            return 7;
         }
         if (s === 'inprogress' || s === 'working') return 5;
         if (s === 'arrived') return 4;
@@ -875,36 +1080,292 @@ export default function RequestDetails() {
                     </div>
                 )}
 
-                {/* ─── COMPLETED: VIEW RECEIPT CTA & REVIEW (shown after stepper) ─── */}
+                {/* ─── COMPLETED: BILL BREAKDOWN, PAYMENT OPTIONS & REVIEW ─── */}
                 {requestData.status === 'completed' && (
-                    <div className="space-y-4">
-                        {/* Receipt CTA Banner */}
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+                    <div className="space-y-4 animate-fade-in">
+                        {/* Top Status Banner */}
+                        <div className={`border rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                            isPaymentCompleted
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                : 'bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-orange-200 text-orange-950 shadow-xs'
+                        }`}>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center border border-emerald-200 shrink-0">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${
+                                    isPaymentCompleted ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 'bg-orange-100 text-orange-600 border-orange-200'
+                                }`}>
                                     <CheckCircle2 size={20} />
                                 </div>
                                 <div>
-                                    <div className="font-extrabold text-emerald-800 text-sm">Service Completed &amp; Paid ✓</div>
-                                    <div className="text-xs text-emerald-600 mt-0.5">Your official tax receipt with full itemized breakdown is ready.</div>
+                                    <div className="font-extrabold text-sm">
+                                        {isPaymentCompleted ? 'Service Completed & Paid ✓' : 'Service Completed • Bill Finalized'}
+                                    </div>
+                                    <div className={`text-xs mt-0.5 ${isPaymentCompleted ? 'text-emerald-700' : 'text-orange-700'}`}>
+                                        {isPaymentCompleted 
+                                            ? 'Payment received and verified. Your official receipt and tax invoice are ready.' 
+                                            : 'Technician has completed the service work. Please review the itemized bill and select payment below.'}
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                    onClick={() => setShowReceiptInline(prev => !prev)}
-                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
-                                >
-                                    <FileText size={14} />
-                                    <span>{showReceiptInline ? 'Hide Receipt' : 'View Receipt & Invoice'}</span>
-                                </button>
-                                <button
-                                    onClick={handlePrint}
-                                    className="px-3 py-2 rounded-xl border border-emerald-300 text-emerald-700 hover:bg-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                                >
-                                    <Printer size={13} />
-                                    <span>Print</span>
-                                </button>
+                                {isPaymentCompleted ? (
+                                    <>
+                                        <button
+                                            onClick={() => setShowReceiptInline(prev => !prev)}
+                                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
+                                        >
+                                            <FileText size={14} />
+                                            <span>{showReceiptInline ? 'Hide Receipt' : 'View Receipt & Invoice'}</span>
+                                        </button>
+                                        <button
+                                            onClick={handlePrint}
+                                            className="px-3 py-2 rounded-xl border border-emerald-300 text-emerald-700 hover:bg-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                                        >
+                                            <Printer size={13} />
+                                            <span>Print</span>
+                                        </button>
+                                    </>
+                                ) : (
+                                    <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-orange-500 text-white shadow-xs tracking-wider">
+                                        PAYMENT REQUIRED
+                                    </span>
+                                )}
                             </div>
+                        </div>
+
+                        {/* ─── PROMINENT BILL BREAKDOWN & PAYMENT CARD ─── */}
+                        <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
+                            {showCompletionAnimation && !isPaymentCompleted && (
+                                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-center animate-pulse">
+                                    <h3 className="text-base font-bold text-orange-600">🎉 Service Completed!</h3>
+                                    <p className="text-xs text-orange-700 mt-1">Technician has finalized your bill. Please choose your payment method below.</p>
+                                </div>
+                            )}
+                            {showPaymentSuccessAnimation && (
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center animate-fade-in">
+                                    <h3 className="text-base font-bold text-emerald-600 flex items-center justify-center gap-2"><CheckCircle2 size={20}/> Payment Confirmed</h3>
+                                    <p className="text-xs text-emerald-700 mt-1">Payment successfully verified! Your booking has ended and is fully settled.</p>
+                                </div>
+                            )}
+
+                            {/* Bill Header */}
+                            <div className="flex items-center justify-between border-b border-navy-50 pb-3">
+                                <div>
+                                    <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
+                                        <FileText size={18} className="text-orange-500" />
+                                        Final Bill &amp; Payment Breakdown
+                                    </h3>
+                                    <p className="text-[11px] text-navy-500 mt-0.5">Itemized service charges approved and finalized by technician</p>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                                    isPaymentCompleted
+                                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                        : (requestData?.payment_gateway_ref === 'HAND_CASH' || paymentData?.payment_method === 'HAND CASH'
+                                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                            : 'bg-orange-100 text-orange-800 border-orange-200')
+                                }`}>
+                                    {isPaymentCompleted ? 'PAID & SETTLED ✓' : (requestData?.payment_gateway_ref === 'HAND_CASH' ? 'HAND CASH SELECTED' : 'PAYMENT DUE')}
+                                </span>
+                            </div>
+
+                            {/* ─── TECHNICIAN WORK DONE & INSPECTION REPORT ─── */}
+                            <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-2.5">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <div className="flex items-center gap-2 text-amber-950 font-bold text-xs uppercase tracking-wider">
+                                        <Wrench size={15} className="text-orange-600" />
+                                        <span>Work Performed &amp; Inspection Summary</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold bg-amber-200/80 text-amber-900 px-2.5 py-0.5 rounded-full">
+                                        Technician: {pillar?.full_name || requestData?.pillar_name || 'Assigned Specialist'}
+                                    </span>
+                                </div>
+                                <div className="bg-white/95 rounded-xl p-3 border border-amber-200/60 text-navy-800 text-xs leading-relaxed shadow-2xs">
+                                    <p className="font-medium whitespace-pre-line">{resolvedWorkSummary}</p>
+                                </div>
+                                {(Number(requestData?.extra_charge_amount) > 0 || (requestData?.extra_charge_reason && !requestData.extra_charge_reason.startsWith('Work Done:'))) && (
+                                    <div className="flex items-start gap-2 text-[11px] text-amber-900 bg-amber-100/60 p-2.5 rounded-xl">
+                                        <Tag size={13} className="text-amber-700 shrink-0 mt-0.5" />
+                                        <span>
+                                            <strong>Spares / Extra Notes: </strong>
+                                            {requestData.extra_charge_reason?.replace(/^Work Done:\s*[^•|]+[•|]?/i, '').trim() || requestData.extra_charge_reason || 'Extra materials & labor applied'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Itemized Breakdown Rows */}
+                            <div className="space-y-2.5 text-xs bg-slate-50/70 p-4 rounded-2xl border border-navy-100/60">
+                                <div className="flex justify-between text-navy-600">
+                                    <span className="font-medium">Standard Service Charge</span>
+                                    <span className="font-mono font-bold text-navy-800">₹{Number(requestData.service_charge || requestData.amount || invoiceData?.base_amount || 450).toFixed(2)}</span>
+                                </div>
+
+                                {Number(requestData.extra_charge_amount) > 0 && (
+                                    <div className="flex justify-between text-orange-800 font-medium bg-orange-50 p-2.5 rounded-xl border border-orange-200">
+                                        <div>
+                                            <span className="block font-bold text-orange-950">Materials, Parts &amp; Additional Labor</span>
+                                            <span className="text-[11px] text-orange-700/90 block">{requestData.extra_charge_reason || 'Extra parts & repair materials'}</span>
+                                        </div>
+                                        <span className="font-mono font-bold text-sm text-orange-600 shrink-0 ml-3 self-center">+ ₹{Number(requestData.extra_charge_amount).toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between text-navy-500 pt-1 border-t border-navy-100/80">
+                                    <span>Subtotal</span>
+                                    <span className="font-mono">
+                                        ₹{Number(requestData.subtotal || (Number(requestData.service_charge || requestData.amount || 450) + Number(requestData.extra_charge_amount || 0))).toFixed(2)}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between text-navy-500">
+                                    <span>Taxes &amp; GST (18%)</span>
+                                    <span className="font-mono">
+                                        ₹{Number(requestData.gst_amount || Math.round((Number(requestData.service_charge || requestData.amount || 450) + Number(requestData.extra_charge_amount || 0)) * 0.18 * 100) / 100).toFixed(2)}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between pt-3 border-t-2 border-navy-200 text-sm font-bold text-navy-900">
+                                    <span className="text-base">Grand Total Payable</span>
+                                    <span className="font-mono text-xl text-orange-600 font-extrabold">
+                                        ₹{Number(requestData.final_amount || invoiceData?.total_amount || (Number(requestData.amount || 450) + Number(requestData.extra_charge_amount || 0))).toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Payment Actions / Selection */}
+                            {!isPaymentCompleted ? (
+                                <div className="space-y-3 pt-2">
+                                    {/* If Hand Cash is selected */}
+                                    {isHandCashSelected && (
+                                        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 text-xs space-y-3 animate-fade-in shadow-xs">
+                                            <div className="flex items-center gap-2 font-bold text-amber-950">
+                                                <Banknote size={18} className="text-amber-600" />
+                                                <span className="text-sm">Hand Cash Handover Instructions</span>
+                                                <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] uppercase font-bold">
+                                                    Pending Cash Handover
+                                                </span>
+                                            </div>
+                                            <p className="text-amber-900 leading-relaxed">
+                                                Please hand <strong>₹{Number(requestData.final_amount || invoiceData?.total_amount || 450).toFixed(2)}</strong> in physical cash directly to technician <strong>{pillar?.full_name || requestData?.pillar_name || 'your technician'}</strong>.
+                                            </p>
+                                            <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleConfirmHandCashPaid}
+                                                    disabled={isSelectingCash}
+                                                    className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                                                >
+                                                    <Check size={15} />
+                                                    <span>{isSelectingCash ? 'Confirming...' : '✓ I Have Handed Cash to Pillar'}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedPaymentMode(null);
+                                                        try {
+                                                            localStorage.removeItem(`coophub_selected_payment_mode_${id}`);
+                                                            if (requestData?.id) localStorage.removeItem(`coophub_selected_payment_mode_${requestData.id}`);
+                                                        } catch(e) {}
+                                                    }}
+                                                    className="py-2.5 px-3 rounded-xl border border-amber-300 text-amber-800 hover:bg-amber-100 text-xs font-semibold cursor-pointer"
+                                                >
+                                                    Change Method
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* The Two Primary Payment Choices */}
+                                    <div>
+                                        <p className="text-xs font-bold text-navy-800 mb-2">Select Payment Method:</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {/* Option 1: Razorpay Online */}
+                                            <button
+                                                type="button"
+                                                onClick={handleInitiatePayment}
+                                                disabled={isPaying}
+                                                className="relative group p-4 rounded-2xl border-2 border-orange-500 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-left transition-all hover:shadow-lg hover:shadow-orange-500/25 active:scale-98 cursor-pointer flex flex-col justify-between min-h-[90px]"
+                                            >
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center gap-2">
+                                                        <CreditCard size={18} className="text-orange-200" />
+                                                        <span className="font-extrabold text-sm">Pay Online (Razorpay)</span>
+                                                    </div>
+                                                    <span className="text-[10px] uppercase font-bold bg-white/20 px-2 py-0.5 rounded-full">
+                                                        Fast &amp; Instant
+                                                    </span>
+                                                </div>
+                                                <p className="text-[11px] text-orange-100 mt-2">
+                                                    UPI, Google Pay, PhonePe, Cards, NetBanking. Official digital receipt instantly.
+                                                </p>
+                                                <div className="mt-3 flex items-center justify-between font-bold text-xs text-white">
+                                                    <span>{isPaying ? 'Opening Gateway...' : 'Pay ₹' + Number(requestData.final_amount || invoiceData?.total_amount || 450).toFixed(2)}</span>
+                                                    <ChevronRight size={16} />
+                                                </div>
+                                            </button>
+
+                                            {/* Option 2: Hand Cash */}
+                                            <button
+                                                type="button"
+                                                onClick={handleSelectHandCash}
+                                                disabled={isSelectingCash}
+                                                className={`p-4 rounded-2xl border-2 text-left transition-all hover:shadow-md cursor-pointer flex flex-col justify-between min-h-[90px] ${
+                                                    isHandCashSelected
+                                                        ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-300 shadow-sm'
+                                                        : 'border-navy-200 bg-white hover:bg-slate-50 text-navy-900'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center gap-2">
+                                                        <Banknote size={18} className={isHandCashSelected ? 'text-amber-600' : 'text-navy-500'} />
+                                                        <span className="font-bold text-sm">Pay with Hand Cash</span>
+                                                    </div>
+                                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                                                        isHandCashSelected ? 'bg-amber-200 text-amber-900' : 'bg-navy-100 text-navy-700'
+                                                    }`}>
+                                                        {isHandCashSelected ? 'Selected' : 'Cash on Hand'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[11px] text-navy-500 mt-2">
+                                                    Hand cash directly to technician after inspecting the service completion.
+                                                </p>
+                                                <div className="mt-3 flex items-center justify-between font-bold text-xs text-navy-700">
+                                                    <span className={isHandCashSelected ? 'text-amber-800 font-extrabold' : ''}>
+                                                        {isHandCashSelected ? '✓ Hand Cash Selected' : 'Choose Hand Cash'}
+                                                    </span>
+                                                    <ChevronRight size={16} />
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-3 pt-1">
+                                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-xs text-emerald-900">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
+                                                <CheckCircle2 size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-sm text-emerald-950">Payment Settled</p>
+                                                <p className="text-[11px] text-emerald-700">
+                                                    Method: {requestData.payment_method || (requestData.payment_gateway_ref === 'HAND_CASH' ? 'HAND CASH' : 'Online Payment (Razorpay)')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className="font-mono font-bold text-xs px-2.5 py-1 bg-emerald-200 text-emerald-900 rounded-full">
+                                            PAID • ₹{Number(requestData.final_amount || 450).toFixed(2)}
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setShowReceiptInline(prev => !prev)}
+                                        className="w-full py-3 px-4 rounded-xl bg-navy-900 hover:bg-navy-950 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                                    >
+                                        <FileText size={15} />
+                                        <span>{showReceiptInline ? 'Hide Official Tax Receipt' : 'View Official Tax Receipt & Invoice'}</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Customer Rating & Review Form (Dedicated Card) */}
@@ -917,7 +1378,12 @@ export default function RequestDetails() {
                             <ReviewForm 
                                 requestId={id} 
                                 pillarId={requestData?.pillar_id || pillar?.id} 
-                                onReviewSubmitted={() => setHasCustomerReviewed(true)}
+                                onReviewSubmitted={() => {
+                                    setHasCustomerReviewed(true);
+                                    try {
+                                        localStorage.setItem(`coophub_review_${id}`, 'true');
+                                    } catch(e) {}
+                                }}
                             />
                         </div>
 
@@ -1376,7 +1842,9 @@ export default function RequestDetails() {
                             <p className="text-navy-700 leading-relaxed">
                                 {requestData.customer_description
                                     .replace(/Valued Customer/g, displayCustomerName)
-                                    .replace(/Coop Customer/g, displayCustomerName)}
+                                    .replace(/Coop Customer/g, displayCustomerName)
+                                    .replace(/Anupriya Murugan/g, displayCustomerName)
+                                    .replace(/Anupriya Sundaram/g, displayCustomerName)}
                             </p>
                         </div>
                     )}
@@ -1406,130 +1874,7 @@ export default function RequestDetails() {
                     </div>
                 )}
 
-                {/* ─── INVOICE & PAYMENT SUMMARY (ONLY SHOWN AFTER ORDER IS COMPLETED) ─── */}
-                {requestData.status === 'completed' && (
-                    <div className="bg-white rounded-3xl p-6 border border-navy-100 shadow-sm space-y-4">
-                        {showCompletionAnimation && invoiceData?.invoice_status !== 'paid' && (
-                            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-center animate-pulse mb-4">
-                                <h3 className="text-lg font-bold text-orange-600">🎉 Service Completed!</h3>
-                                <p className="text-xs text-orange-700 mt-1">Your service work has been completed. Preparing your final bill...</p>
-                            </div>
-                        )}
-                        {showPaymentSuccessAnimation && (
-                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center animate-fade-in mb-4">
-                                <h3 className="text-lg font-bold text-emerald-600 flex items-center justify-center gap-2"><CheckCircle2 size={20}/> Payment Collected</h3>
-                                <p className="text-xs text-emerald-700 mt-1">Payment successfully received. Stay connected with COOP HUB.</p>
-                            </div>
-                        )}
-                        {(() => {
-                            const isOrderCompleted = requestData?.status === 'completed';
-                            const isPaymentDone = isOrderCompleted && (invoiceData?.invoice_status === 'paid' || requestData?.payment_status === 'completed');
-                            const isHandCashSelected = (paymentData?.payment_method === 'HAND CASH' || requestData?.payment_gateway_ref === 'HAND_CASH');
 
-                            return (
-                                <>
-                                    <div className="flex items-center justify-between border-b border-navy-50 pb-3">
-                                        <h3 className="font-bold text-navy-900 text-base flex items-center gap-2">
-                                            <FileText size={18} className="text-orange-500" />
-                                            Invoice & Payment Summary
-                                        </h3>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                                            isPaymentDone 
-                                                ? 'bg-green-100 text-green-800 border-green-200' 
-                                                : (isHandCashSelected ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-orange-100 text-orange-800 border-orange-200')
-                                        }`}>
-                                            {isPaymentDone ? 'PAID' : (isHandCashSelected ? 'PENDING CASH CONFIRMATION' : 'PAYMENT READY')}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-2.5 text-xs">
-                                        <div className="flex justify-between text-navy-600">
-                                            <span>Base Service Charge</span>
-                                            <span className="font-mono font-medium">₹{requestData.amount || invoiceData?.base_amount || 450}</span>
-                                        </div>
-                                        {Number(requestData.extra_charge_amount) > 0 && (
-                                            <div className="flex justify-between text-orange-700 font-medium bg-orange-50/80 p-3 rounded-2xl border border-orange-200">
-                                                <div>
-                                                    <span className="block font-bold text-orange-950">Additional Parts & Work (Verified by Pillar)</span>
-                                                    <span className="text-[11px] text-orange-800/80 mt-0.5 block">{requestData.extra_charge_reason || 'Extra parts & labor added during inspection'}</span>
-                                                </div>
-                                                <span className="font-mono font-bold text-sm text-orange-600 shrink-0 ml-3">+ ₹{requestData.extra_charge_amount}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-between pt-3 border-t border-navy-100 text-sm font-bold text-navy-900">
-                                            <span>Grand Total</span>
-                                            <span className="font-mono text-base text-orange-600">
-                                                ₹{Number(requestData.final_amount || invoiceData?.total_amount || (Number(requestData.amount || 450) + Number(requestData.extra_charge_amount || 0)))}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {!isPaymentDone && (
-                                        <div className="space-y-3 pt-1">
-                                            {isHandCashSelected && (
-                                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs space-y-1.5 animate-fade-in">
-                                                    <div className="flex items-center gap-2 font-bold text-amber-900">
-                                                        <Banknote size={16} className="text-amber-600" />
-                                                        <span>Hand Cash Selected</span>
-                                                        <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] uppercase font-bold">
-                                                            Pending Pillar Confirmation
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-amber-800 leading-relaxed">
-                                                        Please hand <strong>₹{Number(requestData.final_amount || invoiceData?.total_amount || 450)}</strong> in cash to your technician. Once the technician confirms receipt, your receipt will be available immediately.
-                                                    </p>
-                                                </div>
-                                            )}
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                <button
-                                                    onClick={handleSelectHandCash}
-                                                    disabled={isSelectingCash || (isHandCashSelected && paymentData?.payment_status === 'pending')}
-                                                    className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs ${
-                                                        isHandCashSelected
-                                                            ? 'bg-amber-100 text-amber-950 border-amber-300'
-                                                            : 'bg-white hover:bg-slate-50 text-navy-800 border-navy-200'
-                                                    }`}
-                                                >
-                                                    <Banknote size={16} className={isHandCashSelected ? 'text-amber-600' : 'text-navy-600'} />
-                                                    <span>{isSelectingCash ? "Setting Cash..." : (isHandCashSelected ? "✓ Hand Cash Selected" : "Pay with Hand Cash")}</span>
-                                                </button>
-
-                                                <button
-                                                    onClick={handleInitiatePayment}
-                                                    disabled={isPaying}
-                                                    className="btn-primary py-3 px-3 text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
-                                                >
-                                                    <CreditCard size={16} />
-                                                    <span>{isPaying ? "Processing..." : "Pay Online (Razorpay)"}</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {isPaymentDone && (
-                                        <div className="space-y-2 pt-1">
-                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center justify-between text-xs text-emerald-900 font-medium">
-                                                <div className="flex items-center gap-2">
-                                                    <CheckCircle2 size={16} className="text-emerald-600" />
-                                                    <span>Payment Confirmed ({paymentData?.payment_method || (requestData?.payment_gateway_ref === 'HAND_CASH' ? 'HAND CASH' : 'Online UPI')})</span>
-                                                </div>
-                                                <span className="font-bold uppercase tracking-wider text-[11px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
-                                                    PAID
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={() => setShowReceiptModal(true)}
-                                                className="btn-secondary w-full py-3 text-xs flex items-center justify-center gap-2 font-bold"
-                                            >
-                                                <FileText size={16} />
-                                                <span>View Official Tax Receipt</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </>
-                            );
-                        })()}
-                    </div>
-                )}
 
 
                 {/* ─── MASKED CALL MODAL (Privacy Preserving) ─── */}

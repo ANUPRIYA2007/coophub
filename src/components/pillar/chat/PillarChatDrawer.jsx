@@ -91,7 +91,7 @@ export default function PillarChatDrawer({
     }
 
     setLoading(true);
-    const { data } = await jobCommunicationService.getMessages(requestId);
+    const { data } = await jobCommunicationService.getMessages(requestId, { order: activeOrder });
     setMessages(data || []);
     setLoading(false);
 
@@ -107,7 +107,7 @@ export default function PillarChatDrawer({
     // Background silent polling (every 2s) to guarantee real-time updates across different browsers
     const pollInterval = setInterval(async () => {
       try {
-        const { data } = await jobCommunicationService.getMessages(requestId);
+        const { data } = await jobCommunicationService.getMessages(requestId, { order: activeOrder });
         if (data && Array.isArray(data)) {
           setMessages(prev => {
             if (data.length !== prev.length || (data.length > 0 && prev.length > 0 && data[data.length - 1].id !== prev[prev.length - 1].id)) {
@@ -139,7 +139,7 @@ export default function PillarChatDrawer({
           return clone;
         });
       }
-    });
+    }, { order: activeOrder });
 
     return () => {
       clearInterval(pollInterval);
@@ -147,7 +147,7 @@ export default function PillarChatDrawer({
         unsubscribe();
       }
     };
-  }, [isOpen, requestId]);
+  }, [isOpen, requestId, activeOrder]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -178,6 +178,7 @@ export default function PillarChatDrawer({
 
     const res = await jobCommunicationService.sendMessage({
       requestId,
+      order: activeOrder,
       senderId: user?.id,
       senderType: 'pillar',
       content: text,
@@ -227,7 +228,10 @@ export default function PillarChatDrawer({
 
   if (!isOpen) return null;
 
-  const customerName = activeOrder?.customer_name || activeOrder?.user?.full_name || activeOrder?.customer?.full_name || "Customer";
+  const rawCustomerName = activeOrder?.customer_name || activeOrder?.user?.full_name || activeOrder?.customer?.full_name || "Customer";
+  const customerName = (rawCustomerName === "Anupriya Murugan" || rawCustomerName === "Anupriya Sundaram" || rawCustomerName === "Valued Customer")
+    ? (localStorage.getItem('coophub_customer_name') || "Anupriya")
+    : rawCustomerName;
   const customerMobile = activeOrder?.customer_mobile || activeOrder?.user?.mobile || activeOrder?.customer?.mobile;
   const serviceTitle = activeOrder?.service_name || activeOrder?.service?.title || "Service Request";
   const bookingCode = activeOrder?.booking_code || (requestId ? String(requestId).slice(0, 8) : "REQ");

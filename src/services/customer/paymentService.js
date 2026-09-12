@@ -65,6 +65,44 @@ export const paymentService = {
                 if (payData) payment = payData;
             }
 
+            // Fallback: If no invoice in invoices table, derive directly from authoritative service_requests
+            if (!invoice && queryId) {
+                try {
+                    const { data: sReq } = await supabase
+                        .from('service_requests')
+                        .select('*')
+                        .eq('id', queryId)
+                        .maybeSingle();
+                    if (sReq) {
+                        const baseAmount = Number(sReq.service_charge || sReq.amount || 350);
+                        const extraAmount = Number(sReq.extra_charge_amount || 0);
+                        const taxAmount = Number(sReq.gst_amount) || Math.round((baseAmount + extraAmount) * 0.18 * 100) / 100;
+                        const totalAmount = Number(sReq.final_amount || sReq.total_amount) || Math.round((baseAmount + extraAmount + taxAmount) * 100) / 100;
+                        const isPaid = sReq.payment_status === 'completed';
+                        invoice = {
+                            id: `INV-${String(sReq.id || requestId).slice(0, 8)}`,
+                            request_id: sReq.id,
+                            invoice_number: `INV-${String(sReq.receipt_number || requestId).replace(/[^0-9a-zA-Z]/g, '').slice(0, 6).toUpperCase()}-001`,
+                            base_amount: baseAmount,
+                            extra_charges: extraAmount,
+                            tax_amount: taxAmount,
+                            total_amount: totalAmount,
+                            invoice_status: isPaid ? 'paid' : 'pending',
+                            payment_method: isPaid ? (sReq.payment_gateway_ref || 'HAND CASH') : null
+                        };
+                        if (isPaid && !payment) {
+                            payment = {
+                                id: `PAY-${String(sReq.id || requestId).slice(0, 8)}`,
+                                request_id: sReq.id,
+                                payment_method: sReq.payment_gateway_ref || 'HAND CASH',
+                                payment_status: 'completed',
+                                amount: totalAmount
+                            };
+                        }
+                    }
+                } catch (se) {}
+            }
+
             if (!invoice && localInvoice) invoice = localInvoice;
 
             // Check if there's a local payment status override for THIS request
@@ -82,8 +120,7 @@ export const paymentService = {
 
                 if (orderItem) {
                     const baseAmount = Number(orderItem.final_amount || orderItem.total_amount || orderItem.amount || 450);
-                    const isOrderCompleted = orderItem.status === 'completed';
-                    const isPaid = isOrderCompleted && (localPaymentStatus === 'completed' || orderItem.payment_status === 'completed');
+                    const isPaid = localPaymentStatus === 'completed' || orderItem.payment_status === 'completed';
                     invoice = {
                         id: `INV-${String(requestId).slice(0, 8)}`,
                         request_id: requestId,
@@ -248,20 +285,6 @@ export const paymentService = {
      */
     chooseHandCash: async (requestId, customerId) => {
         try {
-            try {
-                const response = await fetch(`${SERVER_BASE}/api/payment/choose-hand-cash`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ requestId, customerId })
-                });
-
-                if (response.ok) {
-                    return await response.json();
-                }
-            } catch (netErr) {
-                // Backend server unreachable in local dev mode; proceed with resilient fallback
-            }
-
             let targetUuid = (typeof requestId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) ? requestId : null;
 
             if (!targetUuid) {
@@ -276,11 +299,43 @@ export const paymentService = {
                 } catch (e) {}
             }
 
+            // Update Supabase if target UUID found
+            if (targetUuid) {
+                try {
+                    await supabase
+                        .from('service_requests')
+                        .update({ payment_gateway_ref: 'HAND_CASH' })
+                        .eq('id', targetUuid);
+                } catch (dbErr) {
+                    console.warn("chooseHandCash DB update note:", dbErr);
+                }
+            }
+
             try {
                 localStorage.setItem(`coophub_payment_method_${requestId}`, 'HAND CASH');
                 if (targetUuid) localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'HAND CASH');
+                localStorage.setItem(`coophub_selected_payment_mode_${requestId}`, 'HAND_CASH');
+                if (targetUuid) localStorage.setItem(`coophub_selected_payment_mode_${targetUuid}`, 'HAND_CASH');
                 localStorage.setItem(`coophub_payment_status_${requestId}`, 'pending');
                 if (targetUuid) localStorage.setItem(`coophub_payment_status_${targetUuid}`, 'pending');
+
+                const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
+                sharedOrders.forEach(o => {
+                    if (o.id === requestId || o.id === targetUuid || o.booking_code === requestId) {
+                        o.payment_gateway_ref = 'HAND_CASH';
+                        o.payment_method = 'HAND CASH';
+                    }
+                });
+                localStorage.setItem('coophub_shared_live_orders', JSON.stringify(sharedOrders));
+
+                const demoReqs = JSON.parse(localStorage.getItem('coophub_demo_customer_created_requests') || '[]');
+                demoReqs.forEach(o => {
+                    if (o.id === requestId || o.id === targetUuid || o.booking_code === requestId) {
+                        o.payment_gateway_ref = 'HAND_CASH';
+                        o.payment_method = 'HAND CASH';
+                    }
+                });
+                localStorage.setItem('coophub_demo_customer_created_requests', JSON.stringify(demoReqs));
             } catch (e) {}
 
             return { success: true, method: 'HAND CASH' };
@@ -335,7 +390,6 @@ export const paymentService = {
                         .update({
                             payment_status: 'completed',
                             status: 'completed',
-                            payment_method: 'HAND CASH',
                             payment_gateway_ref: 'HAND_CASH'
                         })
                         .eq('id', targetUuid);
@@ -359,9 +413,8 @@ export const paymentService = {
                 localStorage.setItem(`coophub_payment_method_${requestId}`, 'HAND CASH');
                 if (targetUuid) localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'HAND CASH');
 
-                localStorage.setItem(`coophub_payment_method_${targetUuid}`, 'HAND CASH');
                 localStorage.setItem(`coophub_status_${requestId}`, 'completed');
-                localStorage.setItem(`coophub_status_${targetUuid}`, 'completed');
+                if (targetUuid) localStorage.setItem(`coophub_status_${targetUuid}`, 'completed');
 
                 // Update coophub_shared_live_orders
                 const sharedOrders = JSON.parse(localStorage.getItem('coophub_shared_live_orders') || '[]');
@@ -424,6 +477,24 @@ export const paymentService = {
                     });
                 }
             } catch (bcErr) {}
+
+            // 4. Global Supabase Realtime Broadcast (Chrome <-> Edge instant synchronization)
+            try {
+                const globalChannel = supabase.channel('coophub_global_orders');
+                globalChannel.send({
+                    type: 'broadcast',
+                    event: 'ORDER_PAID',
+                    payload: {
+                        orderId: requestId,
+                        targetUuid,
+                        status: 'completed',
+                        payment_status: 'completed',
+                        payment_method: 'HAND CASH',
+                        payment_gateway_ref: 'HAND_CASH',
+                        timestamp: Date.now()
+                    }
+                });
+            } catch (gErr) {}
 
             try {
                 window.dispatchEvent(new CustomEvent('coophub_order_updated', {

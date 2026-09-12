@@ -686,8 +686,8 @@ export default function OrderDetailsModal({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--color-text)" }}>
-                    {(!order.customer_name || order.customer_name === 'Valued Customer' || order.customer_name === 'Coop Customer')
-                      ? (order.customer?.full_name && order.customer.full_name !== 'Valued Customer' ? order.customer.full_name : 'Anupriya Sundaram')
+                    {(!order.customer_name || order.customer_name === 'Valued Customer' || order.customer_name === 'Coop Customer' || order.customer_name === 'Anupriya Murugan' || order.customer_name === 'Anupriya Sundaram')
+                      ? (order.customer?.full_name && order.customer.full_name !== 'Valued Customer' && order.customer.full_name !== 'Anupriya Murugan' && order.customer.full_name !== 'Anupriya Sundaram' ? order.customer.full_name : (localStorage.getItem('coophub_customer_name') || 'Anupriya'))
                       : order.customer_name}
                   </div>
                   <div style={{ fontSize: "12px", color: "var(--color-secondary)", marginTop: "2px", fontWeight: "600" }}>

@@ -41,7 +41,7 @@ export default function CustomerChatDrawer({
   const fetchChatMessages = async () => {
     if (!effectiveId) return;
     setLoading(true);
-    const { data } = await jobCommunicationService.getMessages(effectiveId);
+    const { data } = await jobCommunicationService.getMessages(effectiveId, { order });
     setMessages(data || []);
     setLoading(false);
     // Mark messages as read by customer
@@ -55,7 +55,7 @@ export default function CustomerChatDrawer({
     // Background silent polling (every 2s) to guarantee real-time updates across different browsers
     const pollInterval = setInterval(async () => {
       try {
-        const { data } = await jobCommunicationService.getMessages(effectiveId);
+        const { data } = await jobCommunicationService.getMessages(effectiveId, { order });
         if (data && Array.isArray(data)) {
           setMessages(prev => {
             if (data.length !== prev.length || (data.length > 0 && prev.length > 0 && data[data.length - 1].id !== prev[prev.length - 1].id)) {
@@ -88,7 +88,7 @@ export default function CustomerChatDrawer({
           return clone;
         });
       }
-    });
+    }, { order });
 
     return () => {
       clearInterval(pollInterval);
@@ -96,7 +96,7 @@ export default function CustomerChatDrawer({
         unsubscribe();
       }
     };
-  }, [isOpen, effectiveId]);
+  }, [isOpen, effectiveId, order]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,6 +126,7 @@ export default function CustomerChatDrawer({
 
     const res = await jobCommunicationService.sendMessage({
       requestId: effectiveId,
+      order,
       senderId: user?.id,
       senderType: 'customer',
       content: text,

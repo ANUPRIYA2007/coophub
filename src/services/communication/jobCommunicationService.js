@@ -64,9 +64,11 @@ function findUuidInLocalStorage(str) {
                           item.order_id === str || 
                           item.booking_code === str || 
                           item.receipt_number === str ||
+                          item.payment_gateway_ref === str ||
+                          item.db_id === str ||
                           item.request_id === str;
           if (matches) {
-            const candidate = item.id || item.request_id;
+            const candidate = item.db_id || item.id || item.request_id;
             if (candidate && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidate)) {
               return candidate;
             }
@@ -76,6 +78,85 @@ function findUuidInLocalStorage(str) {
     }
   } catch (e) {}
   return null;
+}
+
+/**
+ * Resolves all known aliases (human order code, DB UUID, deterministic UUID) for an order
+ */
+export function resolveAllOrderAliases(orderOrId) {
+  const aliases = new Set();
+  if (!orderOrId) return [];
+
+  let strId = '';
+  if (typeof orderOrId === 'string') {
+    strId = orderOrId.trim();
+    aliases.add(strId);
+  } else if (typeof orderOrId === 'object') {
+    if (orderOrId.id) aliases.add(String(orderOrId.id).trim());
+    if (orderOrId.request_id) aliases.add(String(orderOrId.request_id).trim());
+    if (orderOrId.order_id) aliases.add(String(orderOrId.order_id).trim());
+    if (orderOrId.booking_code) aliases.add(String(orderOrId.booking_code).trim());
+    if (orderOrId.receipt_number) aliases.add(String(orderOrId.receipt_number).trim());
+    if (orderOrId.payment_gateway_ref) aliases.add(String(orderOrId.payment_gateway_ref).trim());
+    if (orderOrId.db_id) aliases.add(String(orderOrId.db_id).trim());
+    strId = orderOrId.id || orderOrId.booking_code || orderOrId.order_id || '';
+  }
+
+  // Check UUID_CACHE for each alias
+  Array.from(aliases).forEach(a => {
+    if (UUID_CACHE.has(a)) {
+      aliases.add(UUID_CACHE.get(a));
+    }
+  });
+
+  // Check local storage records
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const keys = [
+        'coophub_shared_live_orders',
+        'coophub_demo_customer_created_requests',
+        'coophub_recent_bookings',
+        'coophub_customer_requests'
+      ];
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            if (!item) continue;
+            const itemMatches = Array.from(aliases).some(a => 
+              item.id === a || 
+              item.order_id === a || 
+              item.booking_code === a || 
+              item.receipt_number === a ||
+              item.payment_gateway_ref === a ||
+              item.db_id === a ||
+              item.request_id === a
+            );
+            if (itemMatches) {
+              if (item.id) aliases.add(String(item.id).trim());
+              if (item.order_id) aliases.add(String(item.order_id).trim());
+              if (item.booking_code) aliases.add(String(item.booking_code).trim());
+              if (item.receipt_number) aliases.add(String(item.receipt_number).trim());
+              if (item.payment_gateway_ref) aliases.add(String(item.payment_gateway_ref).trim());
+              if (item.db_id) aliases.add(String(item.db_id).trim());
+              if (item.request_id) aliases.add(String(item.request_id).trim());
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  // Add deterministic UUID for any human code (e.g. REQ-9843)
+  Array.from(aliases).forEach(a => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a)) {
+      aliases.add(deterministicUuid(a));
+    }
+  });
+
+  return Array.from(aliases).filter(Boolean);
 }
 
 /**
@@ -143,19 +224,37 @@ export const jobCommunicationService = {
   /**
    * Fetch conversation messages for a request / booking
    */
-  async getMessages(requestId, { limit = 50, offset = 0 } = {}) {
-    if (!requestId) return { data: [], error: null };
+  async getMessages(orderOrId, { limit = 50, offset = 0, order = null } = {}) {
+    if (!orderOrId) return { data: [], error: null };
 
-    const targetUuid = await resolveRequestUuidAsync(requestId);
+    const allAliases = resolveAllOrderAliases(order || orderOrId);
+    let targetUuid = allAliases.find(a => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a));
+    if (!targetUuid) {
+      targetUuid = await resolveRequestUuidAsync(typeof orderOrId === 'string' ? orderOrId : (orderOrId.id || orderOrId.booking_code));
+      if (targetUuid && !allAliases.includes(targetUuid)) allAliases.push(targetUuid);
+    }
+
     let dbMessages = [];
 
     // 1. Fetch from Supabase PostgreSQL
     try {
-      if (targetUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
+      const validUuids = allAliases.filter(a => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a));
+      const humanCodes = allAliases.filter(a => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a));
+      
+      const orClauses = [];
+      if (validUuids.length > 0) {
+        orClauses.push(`request_id.in.(${validUuids.join(',')})`);
+      }
+      humanCodes.forEach(code => {
+        orClauses.push(`metadata->>order_code.eq.${code}`);
+        orClauses.push(`metadata->>original_request_id.eq.${code}`);
+      });
+
+      if (orClauses.length > 0) {
         const { data, error } = await supabase
           .from('messages')
           .select('*')
-          .eq('request_id', targetUuid)
+          .or(orClauses.join(','))
           .order('created_at', { ascending: true })
           .range(offset, offset + limit - 1);
 
@@ -167,14 +266,11 @@ export const jobCommunicationService = {
       console.warn("Supabase fetch messages note:", err?.message);
     }
 
-    // 2. Read from localStorage fallback cache for this specific order ONLY
+    // 2. Read from localStorage fallback cache across all aliases
     let localMessages = [];
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const keysToRead = new Set([
-          `coophub_messages_${targetUuid}`,
-          `coophub_messages_${requestId}`
-        ]);
+        const keysToRead = new Set(allAliases.map(a => `coophub_messages_${a}`));
 
         keysToRead.forEach(k => {
           try {
@@ -193,12 +289,12 @@ export const jobCommunicationService = {
     // 3. Deduplicate and merge
     const map = new Map();
     [...localMessages, ...dbMessages].forEach(m => {
-      if (m && (m.id || m.content)) {
-        const key = m.id || `${m.sender_type}-${m.created_at}-${m.content}`;
+      if (m && (m.id || m.content || m.message)) {
+        const key = m.id || `${m.sender_type}-${m.created_at}-${m.content || m.message}`;
         map.set(key, {
           id: m.id || key,
-          request_id: m.request_id || targetUuid || requestId,
-          booking_id: m.booking_id || requestId,
+          request_id: m.request_id || targetUuid || allAliases[0],
+          booking_id: m.booking_id || allAliases[0],
           sender_id: m.sender_id,
           sender_type: m.sender_type || 'customer',
           content: m.content || m.message || '',
@@ -227,7 +323,8 @@ export const jobCommunicationService = {
     senderType = 'customer',
     content = '',
     messageType = 'TEXT',
-    metadata = {}
+    metadata = {},
+    order = null
   }) {
     const cleanContent = (content || '').trim();
     if (!cleanContent) {
@@ -237,7 +334,14 @@ export const jobCommunicationService = {
       return { data: null, error: 'Message exceeds maximum allowable length of 1,000 characters.' };
     }
 
-    const targetUuid = await resolveRequestUuidAsync(requestId);
+    const allAliases = resolveAllOrderAliases(order || requestId);
+    let targetUuid = allAliases.find(a => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a));
+    if (!targetUuid) {
+      targetUuid = await resolveRequestUuidAsync(typeof requestId === 'string' ? requestId : (order?.id || order?.booking_code));
+      if (targetUuid && !allAliases.includes(targetUuid)) allAliases.push(targetUuid);
+    }
+    const humanCode = allAliases.find(a => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a)) || requestId;
+
     const nowIso = new Date().toISOString();
     const tempId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
@@ -251,7 +355,8 @@ export const jobCommunicationService = {
       metadata: { 
         ...metadata, 
         original_request_id: requestId,
-        order_code: requestId
+        order_code: humanCode,
+        aliases: allAliases
       },
       read: false,
       is_read: false,
@@ -267,14 +372,27 @@ export const jobCommunicationService = {
       ...payload
     };
 
-    // 1. Insert into Supabase
+    // 1. Insert into Supabase with automatic retry on foreign key / schema violation
     try {
       if (targetUuid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('messages')
           .insert([payload])
           .select()
           .single();
+
+        // If foreign key constraint on sender_id fails, retry without sender_id
+        if (error && (error.code === '23503' || String(error.message || '').includes('sender_id'))) {
+          const retryPayload = { ...payload, sender_id: null };
+          retryPayload.metadata = { ...retryPayload.metadata, sender_id: senderId };
+          const resRetry = await supabase
+            .from('messages')
+            .insert([retryPayload])
+            .select()
+            .single();
+          data = resRetry.data;
+          error = resRetry.error;
+        }
 
         if (!error && data) {
           createdMsg = {
@@ -290,20 +408,21 @@ export const jobCommunicationService = {
       console.warn("Supabase send message exception:", err);
     }
 
-    // 2. Persist to localStorage cache for this specific order ONLY
+    // 2. Persist to localStorage cache across ALL known aliases
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const cacheKeys = [
-          `coophub_messages_${targetUuid}`,
-          requestId !== targetUuid ? `coophub_messages_${requestId}` : null
-        ].filter(Boolean);
+        const cacheKeys = new Set(allAliases.map(a => `coophub_messages_${a}`));
+        cacheKeys.add(`coophub_messages_${requestId}`);
+        if (targetUuid) cacheKeys.add(`coophub_messages_${targetUuid}`);
 
         cacheKeys.forEach(key => {
-          const list = JSON.parse(localStorage.getItem(key) || '[]');
-          if (!list.some(m => m.id === createdMsg.id)) {
-            list.push(createdMsg);
-            localStorage.setItem(key, JSON.stringify(list));
-          }
+          try {
+            const list = JSON.parse(localStorage.getItem(key) || '[]');
+            if (!list.some(m => m.id === createdMsg.id)) {
+              list.push(createdMsg);
+              localStorage.setItem(key, JSON.stringify(list));
+            }
+          } catch(e) {}
         });
       }
     } catch (e) {}
@@ -316,6 +435,7 @@ export const jobCommunicationService = {
           type: 'NEW_CHAT_MESSAGE',
           requestId,
           targetUuid,
+          aliases: allAliases,
           message: createdMsg,
           timestamp: Date.now()
         });
@@ -325,7 +445,7 @@ export const jobCommunicationService = {
 
     try {
       window.dispatchEvent(new CustomEvent('coophub_new_chat_message', {
-        detail: { requestId, targetUuid, message: createdMsg }
+        detail: { requestId, targetUuid, aliases: allAliases, message: createdMsg }
       }));
     } catch (we) {}
 
@@ -569,31 +689,35 @@ export const jobCommunicationService = {
     }
   },
 
-  subscribeToConversation(requestId, callback) {
-    return subscribeToMessages(requestId, callback);
+  subscribeToConversation(orderOrId, callback, options = {}) {
+    return subscribeToMessages(orderOrId, callback, options);
   },
 
-  subscribeToMessages(requestId, callbacks) {
-    return subscribeToMessages(requestId, callbacks);
+  subscribeToMessages(orderOrId, callbacks, options = {}) {
+    return subscribeToMessages(orderOrId, callbacks, options);
   }
 };
 
 /**
  * Standalone export: Subscribe to live messages for a specific request across
- * Supabase Realtime, BroadcastChannel, and Window Events.
+ * Supabase Realtime, BroadcastChannel, Window Storage events, and Window Events.
  */
-export function subscribeToMessages(requestId, callbacks = {}) {
-  if (!requestId) return () => {};
+export function subscribeToMessages(orderOrId, callbacks = {}, options = {}) {
+  if (!orderOrId) return () => {};
 
   const onInsertCb = typeof callbacks === 'function' ? callbacks : callbacks?.onInsert;
   const onUpdateCb = typeof callbacks === 'object' ? callbacks?.onUpdate : null;
   const onErrorCb = typeof callbacks === 'object' ? callbacks?.onError : null;
 
-  let currentTargetUuid = resolveRequestUuid(requestId);
+  const order = options?.order || (typeof orderOrId === 'object' ? orderOrId : null);
+  const myAliases = resolveAllOrderAliases(order || orderOrId);
+  const requestId = typeof orderOrId === 'string' ? orderOrId : (order?.id || order?.booking_code || myAliases[0]);
 
-  // Asynchronously resolve true UUID and update currentTargetUuid in background
+  let currentTargetUuid = myAliases.find(a => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a)) || resolveRequestUuid(requestId);
+
   resolveRequestUuidAsync(requestId).then(asyncUuid => {
-    if (asyncUuid && asyncUuid !== currentTargetUuid) {
+    if (asyncUuid && !myAliases.includes(asyncUuid)) {
+      myAliases.push(asyncUuid);
       currentTargetUuid = asyncUuid;
     }
   }).catch(() => {});
@@ -616,18 +740,21 @@ export function subscribeToMessages(requestId, callbacks = {}) {
     created_at: msg.created_at || new Date().toISOString()
   });
 
-  const isMatchingMessage = (msg) => {
+  const isMatchingMessage = (msg, evAliases = []) => {
     if (!msg) return false;
-    const curUuid = currentTargetUuid || resolveRequestUuid(requestId);
-    const originalReq = msg.metadata?.original_request_id;
-    const orderCode = msg.metadata?.order_code;
-    return (
-      (curUuid && msg.request_id === curUuid) ||
-      msg.request_id === requestId ||
-      (originalReq && (originalReq === requestId || originalReq === curUuid)) ||
-      (orderCode && (orderCode === requestId || orderCode === curUuid)) ||
-      (msg.booking_id && (msg.booking_id === curUuid || msg.booking_id === requestId))
-    );
+    const incomingAliases = new Set([
+      msg.request_id,
+      msg.booking_id,
+      msg.metadata?.original_request_id,
+      msg.metadata?.order_code,
+      ...(Array.isArray(evAliases) ? evAliases : []),
+      ...(Array.isArray(msg.metadata?.aliases) ? msg.metadata.aliases : [])
+    ].filter(Boolean));
+
+    for (const a of myAliases) {
+      if (incomingAliases.has(a)) return true;
+    }
+    return false;
   };
 
   // 1. Supabase Realtime Subscription
@@ -668,9 +795,9 @@ export function subscribeToMessages(requestId, callbacks = {}) {
     if (typeof BroadcastChannel !== 'undefined') {
       bc = new BroadcastChannel('coophub_chat_sync');
       bc.onmessage = (event) => {
-        const { type, requestId: msgReqId, targetUuid: msgTargetUuid, message } = event.data || {};
+        const { type, requestId: msgReqId, targetUuid: msgTargetUuid, aliases: evAliases, message } = event.data || {};
         if (type === 'NEW_CHAT_MESSAGE' && message) {
-          if (isMatchingMessage(message) || isMatchingMessage({ request_id: msgTargetUuid, metadata: { original_request_id: msgReqId } })) {
+          if (isMatchingMessage(message, evAliases) || (msgReqId && myAliases.includes(msgReqId)) || (msgTargetUuid && myAliases.includes(msgTargetUuid))) {
             if (onInsertCb) onInsertCb(formatMsg(message));
           }
         }
@@ -678,10 +805,27 @@ export function subscribeToMessages(requestId, callbacks = {}) {
     }
   } catch (e) {}
 
-  // 3. Same-window custom event listener
+  // 3. Window Storage event listener (fires across tabs in same browser when localStorage changes)
+  const handleStorage = (e) => {
+    if (e.key && e.key.startsWith('coophub_messages_')) {
+      const keySuffix = e.key.replace('coophub_messages_', '');
+      if (myAliases.includes(keySuffix)) {
+        try {
+          const list = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(list) && list.length > 0) {
+            const newest = list[list.length - 1];
+            if (onInsertCb) onInsertCb(formatMsg(newest));
+          }
+        } catch(err) {}
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  // 4. Same-window custom event listener
   const handleCustomMessage = (e) => {
-    const { requestId: evReqId, targetUuid: evTargetUuid, message } = e.detail || {};
-    if (message && (isMatchingMessage(message) || isMatchingMessage({ request_id: evTargetUuid, metadata: { original_request_id: evReqId } }))) {
+    const { requestId: evReqId, targetUuid: evTargetUuid, aliases: evAliases, message } = e.detail || {};
+    if (message && (isMatchingMessage(message, evAliases) || (evReqId && myAliases.includes(evReqId)) || (evTargetUuid && myAliases.includes(evTargetUuid)))) {
       if (onInsertCb) onInsertCb(formatMsg(message));
     }
   };
@@ -695,6 +839,7 @@ export function subscribeToMessages(requestId, callbacks = {}) {
     try {
       if (bc) bc.close();
     } catch (e) {}
+    window.removeEventListener('storage', handleStorage);
     window.removeEventListener('coophub_new_chat_message', handleCustomMessage);
   };
 

@@ -8,6 +8,8 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
   const initialMaterials = Number(order?.materials_parts ?? (order?.extra_charge_status === 'accepted' ? order?.extra_charge_amount : 0) ?? 0);
   const initialAdditional = Number(order?.additional_charges ?? 0);
 
+  const defaultWorkSummary = order?.work_summary || order?.completion_notes || (order?.service_name ? `Inspected, serviced, and tested ${order.service_name}. Cleaned contacts and verified safe operation.` : "");
+  const [workSummary, setWorkSummary] = useState(defaultWorkSummary);
   const [serviceCharge, setServiceCharge] = useState(String(initialBase));
   const [materialsParts, setMaterialsParts] = useState(String(initialMaterials));
   const [materialsDescription, setMaterialsDescription] = useState(order?.materials_parts_description || (order?.extra_charge_reason || ""));
@@ -36,12 +38,20 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
       setError("Service charge must be greater than zero.");
       return;
     }
+    if (!workSummary.trim()) {
+      setError("Please enter what work was done so the customer can review it on the bill.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
+    const fullReason = `Work Done: ${workSummary.trim()}${materialsDescription.trim() ? ' • Parts: ' + materialsDescription.trim() : ''}${additionalDescription.trim() ? ' • Extra: ' + additionalDescription.trim() : ''}`.trim();
+
     const payload = {
       status: "completed",
+      work_summary: workSummary.trim(),
+      completion_notes: workSummary.trim(),
       service_charge: numService,
       materials_parts: numMaterials,
       materials_parts_description: materialsDescription.trim(),
@@ -52,14 +62,14 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
       final_amount: total,
       amount: numService,
       extra_charge_amount: numMaterials + numAdditional,
-      extra_charge_reason: `${materialsDescription} ${additionalDescription ? '• ' + additionalDescription : ''}`.trim(),
+      extra_charge_reason: fullReason,
       extra_charge_status: (numMaterials > 0 || numAdditional > 0) ? "accepted" : "none",
       pillar_earnings: pillarEarnings,
       cooperative_commission: coopCommission,
-      settlement_status: "Settled",
-      payment_status: "completed",
-      payment_method: order.payment_method || "HAND CASH",
-      payment_gateway_ref: order.payment_gateway_ref || "CASH-VERIFIED",
+      settlement_status: order.payment_status === "completed" ? "Settled" : "Pending Payment",
+      payment_status: order.payment_status === "completed" ? "completed" : "pending",
+      payment_method: order.payment_status === "completed" ? (order.payment_method || "HAND CASH") : null,
+      payment_gateway_ref: order.payment_status === "completed" ? (order.payment_gateway_ref || "CASH-VERIFIED") : null,
       completed_at: new Date().toISOString()
     };
 
@@ -148,6 +158,34 @@ export default function FinalizeBillModal({ order, onClose, onSuccess }) {
               <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", textTransform: "uppercase", fontWeight: "700" }}>Booking Ref</span>
               <span style={{ fontWeight: "700", color: "#FF7900", fontFamily: "monospace" }}>{order.booking_code || order.id?.slice(0, 8)}</span>
             </div>
+          </div>
+
+          {/* ─── WORK DONE & SERVICE SUMMARY ─── */}
+          <div style={{ background: "#FFFFFF", border: "1.5px solid #CBD5E1", borderRadius: "12px", padding: "14px 16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label style={{ fontSize: "12.5px", fontWeight: "800", color: "#162238", display: "flex", alignItems: "center", gap: "6px" }}>
+              <Wrench size={15} color="#FF7900" />
+              <span>Works Performed & Service Report (Shown on Customer Bill) *</span>
+            </label>
+            <textarea
+              rows={3}
+              value={workSummary}
+              onChange={(e) => setWorkSummary(e.target.value)}
+              placeholder="Detail the work you did (e.g., Inspected main switchboard, replaced faulty 20A MCB, serviced ceiling fan capacitor and verified load balance)..."
+              required
+              style={{
+                width: "100%",
+                fontSize: "12.5px",
+                padding: "8px 10px",
+                borderRadius: "8px",
+                border: "1px solid #CBD5E1",
+                fontFamily: "inherit",
+                resize: "vertical",
+                minHeight: "68px"
+              }}
+            />
+            <span style={{ fontSize: "11px", color: "#64748B" }}>
+              The customer will review this complete work summary directly on their bill before making the payment.
+            </span>
           </div>
 
           {/* ─── CHARGES MAINTENANCE INPUTS ─── */}
