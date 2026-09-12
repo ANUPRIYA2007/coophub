@@ -4,6 +4,7 @@ import { useTranslation } from "../../../i18n/useTranslation";
 import { useAuth } from "../../../context/AuthContext";
 import { User, ShieldCheck, Mail, Phone, MapPin, Briefcase, Award, Save, Building2, CreditCard, CheckCircle2, Lock, FileText, UploadCloud, Loader2, ArrowLeft } from "lucide-react";
 import { SUB_SERVICES_CATALOG } from "../../../utils/subServicesCatalog";
+import { pillarProfileService } from "../../../services/pillar/profileService";
 
 const SERVER_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SERVER_URL)
   ? import.meta.env.VITE_SERVER_URL.replace(/\/+$/, '')

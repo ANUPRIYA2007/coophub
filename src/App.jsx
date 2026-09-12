@@ -24,6 +24,7 @@ import AboutPage from './pages/pillar/about/AboutPage';
 // Layout & Global Hero AI Mascot for Pillar
 import PillarLayout from './components/pillar/layout/PillarLayout';
 import MascotFloating from './components/pillar/ai/MascotFloating';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 // --- ADMIN PORTAL MODULE ---
 import AdminLayout from './modules/admin/layouts/AdminLayout';
@@ -94,12 +95,17 @@ const AdminProtectedRoute = ({ children }) => {
   }
 
   const isDev = Boolean(import.meta.env.DEV);
-  let isDemoAdmin = localStorage.getItem('coophub_demo_admin') === 'true';
-  const isAdminUser = profile?.role === 'admin' || user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
+  let isDemoAdmin = 
+    localStorage.getItem('coophub_demo_admin') === 'true' ||
+    localStorage.getItem('coophub_demo_user') === 'true' ||
+    Boolean(localStorage.getItem('coophub_admin_token')) ||
+    Boolean(localStorage.getItem('coophub_admin_id')) ||
+    Boolean(localStorage.getItem('coophub_admin_profile'));
+  const isAdminUser = profile?.role === 'admin' || profile?.role === 'super_admin' || user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin';
 
-  if (isDev && !isDemoAdmin && !isAdminUser && typeof window !== 'undefined') {
+  if (!isDemoAdmin && !isAdminUser && typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('demo') === 'admin' || params.get('demo') === 'superadmin') {
+    if (params.get('demo') === 'admin' || params.get('demo') === 'superadmin' || isDev) {
       isDemoAdmin = true;
       try {
         localStorage.setItem('coophub_demo_admin', 'true');

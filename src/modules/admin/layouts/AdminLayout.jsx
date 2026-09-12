@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import AdminSidebar from "./AdminSidebar";
 import Header from "../../../components/pillar/layout/Header";
+import ErrorBoundary from "../../../components/common/ErrorBoundary";
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,7 +27,9 @@ export default function AdminLayout({ children }) {
         <Header toggleSidebar={toggleSidebar} />
         
         <main style={{ flex: 1, overflowY: "auto", padding: "var(--space-4)" }}>
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
 
