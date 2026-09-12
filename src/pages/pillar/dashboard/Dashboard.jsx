@@ -77,7 +77,7 @@ export default function Dashboard() {
       try {
         const [ordersRes, earningsRes] = await Promise.all([
           pillarOrderService.getOrders(activePillarId, null, profile),
-          pillarEarningsService.getEarningsSummary(activePillarId),
+          pillarEarningsService.getEarningsSummary(activePillarId, profile),
         ]);
 
         const allOrders = ordersRes.data || [];
@@ -103,15 +103,25 @@ export default function Dashboard() {
         
         // Guarantee completed orders earnings are reflected even if ledger rows were not seeded
         const commissionRate = 0.085;
-        const liveCompletedEarnings = completedList.reduce((acc, curr) => {
-          const amt = Number(curr.final_amount || curr.total_amount || curr.amount || 450);
-          return acc + Math.round(amt * (1 - commissionRate) * 100) / 100;
-        }, 0);
+        const todayStr = new Date().toDateString();
+        let liveCompletedToday = 0;
+        let liveCompletedTotal = 0;
 
-        if (liveCompletedEarnings > 0) {
-          summary.today = Math.max(summary.today, liveCompletedEarnings);
-          summary.total = Math.max(summary.total, liveCompletedEarnings);
-          summary.withdrawable = Math.max(summary.withdrawable, liveCompletedEarnings);
+        completedList.forEach(curr => {
+          const amt = Number(curr.final_amount || curr.total_amount || curr.amount || 450);
+          const net = Math.round(amt * (1 - commissionRate) * 100) / 100;
+          liveCompletedTotal += net;
+
+          const ordDate = curr.completed_at || curr.updated_at || curr.scheduled_date || curr.created_at || new Date().toISOString();
+          if (new Date(ordDate).toDateString() === todayStr) {
+            liveCompletedToday += net;
+          }
+        });
+
+        if (liveCompletedTotal > 0) {
+          summary.today = Math.round(Math.max(summary.today, liveCompletedToday) * 100) / 100;
+          summary.total = Math.round(Math.max(summary.total, liveCompletedTotal) * 100) / 100;
+          summary.withdrawable = Math.max(0, Math.round((summary.total - (summary.pending || 0) - (summary.paid || 0)) * 100) / 100);
         }
 
         setEarningsSummary(summary);

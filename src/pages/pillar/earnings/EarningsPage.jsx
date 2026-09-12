@@ -11,7 +11,9 @@ import {
 export default function EarningsPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const activePillarId = profile?.id || user?.id || "PIL-CHE-042";
+
   const [data, setData] = useState({
     summary: { total: 0, today: 0, pending: 0, paid: 0, withdrawable: 0 },
     transactions: [],
@@ -26,12 +28,12 @@ export default function EarningsPage() {
   const [payoutError, setPayoutError] = useState(null);
 
   const loadData = async () => {
-    if (!user) {
+    if (!user && !activePillarId) {
       setLoading(false);
       return;
     }
     setLoading(true);
-    const res = await pillarEarningsService.getEarningsSummary(user.id);
+    const res = await pillarEarningsService.getEarningsSummary(activePillarId, profile);
     if (res && res.summary) {
       setData(res);
     }
@@ -40,7 +42,7 @@ export default function EarningsPage() {
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [user, profile]);
 
   const handleOpenPayoutModal = () => {
     setPayoutAmount(data.summary.withdrawable > 0 ? String(data.summary.withdrawable) : "");
@@ -62,7 +64,7 @@ export default function EarningsPage() {
     }
 
     setSubmitting(true);
-    const res = await pillarEarningsService.requestPayout(user.id, amt, paymentMode);
+    const res = await pillarEarningsService.requestPayout(activePillarId, amt, paymentMode);
     if (res.error) {
       setPayoutError(res.error);
       setSubmitting(false);
